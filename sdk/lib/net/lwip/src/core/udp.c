@@ -1233,6 +1233,8 @@ udp_new(void)
 #if LWIP_MULTICAST_TX_OPTIONS
     udp_set_multicast_ttl(pcb, UDP_TTL);
 #endif /* LWIP_MULTICAST_TX_OPTIONS */
+  }else{
+      printf("NO FREE UDP_PCB! total:%d\r\n", MEMP_NUM_UDP_PCB);
   }
   return pcb;
 }

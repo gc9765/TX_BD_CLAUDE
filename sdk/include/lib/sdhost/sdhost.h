@@ -373,6 +373,10 @@ struct sdh_device {
 	struct os_task state_task;
 	struct os_semaphore dat_sema;
 	struct os_mutex lock;
+#ifdef CONFIG_SLEEP
+	struct os_mutex bp_suspend_lock;
+	struct os_mutex bp_resume_lock;
+#endif
 };
 
 struct hgsdh {
@@ -381,7 +385,8 @@ struct hgsdh {
 	uint32              hw;
     uint32                  irq_data;
     uint32                  irq_num;
-    uint32                  opened;
+    uint32                  opened : 1,
+                            dsleep : 1;
 };
 
 

@@ -76,6 +76,21 @@ int32 sys_syscfg_dump_hdl(const char *cmd, char *argv[], uint32 argc)
     return 0;
 }
 
+int32 sys_heap_dump_hdl(const char *cmd, char *argv[], uint32 argc)
+{
+    if(argc == 0){
+        sysheap_dump(&sram_heap);
+    }else{
+        if(os_strcmp(argv[1], "psram") == 0){
+            sysheap_dump(&psram_heap);
+        }else{
+            sysheap_dump(&sram_heap);
+        }
+    }
+    return 0;
+}
+
+
 #ifdef CONFIG_UMAC4
 int32 sys_atcmd_ping(const char *cmd, char *argv[], uint32 argc) //need: #define LWIP_RAW 1
 {
@@ -104,22 +119,78 @@ int32 sys_atcmd_icmp_mntr(const char *cmd, char *argv[], uint32 argc)
 
 int32 sys_atcmd_iperf2(const char *cmd, char *argv[], uint32 argc)
 {
-    char *mode = NULL;
+    int32 ret = 0;
 
-    if(argc > 0){
-        mode = argv[0];
-        if(os_strncmp(argv[0], "c", 1) == 0 || os_strncmp(argv[0], "C", 1) == 0) {
-            os_printf("%s:iperf2 TCP CLIENT mode,remote IP:%s,port:%d,time:%d\n",
-                __FUNCTION__,argv[1],os_atoi(argv[2]), os_atoi(argv[3]));
-            sys_lwiperf_tcp_client_start(argv[1], os_atoi(argv[2]), os_atoi(argv[3]));
-        } else if (os_strncmp(argv[0], "s", 1) == 0 || os_strncmp(argv[0], "S", 1) == 0) {
-            os_printf("%s:iperf2 TCP Server mode,port:%d\n",__FUNCTION__,os_atoi(argv[1]));
-            sys_lwiperf_tcp_server_start(os_atoi(argv[1]));
-        } else {
-            os_printf("Unknow iperf mode:%s\n",mode);
+    if (argc == 1 && argv[0][0] == '?') {
+        os_printf("  *********iperf usage*********\n");
+        os_printf("  TCP client:at+iperf2=c,ip,port,time\n");
+        os_printf("  TCP server:at+iperf2=s,port\n");
+        os_printf("  UDP client:at+iperf2=u,c,ip,port,time,bandwidth,packet_len\n");
+        os_printf("  UDP server:at+iperf2=u,s,port\n");
+        os_printf("  *******************************\n");
+    } else {
+        if (argc > 0) {
+            if(os_strlen(argv[0]) != 1) {
+                os_printf("%s,%d:Invaild param1,must be c or s or u\n");
+                return -EINVAL;
+            }
+            if (argv[0][0] == 'c' || argv[0][0] == 'C') {
+                if (argc < 4) {
+                    os_printf("TCP client mode requires 4 parameters: mode,ip,port,time\n");
+                    return -EINVAL;
+                }
+                os_printf("%s:iperf2 TCP CLIENT mode,remote IP:%s,port:%d,time:%d\n",
+                          __FUNCTION__, argv[1], os_atoi(argv[2]), os_atoi(argv[3]));
+                ret = sys_lwiperf_tcp_client_start(argv[1], os_atoi(argv[2]), os_atoi(argv[3]));
+            } else if (argv[0][0] == 's' || argv[0][0] == 'S') {
+                if (argc < 2) {
+                    os_printf("TCP server mode requires 2 parameters: mode port\n");
+                    return -EINVAL;
+                }
+                os_printf("%s:iperf2 TCP Server mode,port:%d\n", __FUNCTION__, os_atoi(argv[1]));
+                ret = sys_lwiperf_tcp_server_start(os_atoi(argv[1]));
+            } else if (argv[0][0] == 'u' || argv[0][0] == 'U') {//UDP
+                if (argc < 2) {
+                    os_printf("UDP mode requires at least 2 arguments.\n");
+                    return -EINVAL;
+                }                
+                if(os_strlen(argv[1]) != 1) {
+                    os_printf("%s,%d:Invaild param2,must be c or s\n");
+                    return -EINVAL;
+                }
+                if (argv[1][0] == 'c' || argv[1][0] == 'C') {
+                    if (argc < 7) {
+                        os_printf("UDP client mode requires 7 parameters: u c ip port time bandwidth packet_len\n");
+                        return -EINVAL;
+                    }
+                    os_printf("%s:iperf2 UDP CLIENT mode,remote IP:%s,port:%d,time:%d,bandwidth:%u,len:%d\n",
+                              __FUNCTION__,
+                              argv[2],//ip
+                              os_atoi(argv[3]), //port
+                              os_atoi(argv[4]), //time
+                              os_atoi(argv[5]),//bandwidth
+                              os_atoi(argv[6]));//packet_len
+                    ret = sys_lwiperf_udp_client_start(argv[2], os_atoi(argv[3]), os_atoi(argv[4]),
+                                                       os_atoi(argv[5]), os_atoi(argv[6]));//UDP CLIENT
+                } else if (argv[1][0] == 's' || argv[1][0] == 'S') {
+                    if (argc < 3) {
+                        os_printf("UDP server mode requires 4 parameters: u s port\n");
+                        return -EINVAL;
+                    }
+                    os_printf("%s:iperf2 UDP SERVER mode,port:%d\n",
+                              __FUNCTION__, os_atoi(argv[2])); //port
+                    ret = sys_lwiperf_udp_server_start(os_atoi(argv[2]));//UDP SERVER
+                } else {
+                    os_printf("Unknow iperf udp mode:%s\n", argv[1]);
+                    return -ENOENT;
+                }
+            } else {
+                os_printf("Unknow iperf mode:%s\n", argv[0]);
+                return -ENOENT;
+            }
         }
     }
-    return 0;
+    return ret;
 }
 
 int32 sys_wifi_atcmd_set_channel(const char *cmd, char *argv[], uint32 argc)
@@ -199,10 +270,10 @@ int32 sys_wifi_atcmd_set_ssid(const char *cmd, char *argv[], uint32 argc)
         os_memset(sys_cfgs.bssid, 0, 6);
         os_strncpy(sys_cfgs.ssid, argv[0], SSID_MAX_LEN);
         ieee80211_conf_set_bssid(sys_cfgs.wifi_mode, NULL);
-        ieee80211_conf_set_ssid(sys_cfgs.wifi_mode, sys_cfgs.ssid);
         if (os_strlen(sys_cfgs.passwd) > 0) {
             wpa_passphrase(sys_cfgs.ssid, sys_cfgs.passwd, sys_cfgs.psk);
         }
+		ieee80211_conf_set_ssid(sys_cfgs.wifi_mode, sys_cfgs.ssid);
         ieee80211_conf_set_psk(sys_cfgs.wifi_mode, sys_cfgs.psk);
         os_printf("set new ssid:%s\r\n", sys_cfgs.ssid);
         syscfg_save();
@@ -449,6 +520,18 @@ int32 sys_wifi_atcmd_reboot_test_mode(const char *cmd, char *argv[], uint32 argc
         system_reboot_normal_mode();
         atcmd_ok;
         mcu_reset();
+    }
+    return 0;
+}
+
+int32 sys_wifi_atcmd_dhcpd_lease_time(const char *cmd, char *argv[], uint32 argc)
+{
+    if (argc == 1 && argv[0][0] == '?') {
+        atcmd_resp("%d", sys_cfgs.dhcpd_lease_time);
+    } else if (argc == 1) {
+        sys_cfgs.dhcpd_lease_time = os_atoi(argv[0]);        
+        os_printf("DHCP lease time set to %d\r\n", sys_cfgs.dhcpd_lease_time);
+        syscfg_save();
     }
     return 0;
 }

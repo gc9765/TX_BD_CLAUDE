@@ -294,6 +294,28 @@ lcd_thread_get_video_p0_again:
         }
     }
 
+
+    free_data(yuv_p0->last_data_s);
+    yuv_p0->last_data_s = NULL;
+
+    free_data(yuv_p1->last_data_s);
+    yuv_p1->last_data_s = NULL;
+
+    do
+    {
+        video_p0_data_s = recv_real_data(p0_s);  
+        free_data(video_p0_data_s); 
+        os_printf("video_p0_data_s:%X\n",video_p0_data_s);
+        
+    }while(video_p0_data_s);
+
+    do
+    {
+        video_p1_data_s = recv_real_data(p1_s);  
+        free_data(video_p1_data_s); 
+        os_printf("video_p1_data_s:%X\n",video_p1_data_s);
+        
+    }while(video_p1_data_s);
     //相当于退出lcd的线程
     lcd_s->thread_exit = 0;
     lcd_s->thread_hdl = NULL;

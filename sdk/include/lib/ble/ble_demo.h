@@ -30,8 +30,10 @@ enum switch_type
     WIRELESS_BLE,
 };
 
-void  ble_adv_parse_param(uint8 *data, int len);
 int32 ble_set_coexist_en(struct bt_ops *btops, uint8 coexist, uint8 dec_duty);
+int32 ble_get_en_status(struct bt_ops *btops);
+
+void  ble_adv_parse_param(uint8 *data, int len);
 int32 ble_demo_mode1_init(struct bt_ops *bt_ops);
 int32 ble_demo_mode2_init(struct bt_ops *bt_ops);
 int32 ble_demo_mode3_init(struct bt_ops *bt_ops);

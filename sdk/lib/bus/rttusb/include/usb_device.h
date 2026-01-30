@@ -37,7 +37,7 @@ extern "C" {
 #ifdef USB_PRODUCT_ID
 #define _PRODUCT_ID                 USB_PRODUCT_ID
 #else
-#define _PRODUCT_ID                 0x0001
+#define _PRODUCT_ID                 0x8001
 #endif
 
 #ifndef MAX_INTF_STR

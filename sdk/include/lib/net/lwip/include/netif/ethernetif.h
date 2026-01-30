@@ -84,11 +84,13 @@ ip_addr_t lwip_netif_get_ip(struct netdev *ndev);
 ip_addr_t lwip_netif_get_netmask(struct netdev *ndev);
 ip_addr_t lwip_netif_get_gw(struct netdev *ndev);
 uint8 *lwip_netif_get_mac(struct netdev *ndev);
+int32 lwip_netif_set_mac(struct netdev *ndev, uint8 *mac);
 
 ip_addr_t lwip_netif_get_ip2(const char *name);
 ip_addr_t lwip_netif_get_netmask2(const char *name);
 ip_addr_t lwip_netif_get_gw2(const char *name);
 uint8 *lwip_netif_get_mac2(const char *name);
+int32 lwip_netif_set_mac2(const char *name, uint8 *mac);
 void lwip_netif_updown(struct netdev *ndev, uint8 up);
 void lwip_netif_updown2(char *ifname, uint8 up);
 

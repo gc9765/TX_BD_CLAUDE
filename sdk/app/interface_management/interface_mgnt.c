@@ -369,9 +369,10 @@ void lvgl_init(uint16_t w,uint16_t h,uint8_t rotate){
 	lv_time_set();
 	lv_baby_display();
 #elif 1	
-	lv_page_init();
-    lv_page_select(0);
-	lv_time_set();
+//	lv_page_init();
+//    lv_page_select(0);
+//	lv_time_set();
+//	lv_demo_benchmark(1);
 #else
 	void lv_uvc_display();
 	lv_time_set();

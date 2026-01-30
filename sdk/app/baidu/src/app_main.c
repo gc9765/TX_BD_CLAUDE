@@ -2,19 +2,33 @@
 #include "typesdef.h"
 #include "list.h"
 #include "osal/task.h"
+#include "osal_file.h"
 #include "custom_mem/custom_mem.h"
+//#include "lwip/sockets.h" 
 #include "curl/curl.h"
 #include "cJSON.h"
 
 #include "../include/baidu_chat_agents_engine.h"
 #include "../include/baidu_rtc_client.h"
+#include "playback/playback.h"
 #include "txw81x_voice.h"
 #include "txw81x_video.h"
 #include "video_raw_data.h"
 
+// 客户对接环境 (仅接入验证,不可用于生产环境)
+#define SERVER_HOST_BD_DEV              "http://ai.agent.kaywang.cn:8988/api/v1/aiagent"
+#define SERVER_HOST_DEV_AMERICA         "线下提供"
+// 上线时须切换为用户自已的app server地址
+#define SERVER_HOST_USE_ONLINE              "user_online_app_server_url" // 用户生产环境地址
+//文生图使用irag模型
+#define BDCloudRTCAppID          "apppibr915pu75m" // REGION_BD_DEV APPID
+// 支持云音乐播放、图生图使用imageprocess
+// #define BDCloudRTCAppID          "appqb1g7txx1k8q"
+// #define BDCloudRTCAppID          "appmdty71uuwx8u"       // REGION_AMERICA APPID
+
 // BRTC 客户对接环境访问地址
-#define JSON_CONFIG_TEMPLATE "{\"app_id\": \"%s\", \"config\" : \"{\\\"llm\\\" : \\\"%s\\\", \\\"llm_token\\\" : \\\"no\\\", \\\"rtc_ac\\\": \\\"pcmu\\\", \\\"lang\\\" : \\\"%s\\\"}\", \"quick_start\": true}"
-#define JSON_CONFIG_TEMPLATE_VISUAL "{\"app_id\": \"%s\", \"config\" : \"{\\\"llm\\\" : \\\"%s\\\", \\\"llm_token\\\" : \\\"no\\\", \\\"enable_visual\\\" : \\\"true\\\", \\\"rtc_ac\\\": \\\"pcmu\\\", \\\"lang\\\" : \\\"%s\\\"}\", \"quick_start\": true}"
+#define JSON_CONFIG_TEMPLATE "{\"app_id\": \"%s\", \"config\" : \"{\\\"llm\\\" : \\\"%s\\\",\\\"dfda\\\" : \\\"true\\\", \\\"remote_music_player\\\" : \\\"true\\\", \\\"llm_token\\\" : \\\"no\\\", \\\"rtc_ac\\\": \\\"pcmu\\\", \\\"lang\\\" : \\\"%s\\\"}\", \"quick_start\": true}"
+#define JSON_CONFIG_TEMPLATE_VISUAL "{\"app_id\": \"%s\", \"config\" : \"{\\\"llm\\\" : \\\"%s\\\", \\\"llm_token\\\" : \\\"no\\\", \\\"enable_video\\\" : \\\"true\\\", \\\"dfda\\\" : \\\"true\\\",\\\"remote_music_player\\\" : \\\"true\\\", \\\"rtc_ac\\\": \\\"pcmu\\\", \\\"lang\\\" : \\\"%s\\\"}\", \"quick_start\": true}"
 #define MAX_APPID_LEN 64
 #define MAX_ROOMNAME_LEN 128
 #define MAX_PARAM_LENGTH 2048
@@ -22,10 +36,11 @@
 #define DEFAULT_BRTC_LLM "LLMRacing"  // 内置默认模型， VOLC/XUNFEI/BAIDU 通过竞速命中
 #define DEFAULT_BRTC_LANG "zh"        // 默认语言
 #define BRTC_LOG os_printf
+// #define DUMP_VIDEO_FRAME
 
 static bool brtc_running = false;
 static uint64_t time_last_asr = 0;
-static int is_first_audio = 1;
+int is_first_audio = 0;
 uint8_t curl_initialized = 0;
 
 /* 使用全局引擎变量，方便各任务访问 */
@@ -34,11 +49,80 @@ struct ausrc_st *ausrc;
 struct auplay_st *auplay;  
 static bool g_brtc_license_abnormal_exit = false;    //true:表示鉴权失败退出
 
-static bool g_enable_internal_audio = true;         // true: 音频内部采集、播放（默认） false:音频外部采集、播放 （用户需对音频二次处理时使用）
+static bool g_enable_internal_audio = false;         // true: 音频内部采集、播放（默认） false:音频外部采集、播放 （用户需对音频二次处理时使用）
 static bool g_enable_local_agent = false;            // true：SDK内部请求客户对接环境创建智能体（仅测试） false: 业务侧请求应用服务（AppServer）创建智能体
-static bool g_enable_visual = false;                 // true: 视频模式; false: 普通语音交互模式（默认）
-static bool g_vision_mode = VISION_MODE_STREAM;      // VISION_MODE_IMAGE :视觉理解图片模式; VISION_MODE_STREAM 视觉视频流模式 (默认)
+static bool g_enable_visual = true;                 // true: 视觉理解模式（依赖开启视频）， 与图片生成模式互斥； false: 普通语音交互模式（默认）
+static bool g_vision_mode = VISION_MODE_IMAGE;       // VISION_MODE_IMAGE :视觉理解图片模式; VISION_MODE_STREAM 视觉视频流模式 (默认)
 static bool g_enable_enhance_query = false;          // 用户query增强 （谨慎使用）
+static bool g_enable_image_generate = false;          // 开启图片生成模式（默认开启）,依赖开启视频。与视觉理解模式互斥;
+
+static Region region = REGION_BD_DEV;           // 当前除北美外的其它接入点暂未开放，默认使用中国大陆 REGION_MAINLAND
+
+char g_platform_host[256];
+char g_appid [MAX_APPID_LEN]="";
+static const char* object_vision_prompt = 
+    "# 你是一位资深的早教老师，每次会收到一张来自幼儿园或小学生的物品照片。请识别照片中的物品并输出它的中文汉字和英文单词名称及如字典一样详细的中英文释义。\\\\n\\\\n"
+    "## 中文释义要求：\\\\n"
+    "1. 根据<汉字>进行回答\\\\n"
+    "2. 回答<汉字>的笔画数量，格式：`strokenumber：{number}`\\\\n"
+    "3. 回答<汉字>的偏旁部首，格式：`radical：{word}`\\\\n"
+    "4. 按次序提供<汉字>的不同词义，并为每个词义提供1～2个包含该汉字的词语\\\\n"
+    "5. 保证内容简洁明了，易于低龄学生理解\\\\n\\\\n"
+    "## 英文释义要求：\\\\n"
+    "1. 根据<单词>进行回答\\\\n"
+    "2. 回答<单词>的美式音标，格式：`soundmark_us：{phonetic}`\\\\n"
+    "3. 回答<单词>的英式音标，格式：`soundmark_en：{phonetic}`\\\\n"
+    "4. 按次序提供<单词>的不同词性及中文翻译\\\\n"
+    "5. 提供1～2句包含<单词>的示例语句\\\\n"
+    "6. 保证内容简洁明了，易于低龄学生理解\\\\n\\\\n"
+    "## 输出格式示例（如收到树的图片）：\\\\n"
+    "树。\\\\n"
+    "tree。\\\\n"
+    "((CUSTOM:\\\\n"
+    "{\\\\n"
+    "  \\\\\\\"name_ch\\\\\\\": \\\\\\\"花\\\\\\\",\\\\n"
+    "  \\\\\\\"name_en\\\\\\\": \\\\\\\"flower\\\\\\\",\\\\n"
+    "  \\\\\\\"comments_ch\\\\\\\": {\\\\n"
+    "    \\\\\\\"name\\\\\\\": \\\\\\\"花\\\\\\\",\\\\n"
+    "    \\\\\\\"strokenumber\\\\\\\": 7,\\\\n"
+    "    \\\\\\\"radical\\\\\\\": \\\\\\\"艹\\\\\\\",\\\\n"
+    "    \\\\\\\"comment\\\\\\\": \\\\\\\"1. 种子植物的有性繁殖器官，由花瓣、花萼、花托、花蕊组成。词语：一朵花。\\\\\\\\\\\\n2. 可供观赏的植物。词语：花草。\\\\\\\",\\\\n"
+    "    \\\\\\\"example_sentence\\\\\\\": \\\\\\\"学校里种了许许多多五颜六色的花。\\\\\\\"\\\\n"
+    "  },\\\\n"
+    "  \\\\\\\"comments_en\\\\\\\": {\\\\n"
+    "    \\\\\\\"name\\\\\\\": \\\\\\\"flower\\\\\\\",\\\\n"
+    "    \\\\\\\"soundmark_us\\\\\\\": \\\\\\\"/ˈflaʊ.ɚ/\\\\\\\",\\\\n"
+    "    \\\\\\\"soundmark_en\\\\\\\": \\\\\\\"/ˈflaʊ.ə/\\\\\\\",\\\\n"
+    "    \\\\\\\"comment\\\\\\\": \\\\\\\"n. 花；精华；开花植物\\\\\\\\\\\\nv. 开花；繁荣；成熟\\\\\\\",\\\\n"
+    "    \\\\\\\"example_sentence\\\\\\\": \\\\\\\"There are many different kinds of flowers in the garden.\\\\\\\"\\\\n"
+    "  }\\\\n"
+    "}\\\\n"
+    "))\\\\n\\\\n"
+    "## 请按以下格式应答：\\\\n"
+    "<汉字>:{识别出的中文名称}。\\\\n"
+    "<单词>:{识别出的英文名称}。\\\\n"
+    "((CUSTOM:\\\\n"
+    "{\\\\n"
+    "  \\\\\\\"name_ch\\\\\\\": \\\\\\\"{中文名称}\\\\\\\",\\\\n"
+    "  \\\\\\\"name_en\\\\\\\": \\\\\\\"{英文名称}\\\\\\\",\\\\n"
+    "  \\\\\\\"comments_ch\\\\\\\": {\\\\n"
+    "    \\\\\\\"name\\\\\\\": \\\\\\\"{中文名称}\\\\\\\",\\\\n"
+    "    \\\\\\\"strokenumber\\\\\\\": {笔画数},\\\\n"
+    "    \\\\\\\"radical\\\\\\\": \\\\\\\"{偏旁部首}\\\\\\\",\\\\n"
+    "    \\\\\\\"comment\\\\\\\": \\\\\\\"{详细释义}\\\\\\\",\\\\n"
+    "    \\\\\\\"example_sentence\\\\\\\": \\\\\\\"{示例句子}\\\\\\\"\\\\n"
+    "  },\\\\n"
+    "  \\\\\\\"comments_en\\\\\\\": {\\\\n"
+    "    \\\\\\\"name\\\\\\\": \\\\\\\"{英文名称}\\\\\\\",\\\\n"
+    "    \\\\\\\"soundmark_us\\\\\\\": \\\\\\\"{美式音标}\\\\\\\",\\\\n"
+    "    \\\\\\\"soundmark_en\\\\\\\": \\\\\\\"{英式音标}\\\\\\\",\\\\n"
+    "    \\\\\\\"comment\\\\\\\": \\\\\\\"{词性和释义}\\\\\\\",\\\\n"
+    "    \\\\\\\"example_sentence\\\\\\\": \\\\\\\"{示例句子}\\\\\\\"\\\\n"
+    "  }\\\\n"
+    "}\\\\n"
+    "))";
+
+static char at_query_text[4096];
 typedef struct {
     char content[MAX_PARAM_LENGTH];      // 响应内容缓冲区
     char ai_agent_instance_id[MAX_ROOMNAME_LEN];
@@ -106,13 +190,14 @@ void onMediaSetup(void)
 
             // 若开启视频视觉理解， 可在此处开始周期性（1000ms一次）采集发送JPEG图片
             // auto_send_video(NULL);
-            video_txw81_jpeg_alloc(&video_src, jpeg_read_handler, NULL);
+            video_txw81_jpeg_alloc(&video_src, jpeg_read_handler, NULL); //创建拍照任务线程
         } else {
             baidu_chat_agent_engine_update_visual_mode(g_engine, VISION_MODE_IMAGE);
         }
+    } else if (g_enable_image_generate) {
+        // 如果不使用视觉理解图片模式，则可以开启图片生成
+        baidu_chat_agent_engine_send_event_to_agent(g_engine, AGENT_EVENT_ENABLE_MEDIA_GENERATE);
     }
-
-
 }
 
 void onAIAgentSubtitle(const char* text, int len) {
@@ -121,9 +206,17 @@ void onAIAgentSubtitle(const char* text, int len) {
 }
 
 void onAIAgentSpeaking(bool speeking) {
-    BRTC_LOG("onAIAgentSpeaking.\n");
-    if (speeking)
+    os_printf("=== CALLBACK onAIAgentSpeaking: speeking=%d ===\n", speeking);
+    BRTC_LOG("onAIAgentSpeaking: %d\n", speeking);
+    if (speeking) {
         is_first_audio = 1;
+        os_printf("=== Set is_first_audio = 1 ===\r\n");
+		printf("\n=== TTS START ===\r\n");
+    } else {
+        is_first_audio = 0;
+        os_printf("=== Set is_first_audio = 0 ===\r\n");
+		printf("\n=== TTS END ===\r\n");
+    }
 }
 
 void onAudioPlayerOp(const char* path, bool start) {
@@ -132,15 +225,55 @@ void onAudioPlayerOp(const char* path, bool start) {
 
 void onAudioData(const uint8_t *data, size_t len)
 {
-    // BRTC_LOG("Received audio data of length: %d\n", len);  
+     BRTC_LOG("Received audio data of length: %d\n", len);
     if (auplay && auplay->wh) {
-        auplay->wh((void *)data, len, auplay);
+        auplay->wh((void *)data, len, auplay);  //调用 ausrc_write_handler,如何实现调用的？
     }
 }
 
-void onVideoData(const uint8_t *data, size_t len, int width, int height)
+void dumpVideoFrame (uint8* filename, const uint8_t *data, size_t len) 
 {
-    BRTC_LOG("Received video data of length: %zu, width: %d, height: %d\n", len, width, height);
+    int w_len = 0;
+    int frame_size = 0;
+    // char filename[64] = {0};
+    void *fp  = NULL;
+    BRTC_LOG("Entry %s:%d\n", __FUNCTION__, __LINE__);
+
+	os_sprintf(filename, "0:video_frame_%04d.jpeg", (uint32_t)os_jiffies() % 9999);
+    BRTC_LOG("video framr dump name:%s\n", filename);
+    fp = osal_fopen(filename,"wb+");
+    if(!fp)
+    {
+        BRTC_LOG("Entry %s:%d\n", __FUNCTION__, __LINE__);
+        return;
+    }
+    w_len = osal_fwrite(data, len, 1, fp);
+
+    if(fp)
+    {
+        osal_fclose(fp);
+    }
+
+    BRTC_LOG("%s[%d] write video frame %d/%d \n", __FUNCTION__, __LINE__, w_len, len);
+}
+
+
+
+void onVideoData(const uint8_t *data, size_t len, RtcImageType imgtype, int width, int height)
+{
+    BRTC_LOG("FrameReceived video data of length: %d, width: %d, height: %d\n", len, width, height);
+    if (imgtype == RTC_IMAGE_TYPE_JPEG) {
+        // render to display
+#ifdef DUMP_VIDEO_FRAME
+        if (len > 0) {
+            char filename[64] = {0};
+            os_sprintf(filename, "0:video_frame_%04d.jpeg", (uint32_t)os_jiffies() % 9999);
+            dumpVideoFrame(filename, data, len);
+            jpeg_photo_explain(filename, 320, 240);
+        }
+#endif
+        jpeg_photo_renderer(data, len, 320, 240);
+    }
 }
 
 void onLicenseResult (bool result) {
@@ -172,6 +305,21 @@ void onVisionImageAck(const char* name) {
     printf("onVisionImageAck file: %s ...\n", name);
 }
 
+void onMediaGenerateResult(const char* result) {
+    // 防护：mode=0（语音交互模式）时禁用图片生成，忽略云端返回的生成结果
+    if (!g_enable_image_generate) {
+        BRTC_LOG("[WARNING] Media generate result received but image generation is disabled (current mode=%d). Ignoring result.\n", 
+                 g_enable_visual ? (g_vision_mode == VISION_MODE_STREAM ? 1 : 0) : 2);
+        return;
+    }
+    
+    if (result && strlen(result) > 0) {
+        BRTC_LOG("onMediaGenerateResult content: %s\n", result);
+        // TODO: 在此处理生成的图片数据（解析、显示、保存等）
+    }
+}
+
+// 麦克风音频数据处理
 void ausrc_read_handler(const void *sampv, size_t sampc, void *arg) {
     // BRTC_LOG("Read audio data len: %d\n", sampc);  
     if (g_engine && sampc > 0) {
@@ -181,12 +329,12 @@ void ausrc_read_handler(const void *sampv, size_t sampc, void *arg) {
 
 void setUserParameters(AgentEngineParams *params)
 {
-    strncpy(params->agent_platform_url, SERVER_HOST_ONLINE, sizeof(params->agent_platform_url) - 1);
-    strncpy(params->appid, BDCloudDefaultRTCAppID, sizeof(params->appid) - 1); // //需要和服务端使用同一个appId
-    snprintf(params->userId, sizeof(params->userId), "%s", "12345678"); // 终端用户唯一的id号，例如手机号
+    strncpy(params->agent_platform_url, g_platform_host, sizeof(params->agent_platform_url) - 1);
+    strncpy(params->appid, g_appid, sizeof(params->appid) - 1); // //需要和服务端使用同一个appId
+    snprintf(params->userId, sizeof(params->userId), "%s", "12345678");        // 终端用户唯一的id号，例如手机号/MAC地址
     strncpy(params->cer, "./a.cer", sizeof(params->cer) - 1);
     strncpy(params->workflow, "VoiceChat", sizeof(params->workflow) - 1);
-    snprintf(params->license_key, sizeof(params->license_key), "%s", "292fc11a00ca42daa1101c6987c14b76");  //"xxxx"为license_key字符串，需要购买获得
+    snprintf(params->license_key, sizeof(params->license_key), "%s", "292fc1xxxx"); //"xxxx"为license_key字符串，需要购买获得
 
     params->instance_id = 10373;
     params->verbose = true;
@@ -211,9 +359,10 @@ void setUserParameters(AgentEngineParams *params)
     strncpy(params->lang, DEFAULT_BRTC_LANG, sizeof(params->lang) - 1);
     params->AudioInChannel = 1;
     params->AudioInFrequency = 8000;
-    if(g_enable_visual) {
+    if(g_enable_visual || g_enable_image_generate) {
         params->enable_video = true; // 视觉理解场景开启视频
     }
+    params->region = region;
 }
 
 void parse_agent_instance_json(const char *json_string) {
@@ -234,6 +383,39 @@ void parse_agent_instance_json(const char *json_string) {
     cJSON_Delete(root);
 }
 
+//  static int brtc_debug_callback(CURL *handle, curl_infotype type,
+//                                 char *data, size_t size, void *userptr)
+//  {
+//      const char *prefix = "";
+//      switch (type) {
+//          case CURLINFO_TEXT:
+//              prefix = "[CURL*]";
+//              break;
+//          case CURLINFO_HEADER_IN:
+//              prefix = "[CURL < HDR]";
+//              break;
+//          case CURLINFO_DATA_IN:
+//              prefix = "[CURL < DATA]";
+//              break;
+//          case CURLINFO_HEADER_OUT:
+//              prefix = "[CURL > HDR]";
+//              break;
+//          case CURLINFO_DATA_OUT:
+//              prefix = "[CURL > DATA]";
+//              break;
+//          case CURLINFO_SSL_DATA_IN:
+//              prefix = "[CURL < SSL]";
+//              break;
+//          case CURLINFO_SSL_DATA_OUT:
+//              prefix = "[CURL > SSL]";
+//              break;
+//          default:
+//              return 0;
+//      }
+//
+//      os_printf("%s %.*s", prefix, (int)size, data);
+//      return 0;
+//  }
 
 // 回调函数处理响应数据
 size_t http_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
@@ -256,7 +438,7 @@ int http_post(const char *url, const char *post_data, ResponseData *resp) {
     struct curl_slist *headers = NULL;
     int err = 0;
     long http_code = -1;
-
+    os_printf("### http_post start!\r\n");
     memset(resp, 0, sizeof(ResponseData));
 
     if (!curl_initialized) {
@@ -280,8 +462,11 @@ int http_post(const char *url, const char *post_data, ResponseData *resp) {
         curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, HTTP_TIMEOUT_MS);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, http_callback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, resp);
+		
+//		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+//		curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, brtc_debug_callback);
         
-        res = curl_easy_perform(curl);
+        res = curl_easy_perform(curl);  // HTTP请求，自动处理DNS、TCP、HTTP
         if(res != CURLE_OK) {
             resp->error = res;
             BRTC_LOG("curl_easy_perform() failed[%d]: %s\n", res, curl_easy_strerror(res));
@@ -305,26 +490,32 @@ void http_cleanup() {
 	}
 }
 
+void onAgentEventUpdated(const char* event_msg, size_t len) {
+	BRTC_LOG("onAgentEventUpdated: %.*s\n", (int)len, event_msg);
+}
+
 void brtc_demo_init(void)
 {
+	// 初始化13个回调函数
     BaiduChatAgentEvent events = {
-        .onError = onErrorCallback,
-        .onCallStateChange = onCallStateChangeCallback,
-        .onConnectionStateChange = onConnectionStateChangeCallback,
-        .onUserAsrSubtitle = onUserAsrSubtitleCallback,
-        .onFunctionCall = onFunctionCall,
-        .onMediaSetup = onMediaSetup,
-        .onAIAgentSubtitle = onAIAgentSubtitle,
-        .onAIAgentSpeaking = onAIAgentSpeaking,
-        .onAudioPlayerOp = onAudioPlayerOp,
-        .onAudioData = onAudioData,
-        .onVideoData = onVideoData,
-        .onLicenseResult = onLicenseResult,
-        .onVisionImageRequest = onVisionImageRequest,
-        .onVisionImageAck = onVisionImageAck,
+        .onError = onErrorCallback,                                      	// 错误回调
+        .onCallStateChange = onCallStateChangeCallback, 					// 呼叫状态变化回调
+        .onConnectionStateChange = onConnectionStateChangeCallback, 		// 连接状态变化回调
+        .onUserAsrSubtitle = onUserAsrSubtitleCallback,  					// 用户语音识别结果回调
+        .onFunctionCall = onFunctionCall,   								// 功能调用回调
+        .onMediaSetup = onMediaSetup,       								// 媒体建立完成回调
+        .onAIAgentSubtitle = onAIAgentSubtitle,   							// 智能体字幕回调（是不是可以用于语音交互中断？）
+        .onAIAgentSpeaking = onAIAgentSpeaking,   							// 智能体说话回调
+        .onAudioPlayerOp = onAudioPlayerOp,       							// 音频播放器操作回调
+        .onAudioData = onAudioData,              							// 音频数据回调
+        .onVideoData = onVideoData,             							// 视频数据回调
+        .onLicenseResult = onLicenseResult,      							// 鉴权结果回调
+        .onVisionImageRequest = onVisionImageRequest,  						// 视觉图片请求回调
+        .onVisionImageAck = onVisionImageAck,          						// 视觉图片上传完成回调
+        .onMediaGenerateResult = onMediaGenerateResult,  					// 媒体生成结果回调
     };
     BRTC_LOG("BRTC AI Engine initialization start with local agent: %d internal audio: %d \n",
-            g_enable_local_agent, g_enable_internal_audio);
+             g_enable_local_agent, g_enable_internal_audio);
     BaiduChatAgentEngine *engine = baidu_create_chat_agent_engine(&events);
     if (!engine)
     {
@@ -355,23 +546,12 @@ void brtc_demo_init(void)
         prm.srate = 8000;
         prm.ptime = 20;
         BRTC_LOG("Start external audio task ...\n");
-        voice_txw81_src_alloc(&ausrc, &prm, ausrc_read_handler, NULL);
+        voice_txw81_src_alloc(&ausrc, &prm, ausrc_read_handler, NULL);   // 创建麦克风音频数据流任务
         voice_txw81_play_alloc(&auplay, &prm, ausrc_write_handler, NULL);
     }
     stop_video_send_flag = false;
     brtc_running = true;
     return;
-}
-
-// 视觉接口验证，循环发送同一帧 JPEG 静态数据
-void auto_send_video(void *h)
-{
-    if (stop_video_send_flag) {
-        return;
-    }
-    BRTC_LOG("send video nal ...\n");
-    baidu_chat_agent_engine_send_video(g_engine, VIDEO_NAL_DATA, sizeof(VIDEO_NAL_DATA));
-    brtc_sdk_do_async(auto_send_video, NULL, 1000);
 }
 
 void baidu_chat_agent_demo_close(void)
@@ -400,40 +580,55 @@ void baidu_chat_agent_demo_close(void)
 }
 
 int sendGenerateAIAgentCall() {
+	os_printf("### sendGenerateAIAgentCall start \r\n");
     char config_data[MAX_PARAM_LENGTH] = {0};
-    if (g_enable_visual) {
+    if (g_enable_visual || g_enable_image_generate) {
         snprintf(config_data, sizeof(config_data), JSON_CONFIG_TEMPLATE_VISUAL, 
-                BDCloudDefaultRTCAppID, DEFAULT_BRTC_LLM, DEFAULT_BRTC_LANG);
+                 g_appid, DEFAULT_BRTC_LLM, DEFAULT_BRTC_LANG);
     } else {
         snprintf(config_data, sizeof(config_data), JSON_CONFIG_TEMPLATE, 
-                BDCloudDefaultRTCAppID, DEFAULT_BRTC_LLM, DEFAULT_BRTC_LANG);
+                 g_appid, DEFAULT_BRTC_LLM, DEFAULT_BRTC_LANG);
     }
 
     char request_url[MAX_PARAM_LENGTH] = {0};
-    snprintf(request_url, sizeof(request_url), "%s/generateAIAgentCall", SERVER_HOST_ONLINE);
+    snprintf(request_url, sizeof(request_url), "%s/generateAIAgentCall", g_platform_host);
     return http_post(request_url, config_data, &call_resp);
 }
 
 int sendStopAIAgentInstance() {
+	os_printf("### sendStopAIAgentInstance start \r\n");
     if (!g_engine) {
         return -1;
     }
     char post_data[MAX_PARAM_LENGTH];
     snprintf(post_data, sizeof(post_data),
-         "{\"app_id\":\"%.*s\",\"ai_agent_instance_id\":\"%.*s\"}",
-         MAX_APPID_LEN, BDCloudDefaultRTCAppID,
-         MAX_ROOMNAME_LEN, call_resp.ai_agent_instance_id);
+             "{\"app_id\":\"%.*s\",\"ai_agent_instance_id\":\"%.*s\"}",
+             MAX_APPID_LEN, g_appid,
+             MAX_ROOMNAME_LEN, call_resp.ai_agent_instance_id);
     char request_url[MAX_PARAM_LENGTH] = {0};
-    snprintf(request_url, sizeof(request_url), "%s/stopAIAgentInstance", SERVER_HOST_ONLINE);
+    snprintf(request_url, sizeof(request_url), "%s/stopAIAgentInstance", g_platform_host);
     ResponseData stop_resp;
     return http_post(request_url, post_data, &stop_resp);
 }
 
 void brtc_demo_start(void *arg)
 {
+    if (region == REGION_AMERICA) {
+        snprintf(g_platform_host, sizeof(g_platform_host), "%s", SERVER_HOST_DEV_AMERICA);
+    } else {
+        snprintf(g_platform_host, sizeof(g_platform_host), "%s", SERVER_HOST_BD_DEV);
+    }
+
+    if (strlen(g_appid) == 0) {
+        snprintf(g_appid, sizeof(g_appid), "%s", BDCloudRTCAppID);
+		os_printf("### g_appid == %s \r\n",g_appid);
+    }
+
     if (g_enable_local_agent) {
+		os_printf("### brtc_demo_init start\r\n");
          brtc_demo_init();
     } else {
+		os_printf("### sendGenerateAIAgentCall start.\r\n");
         int error_code = sendGenerateAIAgentCall();
         if(error_code == 0 && call_resp.http_code == 200) {
             parse_agent_instance_json(call_resp.content);
@@ -457,3 +652,155 @@ void app_main(void)
         os_printf("start  brtc_demo_start task ...\r\n");
     }
 }
+
+void agent_send_text(void * text) {
+    baidu_chat_agent_engine_send_text(g_engine, (char *)text);
+}
+
+void send_text(const char *text) {
+    if (text && os_strlen(text) > 0) {
+        os_memset(at_query_text, 0, sizeof(at_query_text) -1);
+        strncpy(at_query_text, text, sizeof(at_query_text) -1);
+        os_printf("at query text:%s\r\n", at_query_text);
+        os_task_create("brtc_task_send_text", agent_send_text, (void*)at_query_text, OS_TASK_PRIORITY_NORMAL, 0, NULL, 16 * 1024);
+    }
+}
+
+static int g_send_frame_num = 0;
+void send_video_frame() {
+    if (stop_video_send_flag || g_send_frame_num-- == 0) {
+        return;
+    }
+    os_printf("%s:%d send_frame_num:%d\n",__FUNCTION__,__LINE__, g_send_frame_num);
+    baidu_chat_agent_engine_send_video(g_engine, VIDEO_NAL_DATA, sizeof(VIDEO_NAL_DATA));
+    brtc_sdk_do_async(send_video_frame, NULL, 1000);
+}
+
+// 视觉接口验证，循环发送同一帧 JPEG 静态数据
+void send_video(const char *frame_num)
+{
+    // 从argv 获取发送帧数
+    g_send_frame_num = os_atoi(frame_num);
+    os_printf("%s:%d start send_frame_num:%d\n",__FUNCTION__,__LINE__, g_send_frame_num);
+    send_video_frame();
+}
+
+void agent_update_prompt(void * text) {
+	baidu_chat_agent_engine_send_event_to_agent(g_engine, (char *)text);
+}
+
+// model_type  2:视觉理解 (其它类型模型prompt更新暂未支持)
+static const char g_updata_vision_prompt_cmd[] = "%s{\\\"model_type\\\":\\\"%s\\\",\\\"prompt\\\":\\\"%s\\\"}";
+void update_vision_prompt(char *prompt) {
+	int prompt_len = prompt ? strlen(prompt) : 0;
+	int total_len = prompt_len + strlen(g_updata_vision_prompt_cmd) + 64;
+	char *update_prompt_cmd = (char *)custom_malloc_psram(total_len);
+
+	if (update_prompt_cmd) {
+		snprintf(update_prompt_cmd, total_len, g_updata_vision_prompt_cmd,
+					AGENT_EVENT_UPDATE_SYSTEM_PROMPT, "2", prompt);
+	} else {
+		os_printf("update_vision_prompt malloc failed\r\n");
+		return;
+	}
+	strncpy(at_query_text, update_prompt_cmd, sizeof(at_query_text) -1);
+	custom_free_psram(update_prompt_cmd);
+}
+
+void update_prompt(const char *prompt_mode) {
+    int mode = os_atoi(prompt_mode);
+    os_memset(at_query_text, 0, sizeof(at_query_text) -1);
+    if (mode == 2) {
+        update_vision_prompt(object_vision_prompt);
+    } else if (mode == 0) {
+        // reset vision prompt
+        update_vision_prompt("");
+    }
+
+    os_printf("update prompt text:%s\r\n", at_query_text);
+    os_task_create("brtc_task_update_prompt", agent_update_prompt, (void*)at_query_text, OS_TASK_PRIORITY_NORMAL, 0, NULL, 16 * 1024);
+}
+
+static void set_agent_mode(void *agent_mode) {
+    char *mode_str = (char *)agent_mode;
+    if (!g_engine || !brtc_running) {
+        BRTC_LOG("Engine not initialized\n");
+        return;
+    }
+
+    int mode = os_atoi(mode_str);
+    if (mode < 0 || mode > 2) {
+        BRTC_LOG("Invalid mode: %d\n", mode);
+        return;
+    }
+
+    if (mode == 0) {
+        // 普通语音交互模式;视频理解+图片模式
+		BRTC_LOG("[MODE SET] BRTC mode: %d\r\n", mode);
+        g_enable_visual = true;
+        g_enable_image_generate = false;
+        baidu_chat_agent_engine_send_event_to_agent(g_engine, AGENT_EVENT_DISABLE_MEDIA_GENERATE);
+        baidu_chat_agent_engine_update_visual_mode(g_engine, VISION_MODE_IMAGE);
+    } else if (mode == 1) {
+        // 视觉理解+视频流模式
+		BRTC_LOG("[MODE SET] BRTC mode: %d\r\n", mode);
+        g_enable_visual = true;
+        g_enable_image_generate = false;
+        baidu_chat_agent_engine_send_event_to_agent(g_engine, AGENT_EVENT_DISABLE_MEDIA_GENERATE);
+        baidu_chat_agent_engine_update_visual_mode(g_engine, VISION_MODE_STREAM);
+    } else if (mode == 2) {
+        // 图片生成模式
+		BRTC_LOG("[MODE SET] BRTC mode: %d\r\n", mode);
+        g_enable_visual = false;
+        g_enable_image_generate = true;
+        baidu_chat_agent_engine_update_visual_mode(g_engine, VISION_MODE_IMAGE);
+        baidu_chat_agent_engine_send_event_to_agent(g_engine, AGENT_EVENT_ENABLE_MEDIA_GENERATE);
+    
+    }
+}
+
+// AT+BRTC_CMD="cmd",param1,param2,...
+// cmd: send_text  param1:文本内容
+// cmd: update_prompt  param1: 2:更新视觉更解prompt 0:恢复默认prompt
+// cmd: send_video  param1:发送视频帧数
+// cmd: set_mode  param1: 0:普通语音交互模式 1:视觉理解模式 2:图片生成模式
+// cmd: restart param1: appid
+
+void brtc_cmd(const char *cmd, char *argv[], uint32 argc) {
+    if (argc < 2) {
+        os_printf("cmd format error\r\n");
+        return;
+    }
+    char *cmd_type = argv[0];
+    char* param = argv[1];
+    if (param == NULL || strlen(param) == 0)
+    {
+        os_printf("cmd param error\r\n");
+        return;
+    }
+
+    os_task_func_t func = NULL;
+    os_printf("cmd_type:%s, param:%s\r\n", cmd_type, param);
+    if (strcmp(cmd_type, "send_text") == 0) {
+        send_text(param);
+    } else if (strcmp(cmd_type, "update_prompt") == 0) {
+        update_prompt(param);
+    } else if (strcmp(cmd_type, "send_video") == 0) {
+        send_video(param);
+    } else if (strcmp(cmd_type, "set_mode") == 0) {
+        func = set_agent_mode;
+    } else if (strcmp(cmd_type, "restart") == 0) {
+        snprintf(g_appid, sizeof(g_appid), "%s", param);
+        app_main();
+    } else {
+        os_printf("unknown cmd:%s\r\n", cmd_type); 
+        return;
+    } 
+
+    if (func == NULL) {
+        return;
+    }
+    os_task_create("brtc_task_update_prompt", func, (void*)param, OS_TASK_PRIORITY_NORMAL, 0, NULL, 16 * 1024);
+}
+
+

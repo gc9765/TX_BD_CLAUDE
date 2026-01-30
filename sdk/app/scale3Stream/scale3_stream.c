@@ -267,6 +267,13 @@ static int opcode_func(stream *s,void *priv,int opcode)
 		}
 		break;
 
+        case STREAM_CLOSE_ENTER:
+        {
+            struct scale3Stream *scale3_stream = (struct scale3Stream *)s->priv;
+            os_work_cancle2(&scale3_stream->work,1);
+        }
+        break;
+
         case STREAM_CLOSE_EXIT:
         {
             struct scale3Stream *scale3_stream = (struct scale3Stream *)s->priv;
@@ -455,6 +462,13 @@ static int opcode_func_not_bind(stream *s,void *priv,int opcode)
 		}
 		break;
 
+        case STREAM_CLOSE_ENTER:
+        {
+            struct scale3Stream *scale3_stream = (struct scale3Stream *)s->priv;
+            os_work_cancle2(&scale3_stream->work,1);
+        }
+        break;
+
         case STREAM_CLOSE_EXIT:
         {
             struct scale3Stream *scale3_stream = (struct scale3Stream *)s->priv;
@@ -481,6 +495,9 @@ static int opcode_func_not_bind(stream *s,void *priv,int opcode)
                     force_del_data(data);
                 }
             }
+
+
+            os_printf("scale3_stream->msgq.queue:%x\n",*(uint32_t*)(scale3_stream->msgq.hdl));
 
             os_msgq_del(&scale3_stream->msgq);
             

@@ -135,3 +135,17 @@ int32 rbuffer_get(struct rbuffer *rb, void *buff, uint32 size)
     return count;
 }
 
+int32 rbuffer_alloc(struct rbuffer *rb, uint32 size)
+{
+    void *buff = os_malloc(size);
+    ASSERT(buff);
+    return rbuffer_init(rb, size, buff);
+}
+
+void rbuffer_free(struct rbuffer *rb)
+{
+    rb->qsize = 0;
+    os_free(rb->rbq);
+}
+
+

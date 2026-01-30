@@ -136,8 +136,11 @@ static rt_err_t _ep_disable(uep_t ep)
         hgusb20_dev_ep0_rx_abort((struct hgusb20_dev *)_hg_pdc);
         hgusb20_dev_ep0_tx_abort((struct hgusb20_dev *)_hg_pdc);
     } else {
-        hgusb20_ep_rx_abort((struct hgusb20_dev *)_hg_pdc, ep_num);
-        hgusb20_ep_tx_abort((struct hgusb20_dev *)_hg_pdc, ep_num);
+        if (ep->ep_desc->bEndpointAddress & USB_DIR_IN) {
+            hgusb20_ep_tx_abort((struct hgusb20_dev *)_hg_pdc, ep_num);
+        } else {
+            hgusb20_ep_rx_abort((struct hgusb20_dev *)_hg_pdc, ep_num);
+        }
     }
     
     //hgusb20_dev_ep_deinit(_hg_pdc, ep->ep_desc->bEndpointAddress);

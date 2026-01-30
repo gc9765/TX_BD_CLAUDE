@@ -148,7 +148,10 @@ static int drv_pipe_xfer(upipe_t pipe, rt_uint8_t token, void *buffer, int nbyte
         if (pipe->pipe_index == 0) {
             do {
                 send_size = (remain_size > pipe->ep.wMaxPacketSize) ? pipe->ep.wMaxPacketSize : remain_size;
-                hgusb20_host_ep0_rx(hgusb, pbuffer, first_pkg);
+                ret = hgusb20_host_ep0_rx(hgusb, pbuffer, first_pkg);
+                if (ret) {
+                    break;
+                }
                 first_pkg = RT_FALSE;
                 ret_size = hgusb->ep0_ptr.rx_len;
                 total_len += hgusb->ep0_ptr.rx_len;
@@ -169,7 +172,15 @@ static int drv_pipe_xfer(upipe_t pipe, rt_uint8_t token, void *buffer, int nbyte
                 LOG_D("drv_pipe_xfer rx timeout!\r\n");
                 hgusb20_ep_rx_abort(hgusb, pipe->pipe_index);
             }
-            total_len = hgusb20_ep_get_dma_rx_len(hgusb, pipe->pipe_index);
+            else
+            {
+                total_len = hgusb20_ep_get_dma_rx_len(hgusb, pipe->pipe_index);
+                if (hgusb20_host_is_xact_err(hgusb, pipe->pipe_index, USB_DIR_IN)
+                    || hgusb20_host_is_rx_stall(hgusb, pipe->pipe_index, USB_DIR_IN)) 
+                {
+                    os_printf("%s usb2.0 rx dma err or stall, ep num is %d!!!!!\n",__FUNCTION__,pipe->pipe_index);
+                }
+            }
         }
         os_event_set(&_hg_usbh.trx_lock, BIT(pipe->pipe_index+16), NULL);
     } else {
@@ -183,14 +194,22 @@ static int drv_pipe_xfer(upipe_t pipe, rt_uint8_t token, void *buffer, int nbyte
         if (token == USBH_PID_SETUP) {
             // setup包只会是ep0
             os_memcpy(&hgusb->usb_ctrl.cmd, buffer, nbytes);
-            hgusb20_host_ep0_setup(hgusb);
-            total_len = 8;
+            ret = hgusb20_host_ep0_setup(hgusb);
+            if (ret) {
+                //TX ERROR
+                total_len = 0;
+            } else {
+                total_len = 8;
+            }
         } else {
             // 端点0软件分包
             if (pipe->pipe_index == 0) {
                 do {
                     send_size = (remain_size > pipe->ep.wMaxPacketSize) ? pipe->ep.wMaxPacketSize : remain_size;
-                    hgusb20_host_ep0_tx(hgusb, buffer, send_size);
+                    ret = hgusb20_host_ep0_tx(hgusb, buffer, send_size);
+                    if (ret) {
+                        break;
+                    }
                     total_len += send_size;
                     remain_size -= send_size;
                     pbuffer += send_size;
@@ -202,9 +221,17 @@ static int drv_pipe_xfer(upipe_t pipe, rt_uint8_t token, void *buffer, int nbyte
                             OS_EVENT_WMODE_AND|OS_EVENT_WMODE_CLEAR, (timeouts ? timeouts : osWaitForever));
                 if (ret) {
                     LOG_D("drv_pipe_xfer tx timeout!\r\n");
+					total_len = 0;
                     hgusb20_ep_tx_abort(hgusb, pipe->pipe_index);
+                } else {
+                    total_len = hgusb20_ep_get_tx_len(hgusb, pipe->pipe_index);
+                    if (hgusb20_host_is_xact_err(hgusb, pipe->pipe_index, USB_DIR_OUT)
+                        || hgusb20_host_is_rx_stall(hgusb, pipe->pipe_index, USB_DIR_OUT)) 
+                    {
+                        os_printf("%s usb2.0 tx dma err or stall, ep num is %d!!!!!\n",__FUNCTION__,pipe->pipe_index);
+                        total_len = 0;
+                    }
                 }
-                total_len = hgusb20_ep_get_tx_len(hgusb, pipe->pipe_index);
             }
         }
         os_event_set(&_hg_usbh.trx_lock, BIT(pipe->pipe_index) | BIT(0), NULL);
@@ -246,6 +273,11 @@ static rt_err_t drv_open_pipe(upipe_t pipe)
                     hgusb20_host_set_interval((struct hgusb20_dev *)_hg_usbh.usb, pipe->pipe_index, 0, m);
                 }
             }
+            else
+            {
+                //NAK TIMEOUT
+                hgusb20_host_set_interval((struct hgusb20_dev *)_hg_usbh.usb, pipe->pipe_index, 0, 0);
+            }
 
         } else {
             _hg_usbh.pipe_in_index |= BIT(0);
@@ -277,6 +309,11 @@ static rt_err_t drv_open_pipe(upipe_t pipe)
                     os_printf("m = %d\r\n",m);
                     hgusb20_host_set_interval((struct hgusb20_dev *)_hg_usbh.usb, pipe->pipe_index, 1, m);
                 }
+            }
+            else
+            {
+                //NAK TIMEOUT
+                hgusb20_host_set_interval((struct hgusb20_dev *)_hg_usbh.usb, pipe->pipe_index, 1, 0);
             }
 
         } else {

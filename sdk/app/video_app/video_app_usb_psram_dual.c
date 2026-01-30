@@ -13,13 +13,19 @@
 #include "jpgdef.h"
 #include "custom_mem/custom_mem.h"
 #include "lib/video/uvc/hg_usb_device.h"
-#include "osal/task.h"
+
 #include "osal/irq.h"
+#include <csi_kernel.h>
+
 #ifdef PSRAM_HEAP
 #include "usbh_video.h"
 extern int usb_dma_h264_irq_times;
 
 static stream *g_usb_dual_s = NULL;
+static struct data_structure *g_usbjpeg_stream_current_data = NULL;
+static uint8_t *g_usb_current_malloc_buf[2];
+static struct stream_jpeg_data_s *g_m = NULL;
+static struct list_head *g_get_frame = NULL;
 
 struct jpg_frame_msg
 {
@@ -93,6 +99,7 @@ static void stream_get_usb_psram_thread2(void *d)
 	uvc_get_psram_again:
 		flags = disable_irq();
         get_f = get_uvc_frame2();
+		g_get_frame = get_f;
 		enable_irq(flags);
 
 		//如果其他任务通知,可以在这里判断,然后退出
@@ -172,6 +179,7 @@ static void stream_get_usb_psram_thread2(void *d)
                 {
 					//获取是否有节点,有节点的话,才可以填充数据
 					data_s = get_src_data_f(s);
+					g_usbjpeg_stream_current_data = data_s;
                 }	
                 //没有帧,那么只能将bank删除,应该是rtsp处理速度不够
                 if(data_s)
@@ -181,6 +189,7 @@ static void stream_get_usb_psram_thread2(void *d)
 					{
 						_os_printf("J");
 						malloc_buf = (uint8_t*)custom_malloc_psram(userdata->malloc_max_size);
+						g_usb_current_malloc_buf[0] = malloc_buf;
 						userdata->malloc_count_near++;
 					}
 					if(malloc_buf)
@@ -195,12 +204,14 @@ static void stream_get_usb_psram_thread2(void *d)
 							userdata->malloc_time = os_jiffies();
 							userdata->malloc_count_near = 0;
 							uint8_t *m_buf = (void*)custom_malloc_psram(userdata->malloc_max_size);
+							g_usb_current_malloc_buf[1] = m_buf;
 							os_printf("userdata->malloc_max_size:%d\t%X\n",userdata->malloc_max_size,m_buf);
 							if(m_buf)
 							{
 								hw_memcpy0(m_buf,malloc_buf,offset);
 								custom_free_psram(malloc_buf );
 								malloc_buf = m_buf;
+								g_usb_current_malloc_buf[0] = NULL;
 							}
 							else
 							{
@@ -209,6 +220,7 @@ static void stream_get_usb_psram_thread2(void *d)
 								{
 									custom_free_psram(malloc_buf );
 									malloc_buf = NULL;
+									g_usb_current_malloc_buf[0] = NULL;
 								}
 							}
 						}
@@ -223,6 +235,7 @@ static void stream_get_usb_psram_thread2(void *d)
 						if(data_s)
 						{
 							force_del_data(data_s);
+							g_usbjpeg_stream_current_data = NULL;
 							data_s = NULL;
 						}
 					}
@@ -326,6 +339,7 @@ static void stream_get_usb_psram_thread2(void *d)
 				{
 					//多一个,为了固定头指针
 					m = (struct stream_jpeg_data_s *)os_malloc((get_f_count+1)*sizeof(struct stream_jpeg_data_s));
+					g_m = m;
 					memset(m,0,(get_f_count+1)*sizeof(struct stream_jpeg_data_s));
 					el = m;
 					el->next = NULL;
@@ -364,12 +378,17 @@ static void stream_get_usb_psram_thread2(void *d)
 				{
 					current_photo_max_size = current_photo_size;
 				}
+				sys_dcache_clean_range((uint32_t*)((uint32_t)(el->data) & CACHE_CIR_INV_ADDR_Msk), j->len + ((uint32_t)(el->data)-((uint32_t)(el->data) & CACHE_CIR_INV_ADDR_Msk)));
 				//os_printf("current_photo_size:%d\tcurrent_photo_max_size:%d\n",current_photo_size,current_photo_max_size);
 				send_data_to_stream(data_s);
 				data_s = NULL;
-
+				g_usbjpeg_stream_current_data = NULL;
+				g_usb_current_malloc_buf[0] = NULL;
+				g_usb_current_malloc_buf[1] = NULL;
+				g_m = NULL;
             }
             del_uvc_frame(uvc_message); 
+			g_get_frame = NULL;
         }
 
 
@@ -400,11 +419,6 @@ static void stream_get_usb_psram_thread2(void *d)
 			userdata->malloc_count_near  = 0;
 		}
 
-		if(current_photo_max_size > 120*1024)
-		{
-			userdata->malloc_max_size = current_photo_max_size;
-			userdata->malloc_count_near  = 0;
-		}
 
 		//重新获取图片
 		goto uvc_get_psram_again;
@@ -415,14 +429,18 @@ static void stream_get_usb_psram_thread2(void *d)
 		_os_printf("!");
         del_usb_frame2(get_f);     
         del_uvc_frame(uvc_message);
+		g_get_frame = NULL;
         if(data_s)
         {
             force_del_data(data_s);
+			g_usbjpeg_stream_current_data = NULL;
             data_s = NULL;
         }
 		if(malloc_buf)
 		{
-			custom_free_psram(malloc_buf);
+			custom_free_psram(malloc_buf );
+			g_usb_current_malloc_buf[0] = NULL;
+			g_usb_current_malloc_buf[1] = NULL;
 			malloc_buf = NULL;
 		}
 		//如果有必要,还要看看是不是usb断开,是不是应该退出线程
@@ -435,7 +453,7 @@ static void stream_get_usb_psram_thread2(void *d)
 		}
 	}
 	//代表任务退出,并且将流也退出
-	usb_jpeg_psram_dual_stream_deinit(s);
+	usb_jpeg_psram_dual_stream_close(s);
 	//标志一下退出标志
 	return;
 }
@@ -548,8 +566,8 @@ static stream_ops_func stream_usb_jpg_ops =
 	.custom_func = usb_jpg_custom_func_psram_dual,
 };
 
-struct os_task uvc_stream2;
-
+k_task_handle_t stream_get_usb_psram_handle2;
+k_task_handle_t *stream_get_usb_psram_hd2 = NULL;
 #define UVC_PSRAM_MALLOC_SIZE_INIT	(100*1024)
 static int opcode_func_psram(stream *s,void *priv,int opcode)
 {
@@ -562,7 +580,7 @@ static int opcode_func_psram(stream *s,void *priv,int opcode)
 		{
 
 			//创建流成功,为流创建一个私有结构体,记录信息
-			struct usb_jpg_userdata *userdata = (struct usb_jpg_userdata*)os_malloc(sizeof(struct usb_jpg_userdata));
+			struct usb_jpg_userdata *userdata = (struct usb_jpg_userdata*)custom_malloc(sizeof(struct usb_jpg_userdata));
 			memset(userdata,0,sizeof(struct usb_jpg_userdata));
 			//设置初始默认申请的最大空间
 			userdata->malloc_max_size = UVC_PSRAM_MALLOC_SIZE_INIT;
@@ -589,6 +607,7 @@ static int opcode_func_psram(stream *s,void *priv,int opcode)
 					streamSrc_bind_streamDest(s,SR_OTHER_JPG_USB1);
 					streamSrc_bind_streamDest(s,SR_OTHER_JPG_USB2);
 					streamSrc_bind_streamDest(s,SR_VIDEO_USB);
+
 					break;
 
 				case USBH_VIDEO_FORMAT_BASED:
@@ -601,7 +620,11 @@ static int opcode_func_psram(stream *s,void *priv,int opcode)
 
 			//要判断一下,如果说任务创建失败,需要将流关闭一下,这里就默认任务创建成功
 			uvc_arg_dual->state = 1;
-			OS_TASK_INIT("uvc_stream2",&uvc_stream2,stream_get_usb_psram_thread2, (uint32_t)s, OS_TASK_PRIORITY_ABOVE_NORMAL, 1024);
+			g_usb_current_malloc_buf[0] = NULL;
+			g_usb_current_malloc_buf[1] = NULL;
+			if(csi_kernel_task_new((k_task_entry_t)stream_get_usb_psram_thread2, "uvc_stream2", (void *)s, 25, 0, NULL, 1024, &stream_get_usb_psram_handle2)==0)
+				stream_get_usb_psram_hd2 = &stream_get_usb_psram_handle2;
+			// os_task_create("uvc_stream", stream_get_usb_psram_thread, (uint32_t)s, OS_TASK_PRIORITY_ABOVE_NORMAL, 0, NULL, 1024);
 		}
 		break;
 		case STREAM_OPEN_FAIL:
@@ -753,8 +776,12 @@ static int opcode_func_psram(stream *s,void *priv,int opcode)
 		case STREAM_DEL:
 		{
 			struct usb_jpg_userdata *userdata = (struct usb_jpg_userdata*)s->priv;
-			struct uvc_user_arg *uvc_arg_dual = userdata->uvc_arg_dual;
-			uvc_arg_dual->state = 0;
+			if(userdata)
+			{
+			    struct uvc_user_arg *uvc_arg_dual = userdata->uvc_arg_dual;
+			    uvc_arg_dual->state = 0;
+				custom_free(userdata);
+			}
 		}
 
 		default:
@@ -773,6 +800,10 @@ stream *usb_jpeg_psram_dual_stream_init(struct uvc_user_arg *uvc_arg_dual)
     os_printf("%s:%d\n",__FUNCTION__,__LINE__);
 	if(g_usb_dual_s)
 	{
+		if(!stream_get_usb_psram_hd2) {
+			if(csi_kernel_task_new((k_task_entry_t)stream_get_usb_psram_thread2, "uvc_stream2", (void *)g_usb_dual_s, 25, 0, NULL, 1024, &stream_get_usb_psram_handle2)==0)
+				stream_get_usb_psram_hd2 = &stream_get_usb_psram_handle2;
+		}
 		return NULL;
 	}
 	
@@ -784,12 +815,11 @@ stream *usb_jpeg_psram_dual_stream_init(struct uvc_user_arg *uvc_arg_dual)
 	{
 		os_printf("src open_ref:%d\n",g_usb_dual_s->open_ref);
 	}
-
-    return 0;
+    return src;
 }
 
 
-void usb_jpeg_psram_dual_stream_deinit(stream *s)
+void usb_jpeg_psram_dual_stream_close(stream *s)
 {
 	int res;
 	os_printf("%s g_usb_dual_s:%X\n",__FUNCTION__,g_usb_dual_s);
@@ -801,9 +831,42 @@ void usb_jpeg_psram_dual_stream_deinit(stream *s)
 		{
 			g_usb_dual_s = NULL;
 		}
-		
 	}
 }
+
+void usb_h264_psram_stream_deinit()
+{
+	extern struct uvc_user_arg uvc_arg;
+	uvc_arg.state = 0;
+	if(stream_get_usb_psram_hd2) {
+		csi_kernel_task_del(stream_get_usb_psram_handle2);
+		stream_get_usb_psram_hd2 = NULL;
+	}
+	if(g_get_frame) {
+		UVC_MANAGE* uvc_message = list_entry(g_get_frame,UVC_MANAGE,list);
+		del_usb_frame(g_get_frame);     
+        del_uvc_frame(uvc_message);
+		g_get_frame = NULL;
+	}
+	if(g_usbjpeg_stream_current_data) {
+		force_del_data(g_usbjpeg_stream_current_data);
+		printf("force_del_data(g_usbjpeg_stream_current_data)\n");
+	}
+	if(g_usb_current_malloc_buf[0]) {
+		custom_free_psram(g_usb_current_malloc_buf[0]);
+		printf("custom_free_psram(g_usb_current_malloc_buf[0])\n");
+	}
+	if(g_usb_current_malloc_buf[1]) {
+		custom_free_psram(g_usb_current_malloc_buf[1]);
+		printf("custom_free_psram(g_usb_current_malloc_buf[1])\n");
+	}
+	if(g_m) {
+		os_free(g_m);
+		printf("os_free(g_m)\n");
+	}
+}
+		
+
 
 
 //usb host枚举成功后会执行的这个函数

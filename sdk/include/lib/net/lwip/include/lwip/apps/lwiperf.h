@@ -94,7 +94,12 @@ int sys_lwiperf_tcp_client_start(const char *remote_ipaddr,
                                                     unsigned short remote_port,
                                                     unsigned int test_sec);                                                
 int sys_lwiperf_tcp_server_start(unsigned short local_port);
-
+int32_t sys_lwiperf_udp_client_start(const char *remote_ipaddr,
+                        uint16_t remote_port,
+                        uint32_t duration_sec,
+                        uint32_t bandwidth_bps,
+                        uint32_t packet_len);
+int32_t sys_lwiperf_udp_server_start(uint16_t remote_port);
 
 #ifdef __cplusplus
 }

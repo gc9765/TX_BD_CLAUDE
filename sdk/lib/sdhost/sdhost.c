@@ -1173,6 +1173,7 @@ uint32 sd_init(struct sdh_device * host, uint32 clk)
 #else
     sd_set_clk(host, clk);
 #endif
+    ((struct hgsdh *)host)->opened = 1;
     return RET_OK;
 }
 
@@ -1352,13 +1353,13 @@ uint32 sdhost_deinit_for_sleep()
     return err;
 }
 
-
+volatile uint8_t sdh_init_flag = 0;
 uint32 sdhost_init(uint32 clk)
 {
     uint32 err = 1;
     struct sdh_device *sdh = NULL;
     sdh = (struct sdh_device *)dev_get(HG_SDIOHOST_DEVID);
-
+	os_printf("## sdhost_init: clk=%d MHz ##\r\n", clk/1000000);
 #if SDH_I2C2_REUSE
     os_sema_down(&sem,osWaitForever);
 #endif
@@ -1366,10 +1367,10 @@ uint32 sdhost_init(uint32 clk)
     if(sdh)
     {
         err = sd_init(sdh, clk);
-        if(err)
+        if(err){
             sdh->sd_opt = SD_OFF;
-
-        if(sdhost_wk.init == 0)
+		os_printf("## sd_init failed: err=%d ##\r\n", err);}
+        if(sdhost_wk.init == 0 && sdhost_wk.running == 0)
         {
             OS_WORK_INIT(&sdhost_wk, sdh_loop, 0);
             os_run_work_delay(&sdhost_wk, 500);
@@ -1379,6 +1380,9 @@ uint32 sdhost_init(uint32 clk)
 #if SDH_I2C2_REUSE
     os_sema_up(&sem);
 #endif
+
+	sdh_init_flag = 0;
+    os_printf("## sdhost_init finish: err=%d ##\r\n", err);  // 新增
 
     return err;
 }

@@ -251,7 +251,7 @@ rt_err_t rt_usbh_attatch_instance(uinst_t device)
     analysis_usb_cfg_desc(cfg_desc, 18); //第一次获取配置描述符 打印配置描述符信息
 
     /* alloc memory for configuration descriptor */
-    device->cfg_desc = (ucfg_desc_t)rt_malloc(cfg_desc->wTotalLength);
+    device->cfg_desc = (ucfg_desc_t)rt_zalloc(cfg_desc->wTotalLength);
     if(device->cfg_desc == RT_NULL)
     {
         return -RT_ENOMEM;

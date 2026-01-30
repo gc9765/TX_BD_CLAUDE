@@ -96,10 +96,10 @@
 	#define MEMP_NUM_NETCONN                16
 	#define MEMP_NUM_TCP_PCB                16
 
-	#define TCPIP_THREAD_STACKSIZE          1024
+	#define TCPIP_THREAD_STACKSIZE          1024  
 	#define TCP_LISTEN_BACKLOG              1
 	#define MEMP_NUM_TCP_PCB_LISTEN			4
-	#define TCPIP_MBOX_SIZE                 128
+	#define TCPIP_MBOX_SIZE                 128  // 128
 	#define DEFAULT_UDP_RECVMBOX_SIZE       64
 	#define DEFAULT_TCP_RECVMBOX_SIZE       64
 	#define DEFAULT_ACCEPTMBOX_SIZE         10
@@ -111,7 +111,7 @@
 	#define LWIP_NETIF_REMOVE_CALLBACK      1
 #endif
 
-#define TCPIP_THREAD_PRIO           OS_TASK_PRIORITY_BELOW_NORMAL+2//OS_TASK_PRIORITY_ABOVE_NORMAL
+#define TCPIP_THREAD_PRIO           OS_TASK_PRIORITY_ABOVE_NORMAL//OS_TASK_PRIORITY_ABOVE_NORMAL OS_TASK_PRIORITY_BELOW_NORMAL+2
  
 // #define LWIP_DEBUG
 
@@ -285,4 +285,5 @@
 //---sleep test end------
 
 #endif
+
 

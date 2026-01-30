@@ -244,6 +244,7 @@ kstat_t krhino_sem_take(ksem_t *sem, tick_t ticks)
 
     NULL_PARA_CHK(sem);
 
+    krhino_check_fatal_call(__FUNCTION__);
     RHINO_CRITICAL_ENTER();
 
     INTRPT_NESTED_LEVEL_CHK();

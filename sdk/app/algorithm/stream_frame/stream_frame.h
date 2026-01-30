@@ -145,6 +145,7 @@ struct stream_s
     int used;                   //是否被使用
     int enable;                 //是否使能
     int ref;                    //引用次数,为0,代表没有人在使用
+    int send_ref;
     int open_ref;               //open成功后,会+1,close一次会-1,直到变成0后,才能实际关闭
 
     //给stream发送命令(要保证stream没有被提前释放)

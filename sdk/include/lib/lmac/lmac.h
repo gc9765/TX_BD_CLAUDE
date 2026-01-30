@@ -31,8 +31,14 @@ extern "C" {
 /***************************************************************************************/
 
 //FEM chip support
+#define LMAC_FEM_POWER_5V           BIT(16)     //FEM uses 5V power supply
 #define LMAC_FEM_NONE               0
 #define LMAC_FEM_GSR2401C           1
+#define LMAC_FEM_GSR2701            2
+#define LMAC_FEM_GSR2701_3_3V       LMAC_FEM_GSR2701
+#define LMAC_FEM_GSR2701_5V         (LMAC_FEM_GSR2701_3_3V | LMAC_FEM_POWER_5V)
+#define LMAC_FEM_KCT8227D           (3 | LMAC_FEM_POWER_5V)
+#define LMAC_FEM_KCT8227D_5V        LMAC_FEM_KCT8227D
 
 //FREQ offset tracking mode
 #define LMAC_FREQ_OFFSET_TRACK_ALWAYS_ON        0
@@ -219,6 +225,8 @@ enum LMAC_IOCTL_CMD {
     LMAC_IOCTL_SET_TEMPERATURE_COMPESATE_EN,
     LMAC_IOCTL_SET_BBM_MODE_INIT,
     LMAC_IOCTL_SET_EDCA_MIN,
+    LMAC_IOCTL_SET_HEARTBEAT_DATA,
+    LMAC_IOCTL_SET_TEMP_COMPENSATION_TABLE,
 
     /*Get CMDs*/
     LMAC_IOCTL_GET_AGGCNT = 0x20000000,
@@ -502,6 +510,8 @@ enum {
 #define lmac_set_temperature_compesate_en(ops, en)          lmac_ioctl(ops, LMAC_IOCTL_SET_TEMPERATURE_COMPESATE_EN, (uint32)(en), 0)
 #define lmac_set_bbm_mode_init(ops, en)                     lmac_ioctl(ops, LMAC_IOCTL_SET_BBM_MODE_INIT, (uint32)(en), 0)
 #define lmac_set_edca_min(ops, p_txq_param)                 lmac_ioctl(ops, LMAC_IOCTL_SET_EDCA_MIN, (uint32)(p_txq_param), 0)
+#define lmac_set_heartbeat_data(ops, addr, retry)           lmac_ioctl(ops, LMAC_IOCTL_SET_HEARTBEAT_DATA, (uint32)(addr), retry)
+#define lmac_set_temp_compensation_table(ops, table, size)  lmac_ioctl(ops, LMAC_IOCTL_SET_TEMP_COMPENSATION_TABLE, (uint32)(table), size)
 
 int32 lmac_ioctl(void *ops, uint32 cmd, uint32 param1, uint32 param2);
 int32 lmac_start_acs(void *lops, struct lmac_acs_ctl *p_ctl, uint32 sync);

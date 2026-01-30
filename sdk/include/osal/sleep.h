@@ -131,6 +131,10 @@ enum DSLEEP_IOCTL_CMD {
     DSLEEP_IOCTL_SET_CLK_SWITCH_DIS,
     DSLEEP_IOCTL_SET_USE_OLD_LIBFLASH,
     DSLEEP_IOCTL_SET_PA_LATCH,
+    DSLEEP_IOCTL_SET_EXT_DCDC,
+    DSLEEP_IOCTL_SET_ASSERT_HOLD,
+    DSLEEP_IOCTL_SET_USR_DSLEEP_CB,
+    DSLEEP_IOCTL_SET_WKIO_PUPD_DIS,
     /*Get CMDs*/
     DSLEEP_IOCTL_GET_IP_ADDR = 0x20000000,
     DSLEEP_IOCTL_GET_DTIM,
@@ -159,12 +163,17 @@ enum DSLEEP_IOCTL_CMD {
 #define dsleep_set_clk_switch_dis(val)              dsleep_ioctl(DSLEEP_IOCTL_SET_CLK_SWITCH_DIS, (uint32)val, 0)
 #define dsleep_set_use_old_libflash(val)            dsleep_ioctl(DSLEEP_IOCTL_SET_USE_OLD_LIBFLASH, (uint32)val, 0)
 #define dsleep_set_pa_latch(val)                    dsleep_ioctl(DSLEEP_IOCTL_SET_PA_LATCH, (uint32)val, 0)
+#define dsleep_set_ext_dcdc(en)                     dsleep_ioctl(DSLEEP_IOCTL_SET_EXT_DCDC, (uint32)en, 0)
+#define dsleep_set_assert_hold(en)                  dsleep_ioctl(DSLEEP_IOCTL_SET_ASSERT_HOLD, (uint32)en, 0)
+#define dsleep_set_usr_dsleep_cb(priv, func)        dsleep_ioctl(DSLEEP_IOCTL_SET_USR_DSLEEP_CB, (uint32)priv, (uint32)(func))
+#define dsleep_set_wkio_pupd_dis(en)                dsleep_ioctl(DSLEEP_IOCTL_SET_WKIO_PUPD_DIS, (uint8)en, 0)
 
 //ioctrl: get_cfg
 #define dsleep_get_ip_addr()                        dsleep_ioctl(DSLEEP_IOCTL_GET_IP_ADDR, 0, 0)
 #define dsleep_get_dtim()                           dsleep_ioctl(DSLEEP_IOCTL_GET_DTIM, 0, 0)
 
 int32 dsleep_ioctl(uint32 cmd, uint32 param1, uint32 param2);
+uint64 dsleep_get_timestamp(void);
 
 void os_sleep(int sec);
 void os_sleep_ms(int msec);

@@ -1107,6 +1107,24 @@ dns_check_entry(u8_t i)
         /* flush this entry, there cannot be any related pending entries in this state */
         entry->state = DNS_STATE_UNUSED;
       }
+      if(entry->ttl > 0 && entry->ttl < 16 && (entry->ttl&0x3) == 0 && entry->pcb_idx == DNS_MAX_SOURCE_PORTS){
+        LWIP_DEBUGF2(DNS_DEBUG, ("dns_check_entry: \"%s\": ttl:%d, refresh!!\n", entry->name, entry->ttl));
+#if ((LWIP_DNS_SECURE & LWIP_DNS_SECURE_RAND_SRC_PORT) != 0)
+        entry->pcb_idx = dns_alloc_pcb();
+        if (entry->pcb_idx >= DNS_MAX_SOURCE_PORTS) {
+        /* failed to get a UDP pcb */
+          LWIP_DEBUGF2(DNS_DEBUG, ("dns_enqueue: \"%s\": failed to allocate a pcb\n", entry->name));
+          break;
+        }
+        LWIP_DEBUGF2(DNS_DEBUG, ("dns_enqueue: \"%s\": use DNS pcb %"U16_F"\n", entry->name, (u16_t)(entry->pcb_idx)));
+#endif
+        dns_seqno++;
+        /* send DNS packet for this entry */
+        err = dns_send(i);
+        if (err != ERR_OK) {
+          LWIP_DEBUGF2(DNS_DEBUG | LWIP_DBG_LEVEL_WARNING, ("dns_send returned error: %s\n", lwip_strerr(err)));
+        }
+      }
       break;
     case DNS_STATE_UNUSED:
       /* nothing to do */
@@ -1194,7 +1212,7 @@ dns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, 
     txid = lwip_htons(hdr.id);
     for (i = 0; i < DNS_TABLE_SIZE; i++) {
       struct dns_table_entry *entry = &dns_table[i];
-      if ((entry->state == DNS_STATE_ASKING) &&
+      if ((entry->state == DNS_STATE_ASKING || entry->state == DNS_STATE_DONE) &&
           (entry->txid == txid)) {
 
         /* We only care about the question(s) and the answers. The authrr

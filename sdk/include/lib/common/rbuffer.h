@@ -104,6 +104,13 @@ extern "C" {
         __ret__;\
     })
 
+#define RB_INT_RESET(rb) do{\
+        uint32 flag = disable_irq(); \
+        (rb)->rpos = 0;\
+        (rb)->wpos = 0;\
+        enable_irq(flag);\
+    }while(0)
+
 /*ringbuffer init*/
 #define RB_INIT(rb, size) do{\
         (rb)->qsize = (size)+1;\
@@ -119,6 +126,9 @@ extern "C" {
         (rb)->rbq  = buff;\
     } while (0)
 
+#define RB_INIT_ALLOC(rb, size) rbuffer_alloc((struct rbuffer *)(rb), size)
+#define RB_FREE(rb)             rbuffer_free((struct rbuffer *)(rb))
+
 struct rbuffer {
     uint32 rpos, wpos, qsize;
     char *rbq;
@@ -129,6 +139,8 @@ int32 rbuffer_set_force(struct rbuffer *rb, void *data, uint32 length);
 int32 rbuffer_get(struct rbuffer *rb, void *buff, uint32 size);
 void  rbuffer_destroy(struct rbuffer *rb);
 void  rbuffer_reset(struct rbuffer *rb);
+int32 rbuffer_alloc(struct rbuffer *rb, uint32 size);
+void  rbuffer_free(struct rbuffer *rb);
 
 #ifdef __cplusplus
 }

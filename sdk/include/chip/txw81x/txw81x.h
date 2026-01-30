@@ -328,7 +328,6 @@ enum phy_rf_mode {
 #define OSC_CLK     32000000UL
 
 #define M2M_DMA
-#define SYS_EVENT_SUPPORT
 
 #define IS_DCACHE_ADDR(addr) ((uint32)(addr) >= 0x38000000 && (uint32)(addr) < 0x38f00000) //psram
 #define IS_PSRAM_ADDR(addr)  ((uint32)(addr) >= 0x38000000 && (uint32)(addr) < 0x38f00000) //psram

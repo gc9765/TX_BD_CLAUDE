@@ -611,6 +611,8 @@ raw_new(u8_t proto)
 #endif /* LWIP_MULTICAST_TX_OPTIONS */
     pcb->next = raw_pcbs;
     raw_pcbs = pcb;
+  }else{
+      printf("NO FREE RAW_PCB! total:%d\r\n", MEMP_NUM_RAW_PCB);
   }
   return pcb;
 }

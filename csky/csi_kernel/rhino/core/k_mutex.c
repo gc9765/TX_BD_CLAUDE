@@ -295,6 +295,7 @@ kstat_t krhino_mutex_lock(kmutex_t *mutex, tick_t ticks, uint32_t lr)
         return RHINO_SUCCESS;
     }
 
+    krhino_check_fatal_call(__FUNCTION__);
     RHINO_CRITICAL_ENTER();
 
     #ifdef MUTEX_LOCKERR_MAX

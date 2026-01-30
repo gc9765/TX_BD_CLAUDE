@@ -206,12 +206,14 @@ struct ieee80211_rx_status {
     uint32 freq;
     uint8  band, ifidx;
     int8   rssi, evm;
-    uint8  mcs, rev;
+    uint8  mcs;
+    uint8  rx_flags;
     uint16 rxlen;
 };
 
 enum ieee80211_rx_flag {
     IEEE80211_RX_FLAG_MORE_DATA = BIT(0),
+    IEEE80211_RX_FLAG_AMSDU = BIT(1),
 };
 
 struct ieee80211_ft_param {
@@ -283,6 +285,7 @@ extern uint8 ieee80211_conf_get_wkreason(uint8 ifidx);
 extern int32 ieee80211_conf_wakeup_sta(uint8 ifidx, uint8 *addr, uint32 reason);
 extern int32 ieee80211_conf_get_txpower(uint8 ifidx);
 extern int32 ieee80211_conf_set_heartbeat_int(uint8 ifidx, uint32 heartbeat_int);
+extern int32 ieee80211_conf_set_heartbeat_data(uint8 ifidx, void *data, uint8 retry);
 extern int32 ieee80211_conf_set_aplost_time(uint8 ifidx, uint32 time);
 extern int32 ieee80211_conf_set_acs(uint8 ifidx, uint32 bitmap, uint8 tmo);
 extern int32 ieee80211_conf_set_wmm_enable(uint8 ifidx, uint8 enable);

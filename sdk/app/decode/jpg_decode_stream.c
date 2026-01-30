@@ -397,9 +397,14 @@ static int32 jpg_decode_work(struct os_work *work)
                     cfg.in_out_size.out_h = msg->step_h;
 
                     data_s->type = SET_DATA_TYPE(YUV,GET_DATA_TYPE2(jpg_de->parent_data_s->type));
+
+                    void *ptr = get_stream_real_data(jpg_de->parent_data_s);
+                    uint32_t len = get_stream_real_data_len(jpg_de->parent_data_s);
+                    sys_dcache_clean_range((uint32_t*)((uint32_t)(ptr) & CACHE_CIR_INV_ADDR_Msk), len + ((uint32_t)(ptr)-((uint32_t)(ptr) & CACHE_CIR_INV_ADDR_Msk)));
+                    
                     stream_self_cmd_func(jpg_de->s,JPG_DECODE_SET_STEP,(uint32_t)&cfg);
                     stream_self_cmd_func(jpg_de->s,JPG_DECODE_READY,(uint32_t)get_stream_real_data(data_s));
-                    stream_self_cmd_func(jpg_de->s,JPG_DECODE_START,(uint32_t)get_stream_real_data(jpg_de->parent_data_s));
+                    stream_self_cmd_func(jpg_de->s,JPG_DECODE_START,(uint32_t)ptr);
                     jpg_de->current_data_s = data_s;
                 }
                 else
@@ -514,6 +519,13 @@ static int opcode_func(stream *s,void *priv,int opcode)
 		}
 		break;
 
+        case STREAM_CLOSE_ENTER:
+        {
+            struct jpg_decode_s *jpg_de = (struct jpg_decode_s *)s->priv;
+            os_work_cancle2(&jpg_de->work, 1);            
+        }
+        break;
+
         case STREAM_CLOSE_EXIT:
         {
             struct jpg_decode_s *jpg_de = (struct jpg_decode_s *)s->priv;
@@ -588,6 +600,7 @@ static int opcode_func_not_bind(stream *s,void *priv,int opcode)
 		{
             struct data_structure *data = (struct data_structure *)priv;
             data->priv = (struct jpg_decode_arg_s *)STREAM_LIBC_ZALLOC(sizeof(struct jpg_decode_arg_s));    
+            os_printf("jpg decode data->priv:%x\n",data->priv);
 		}
 		break;
 
@@ -639,6 +652,13 @@ static int opcode_func_not_bind(stream *s,void *priv,int opcode)
 			}
 		}
 		break;
+
+        case STREAM_CLOSE_ENTER:
+        {
+            struct jpg_decode_s *jpg_de = (struct jpg_decode_s *)s->priv;
+            os_work_cancle2(&jpg_de->work, 1);            
+        }
+        break;
 
         case STREAM_CLOSE_EXIT:
         {

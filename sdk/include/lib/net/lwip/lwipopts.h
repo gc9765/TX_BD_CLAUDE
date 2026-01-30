@@ -60,6 +60,10 @@ extern void hw_memcpy(void *dest, const void *src, unsigned int size);
 #define MEM_LIBC_MALLOC 1
 #endif
 
+#ifndef MEMP_MEM_MALLOC
+#define MEMP_MEM_MALLOC 1
+#endif
+
 #ifndef LWIP_TRANSPORT_ETHERNET
 #define LWIP_TRANSPORT_ETHERNET       1
 #endif
@@ -90,14 +94,14 @@ extern void hw_memcpy(void *dest, const void *src, unsigned int size);
 #define LWIP_NETCONN                !NO_SYS
 
 #ifndef LWIP_RAW
-#define LWIP_RAW                    0
+#define LWIP_RAW                    1
 #endif
 
 #ifndef TCPIP_MBOX_SIZE
 #if IP_NAT
 #define TCPIP_MBOX_SIZE             512
 #else
-#define TCPIP_MBOX_SIZE             8
+#define TCPIP_MBOX_SIZE             64
 #endif
 #endif//TCPIP_MBOX_SIZE
 
@@ -185,11 +189,11 @@ extern void hw_memcpy(void *dest, const void *src, unsigned int size);
 
 // Each netbuf requires 64 bytes of RAM.
 #ifndef MEMP_NUM_NETBUF
-#define MEMP_NUM_NETBUF             4
+#define MEMP_NUM_NETBUF             16
 #endif
 
 #ifndef MEMP_NUM_TCP_SEG
-#define MEMP_NUM_TCP_SEG            16
+#define MEMP_NUM_TCP_SEG            8
 #endif
 
 #ifndef TCP_MSS
@@ -240,7 +244,7 @@ extern void hw_memcpy(void *dest, const void *src, unsigned int size);
  * SO_SNDTIMEO processing.
  */
 #ifndef LWIP_SO_SNDTIMEO
-#define LWIP_SO_SNDTIMEO                0
+#define LWIP_SO_SNDTIMEO                1
 #endif
 
 /**
@@ -248,7 +252,7 @@ extern void hw_memcpy(void *dest, const void *src, unsigned int size);
  * SO_RCVTIMEO processing.
  */
 #ifndef LWIP_SO_RCVTIMEO
-#define LWIP_SO_RCVTIMEO                0
+#define LWIP_SO_RCVTIMEO                1
 #endif
 
 #ifndef LWIP_SO_SNDRCVTIMEO_NONSTANDARD
@@ -315,7 +319,7 @@ extern void hw_memcpy(void *dest, const void *src, unsigned int size);
 #endif
 
 #ifndef DNS_MAX_NAME_LENGTH
-#define DNS_MAX_NAME_LENGTH     256
+#define DNS_MAX_NAME_LENGTH 32
 #endif
 
 #ifndef DNS_TABLE_SIZE

@@ -15,6 +15,8 @@ extern "C" {
 #define ASR_Q_MID_PREFIX "[Q]:[M]:"                          /** ASR结果 mid */
 #define ASR_Q_FIN_APPEND_PREFIX "[Q]:[C]:"                   /** ASR结果 fin append 追加结果 */
 #define ASR_Q_MID_APPEND_PREFIX "[Q]:[M]:[C]:"               /** ASR结果 mid append 追加结果 */
+#define ASR_EVENT_START_LONGTEXT_REC "[E]:[CMD]:[ASR_START_LONGTEXT_REC]"
+#define ASR_EVENT_STOP_LONGTEXT_REC  "[E]:[CMD]:[ASR_STOP_LONGTEXT_REC]"
 
 #define AGENT_ANSWER_PREFIX "[A]:"
 #define AGENT_ANSWER_MIN_PREFIX "[A]:[M]:"
@@ -28,6 +30,10 @@ extern "C" {
 #define AGENT_EVENT_TTS_PLY_END "[E]:[TTS_END_SPEAKING]"
 #define AGENT_EVENT_VOICE_COMING "[E]:[VOICE_COMING]"
 #define AGENT_EVENT_VOICE_DISAPPEAR "[E]:[VOICE_DISAPPEAR]"
+#define AGENT_EVENT_ENABLE_MEDIA_GENERATE "[SET]:[MEDIA_GENERATE_MODE]:[TRUE]"
+#define AGENT_EVENT_DISABLE_MEDIA_GENERATE "[SET]:[MEDIA_GENERATE_MODE]:[FALSE]"
+#define AGENT_EVENT_UPDATE_SYSTEM_PROMPT "[SET]:[UPDATE_SYSTEM_PROMPT]:"
+#define AGENT_EVENT_SYSTEM_PROMPT_UPDATED "[E]:[SYSTEM_PROMPT_UPDATED]:"
 #define VISION_MODE_IMAGE 0     /**视觉理解图片模式 */
 #define VISION_MODE_STREAM 1    /**视觉视频流模式 */
 #define ENHANCE_QUERY_TYPE_NULL 0   /**取消增强Query */
@@ -49,6 +55,14 @@ typedef enum AIAudioStateType {
     SPEAKING = 2
 } AIAudioStateType;
 
+typedef enum Region {
+    REGION_BD_DEV = 0,      // 百度客户对接测试    
+    REGION_MAINLAND = 1,    // 中国大陆
+    REGION_EUROPE,          // 欧洲
+    REGION_AMERICA,         // 美洲
+    REGION_OVERSEAS,        // 海外
+    REGION_GLOBAL           // 全球
+} Region;
 typedef struct AgentEngineParams {
     char agent_platform_url[256];        // 登陆agent智能体中心的地址
     char config[256];                    // 配置文件路径
@@ -75,6 +89,7 @@ typedef struct AgentEngineParams {
     char remote_params[1024];            // 获取远端的服务的参数，替代用户自己解析，例如instance_id，token;
     char license_key[256];               // 客户需要向百度购买设备license获取对应的key
     bool enable_video;                   // 是否开启视频
+    Region region;                       // 接入网络region，默认中国大陆
 } AgentEngineParams;
 
 typedef enum AGentCallState {
@@ -109,10 +124,12 @@ typedef struct BaiduChatAgentEvent {
     void (*onAudioPlayerOp)(const char* path, bool start);
     void (*onMediaSetup)(void);
     void (*onAudioData)(const uint8_t* data, size_t len);
-    void (*onVideoData)(const uint8_t* data, size_t len, int width, int height);
+    void (*onVideoData)(const uint8_t* data, size_t len, RtcImageType imgType, int width, int height);
     void (*onLicenseResult)(bool result);
     void (*onVisionImageRequest)(void);
     void (*onVisionImageAck)(const char* name);
+    void (*onMediaGenerateResult)(const char* result); 
+    void (*onAgentEventUpdated)(const char* event_msg, size_t len);
 } BaiduChatAgentEvent;
 
 
@@ -160,9 +177,16 @@ void baidu_chat_agent_engine_send_text(BaiduChatAgentEngine* engine, const char*
 void baidu_chat_agent_engine_send_text_to_TTS(BaiduChatAgentEngine* engine, const char* text);
 
 /**
+ * @brief 向 AI agent 发送事件
+ * @param engine engine 实例指针
+ * @param event 事件消息字符串
+ */
+void baidu_chat_agent_engine_send_event_to_agent(BaiduChatAgentEngine* engine, const char* event);
+
+/**
  * @brief 更新视觉理解模式
  * @param engine engine 实例指针
- * @param mode 0:图片模式（单次视觉交互，资源消耗小，视觉互动后自动切回到普通模式）; 1:视频流模式（持续的视觉交互，资源消耗大，LLM一直处理视觉交互模式）
+ * @param mode 0:图片模式; 1:视频流模式
  */
 void baidu_chat_agent_engine_update_visual_mode(BaiduChatAgentEngine *engine, const int mode);
 

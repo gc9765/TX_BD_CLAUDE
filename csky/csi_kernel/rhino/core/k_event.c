@@ -171,6 +171,7 @@ kstat_t krhino_event_get(kevent_t *event, uint32_t flags, uint8_t opt,
         return RHINO_NO_THIS_EVENT_OPT;
     }
 
+    krhino_check_fatal_call(__FUNCTION__);
     RHINO_CRITICAL_ENTER();
 
     INTRPT_NESTED_LEVEL_CHK();

@@ -444,7 +444,7 @@ ip4_input(struct pbuf *p, struct netif *inp)
     int check_ip_src = 1;
 #endif /* IP_ACCEPT_LINK_LAYER_ADDRESSING || LWIP_IGMP */
 #if LWIP_RAW
-    raw_input_state_t raw_status;
+    raw_input_state_t raw_status = RAW_INPUT_NONE;
 #endif /* LWIP_RAW */
 
     //printf("input pkt_len:%d\n", p->tot_len);
@@ -642,16 +642,16 @@ ip4_input(struct pbuf *p, struct netif *inp)
         /* non-broadcast packet? */
         if (!ip4_addr_isbroadcast(ip4_current_dest_addr(), inp)) {
 #if IP_NAT
-          taken = (lwip_nat_en && ip4_nat_out(p));
-          if (!taken)
+            taken = (lwip_nat_en && ip4_nat_out(p));
+            if (!taken)
 #endif
-          {
+            {
 #if IP_FORWARD
-            /* try to forward IP packet on (other) interfaces */
-            ip4_forward(p, (struct ip_hdr *)p->payload, inp);
-            taken = 1;
+                /* try to forward IP packet on (other) interfaces */
+                ip4_forward(p, (struct ip_hdr *)p->payload, inp);
+                taken = 1;
 #endif /* IP_FORWARD */
-          }
+            }
         }
         if (!taken)
 #endif /* IP_FORWARD || IP_NAT */
@@ -722,8 +722,9 @@ ip4_input(struct pbuf *p, struct netif *inp)
 #if IP_NAT
     if (lwip_nat_en && !ip4_addr_isbroadcast(&(iphdr->dest), inp) &&
         (ip4_nat_input(p) != 0)) {
-       LWIP_DEBUGF(IP_DEBUG, ("ip_input: packet consumed by nat layer\n"));
-    } else
+        LWIP_DEBUGF(IP_DEBUG, ("ip_input: packet consumed by nat layer\n"));
+        goto __cleanup;
+    }
 #endif /* IP_NAT */
 
 #if LWIP_RAW
@@ -788,6 +789,9 @@ ip4_input(struct pbuf *p, struct netif *inp)
         }
     }
 
+#if IP_NAT
+__cleanup:
+#endif /* IP_NAT */
     /* @todo: this is not really necessary... */
     ip_data.current_netif = NULL;
     ip_data.current_input_netif = NULL;

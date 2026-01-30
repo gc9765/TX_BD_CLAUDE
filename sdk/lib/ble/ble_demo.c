@@ -52,49 +52,27 @@
 #include "lib/lmac/lmac.h"
 #include "lib/common/sysevt.h"
 
-#include "netif/ethernetif.h"
-
 #include "syscfg.h"
 
 /**
  * @brief   If you want to start BLE to configure the network, you need to open this macro.
- *          Simultaneously configuring BLE_DEMO_MODE.
- *          BLE_DEMO_MODE = 1   mode1(广播配网)
- *                        = 2   mode2(可扫描配网)
- *                        = 3   mode3(BLE协议配网)
- *          else universal interface supporting the selection of three modes.
+ *          1   mode1(广播配网)
+ *          2   mode2(可扫描配网)
+ *          3   mode3(BLE协议配网)
  */
 
 #if BLE_SUPPORT
 
-/**
- * @brief   This function is a necessary parameter for configuring connections to the network.
- *
- * @return  int32
- */
-static int32 ble_network_configured(void)
+int32 ble_set_coexist_en(struct bt_ops *btops, uint8 coexist, uint8 dec_duty)
 {
-    extern void *g_ops;
-
-    struct lmac_ops *lops = (struct lmac_ops *)g_ops;
-    struct bt_ops *bt_ops = (struct bt_ops *)lops->btops;
-
-    ble_demo_stop(bt_ops);
-
-    wpa_passphrase(sys_cfgs.ssid, sys_cfgs.passwd, sys_cfgs.psk);
-    ieee80211_conf_set_ssid(WIFI_MODE_STA, sys_cfgs.ssid);
-    ieee80211_conf_set_psk(WIFI_MODE_STA, sys_cfgs.psk);
-    ieee80211_conf_set_keymgmt(WIFI_MODE_STA, sys_cfgs.key_mgmt);
-    sys_cfgs.wifi_mode = WIFI_MODE_STA;
-    syscfg_save();
-
-    ieee80211_iface_stop(WIFI_MODE_AP);
-    wificfg_flush(WIFI_MODE_STA);
-    netdev_set_wifi_mode((struct netdev *)dev_get(HG_WIFI0_DEVID), WIFI_MODE_STA);
-    ieee80211_iface_start(WIFI_MODE_STA);
-
-    return RET_OK;
+    return btops ? ble_ll_set_coexist_en(btops, coexist, dec_duty) : -RET_ERR;
 }
+
+int32 ble_get_en_status(struct bt_ops *btops)
+{
+    return btops ? ble_ll_get_ble_en(btops) : -RET_ERR;
+}
+
 /**
  * @brief   This function is a response callback function that handles ATT requests.
  *
@@ -141,7 +119,6 @@ static int32 uble_test_hdlval(const struct uble_value_entry *entry, uint8 read, 
 
             syscfg_dump();
 
-            ble_network_configured();
             SYSEVT_NEW_BLE_EVT(SYSEVT_BLE_NETWORK_CONFIGURED, 0);
         }
         return 0;
@@ -254,15 +231,10 @@ void ble_adv_parse_param(uint8 *data, int len)
 
     syscfg_dump();
 
-    ble_network_configured();
     SYSEVT_NEW_BLE_EVT(SYSEVT_BLE_NETWORK_CONFIGURED, 0);
 #endif
 }
-int32 ble_set_coexist_en(struct bt_ops *btops, uint8 coexist, uint8 dec_duty)
-{
-    return btops ? ble_ll_set_coexist_en(btops, coexist, dec_duty) : -RET_ERR;
-}
-#if (BLE_DEMO_MODE == 1)
+
 /**
  * @brief   This function activates distribution network mode 1(Broadcast Configuration Network).
  *
@@ -276,7 +248,6 @@ int32 ble_demo_mode1_init(struct bt_ops *bt_ops)
     return ble_ll_open(bt_ops, 0, 38);
 }
 
-#elif (BLE_DEMO_MODE == 2)
 /**
  * @brief   This function activates distribution network mode 2(Scanable configuration network).
  *
@@ -297,7 +268,6 @@ int32 ble_demo_mode2_init(struct bt_ops *bt_ops)
     return ble_ll_open(bt_ops, 1, 38);
 }
 
-#elif (BLE_DEMO_MODE == 3)
 /**
  * @brief   This function activates distribution network mode 3(BLE protocol configuration network).
  *
@@ -317,7 +287,6 @@ int32 ble_demo_mode3_init(struct bt_ops *bt_ops)
     return ble_ll_open(bt_ops, 2, 38);
 }
 
-#else
 /**
  * @brief   This function integrates three modes of network configuration.
  *
@@ -343,7 +312,6 @@ int32 ble_demo_start(struct bt_ops *bt_ops, uint8 type)
 	
     return ble_ll_open(bt_ops, type, 38);
 }
-#endif
 
 /**
  * @brief   This function is to disable BLE configuration network.

@@ -50,7 +50,6 @@ magicSound *magic_sound = NULL;
 #define FILTER_SAMPLE_LEN	0
 
 #define ENERGY_THRESHOLD         5000
-#define ZERO_CROSS_THRESHOLD     20
 #define VAD_WEIGHT               1
 #define VAD_HOLD_TIME            50
 
@@ -60,6 +59,7 @@ magicSound *magic_sound = NULL;
 #define SOFT_GAIN	(8)
 #endif
 
+static uint8_t g_vad_res = 1;
 static stream *global_audio_adc_s = NULL;
 struct audio_ad_config;
 typedef void *(*set_buf)(void *priv_el,void *el_point);
@@ -161,16 +161,13 @@ static int vad_filter(int16_t *buffer, uint32_t sampleRate, uint32_t samplesCoun
 {
 	int32_t vad_ret = -1;
 	uint32 vad_result[2] = {0};
-	static uint32 energy_threshold = ENERGY_THRESHOLD*SOFT_GAIN;
-	static uint32 zero_cross_threshold = ZERO_CROSS_THRESHOLD;
+	static uint32 energy_threshold = ENERGY_THRESHOLD;
 	static int32 talking = VAD_HOLD_TIME;
 	
 	struct auvad_device *vad_dev = (struct auvad_device*)dev_get(HG_AUVAD_DEVID);
 	if(auvad_calc(vad_dev, buffer, samplesCount*2, AUVAD_CALC_MODE_ENERGY, vad_result) == -1)
 		return 0;
-	if(auvad_calc(vad_dev, buffer, samplesCount*2, AUVAD_CALC_MODE_ZCR, vad_result) == -1)
-		return 0;
-	if((vad_result[0]>=energy_threshold) && (vad_result[1]>=zero_cross_threshold))
+	if(vad_result[0]>=energy_threshold)
 	{
 		if(vad_flag == 0)
 			vad_ret = vad_process(buffer, sampleRate, samplesCount, per_ms_frames);
@@ -194,6 +191,11 @@ static int vad_filter(int16_t *buffer, uint32_t sampleRate, uint32_t samplesCoun
 	return 0;
 }
 
+uint8_t auadc_get_vad_res(void)
+{
+	return g_vad_res;
+}
+
 static void audio_deal_task(void *arg)
 {
 #if MEDIAN_FILTER == 1
@@ -207,7 +209,9 @@ static void audio_deal_task(void *arg)
 
 	stream *s = (stream *)arg;
 	struct audio_adc_s *self_priv = (struct audio_adc_s*)s->priv;
+#if MEDIAN_FILTER == 1
 	os_memset(median_filter_prev_buf, 0, MEDIAN_FILTER_SAMPLE_LEN*2);
+#endif
 	while(1)
 	{
 		res = csi_kernel_msgq_get(self_priv->adc_msgq,&data,-1);
@@ -233,8 +237,10 @@ static void audio_deal_task(void *arg)
 			int filter = vad_filter(p_buf, 8000, sample_len, sample_len/8);
 			if(filter) {
 				force_del_data(data);
+				g_vad_res = 0;
 				continue;
 			}
+			g_vad_res = 1;
 		#endif
 
 		#if NSX_PROCESS == 1

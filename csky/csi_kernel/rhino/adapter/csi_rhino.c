@@ -233,6 +233,19 @@ k_status_t csi_kernel_task_set_prio(k_task_handle_t task_handle, k_priority_t pr
         return -EPERM;
     }
 }
+k_status_t csi_kernel_task_set_lprun(k_task_handle_t task_handle, uint8_t run)
+{
+    if (task_handle  == NULL) {
+        return -EINVAL;
+    }
+    krhino_task_set_lprun(task_handle, run);
+    return 0;
+}
+
+void csi_kernel_lpower_mode(uint8_t enable)
+{
+    krhino_lpower_mode(enable);
+}
 
 k_priority_t csi_kernel_task_get_prio(k_task_handle_t task_handle)
 {
@@ -1218,6 +1231,7 @@ k_status_t csi_kernel_msgq_put(k_msgq_handle_t mq_handle, const void *msg_ptr, u
 
     mq_adapter_t *handle = (mq_adapter_t *)mq_handle;
 
+    krhino_check_fatal_call(__FUNCTION__);
     if (front_or_back == 0) {
         kstat_t ret = krhino_buf_queue_send(handle->buf_q, (void *)msg_ptr, handle->msg_size, timeout);
 
@@ -1482,6 +1496,7 @@ void csi_kernel_blklist_suspend(void *hdl, k_task_handle_t task_hdl)
     ktask_t  *task = (ktask_t *)task_hdl;
     blk_obj_t *obj = (blk_obj_t *)hdl;
     if (obj) {
+        krhino_check_fatal_call(__FUNCTION__);
         if (task == NULL) {
             task = g_active_task[cpu_cur_get()];
         }

@@ -34,9 +34,9 @@ static struct udevice_descriptor dev_desc =
     USB_DESC_LENGTH_DEVICE,     //bLength;
     USB_DESC_TYPE_DEVICE,       //type;
     USB_BCD_VERSION,            //bcdUSB;
-    0x00,                       //bDeviceClass;
-    0x00,                       //bDeviceSubClass;
-    0x00,                       //bDeviceProtocol;
+    0xFF,                       //bDeviceClass;
+    0xFF,                       //bDeviceSubClass;
+    0xFF,                       //bDeviceProtocol;
     0x40,                       //bMaxPacketSize0;
     _VENDOR_ID,                 //idVendor;
     _PRODUCT_ID,                //idProduct;
@@ -189,7 +189,7 @@ static rt_err_t _ep_out_handler(ufunction_t func, rt_size_t size)
     win_usb_write(&winusb_device->parent, 0, winusb_device->ep_out->buffer, size);
 
     rt_ssize_t win_usb_read(rt_device_t dev, rt_off_t pos, void *buffer, rt_size_t size);
-    win_usb_read(&winusb_device->parent, 0, winusb_device->ep_out->buffer, size);
+    win_usb_read(&winusb_device->parent, 0, winusb_device->ep_out->buffer, 512);
     
     if(winusb_device->rx_handler != RT_NULL)
     {
@@ -377,8 +377,10 @@ ufunction_t rt_usbd_function_winusb_create(udevice_t device)
     /* set usb device string description */
 #ifdef RT_USB_DEVICE_COMPOSITE
     rt_usbd_device_set_interface_string(device, WINUSB_INTF_STR_INDEX, _ustring[2]);
+    rt_usbd_device_set_interface_string(device, USB_STRING_OS_INDEX, _ustring[6]);
 #else
     rt_usbd_device_set_string(device, _ustring);
+    rt_usbd_device_set_interface_string(device, USB_STRING_OS_INDEX, _ustring[6]);
 #endif
 
     /* create a cdc function */

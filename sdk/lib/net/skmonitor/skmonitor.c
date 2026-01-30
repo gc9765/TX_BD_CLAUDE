@@ -18,6 +18,8 @@
 
 #define skmntr_dbg(fmt, ...) //os_printf("%s:%d::"fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 
+#define SKMNTR_STATIS (0)
+
 #define SKMONITOR_PORT (61753)
 
 struct skmonitor_entry {
@@ -27,6 +29,9 @@ struct skmonitor_entry {
     uint8  disable: 1, rev: 7;
     uint32 priv;
     skmonitor_cb cb;
+#if SKMNTR_STATIS
+    uint32 trig_rd, trig_wr, trig_err;
+#endif
 };
 
 struct skmonitor_mgr {
@@ -116,12 +121,21 @@ static int32 sock_monitor_work(struct os_work *work)
         flags = 0;
         if (FD_ISSET(mntr->sock, &g_skmonitor.rset)) {
             flags |= SOCK_MONITOR_READ;
+#if SKMNTR_STATIS
+            mntr->trig_rd++;
+#endif
         }
         if (FD_ISSET(mntr->sock, &g_skmonitor.wset)) {
             flags |= SOCK_MONITOR_WRITE;
+#if SKMNTR_STATIS
+            mntr->trig_wr++;
+#endif
         }
         if (FD_ISSET(mntr->sock, &g_skmonitor.eset)) {
             flags |= SOCK_MONITOR_ERROR;
+#if SKMNTR_STATIS
+            mntr->trig_err++;
+#endif
         }
 
         if (flags && mntr->cb) {
@@ -232,6 +246,28 @@ void sock_monitor_disable(uint16 sock, uint8 disable)
     }
     os_mutex_unlock(&g_skmonitor.lock);
     skmntr_dbg("sock_monitor_disable leave\r\n");
+}
+
+void sock_monitor_dump(void)
+{
+#if SKMNTR_STATIS
+    struct skmonitor_entry *mntr = NULL;
+
+    skmntr_dbg("sock monitor dump:\r\n");
+    os_mutex_lock(&g_skmonitor.lock, osWaitForever);
+    mntr = g_skmonitor.entrys;
+    while (mntr) {
+        if (!mntr->disable) {
+            os_printf("   sock %d, cb:%p, read:%d, write:%d, error:%d\r\n", 
+                      mntr->sock, mntr->cb, mntr->trig_rd, mntr->trig_wr, mntr->trig_err);
+            mntr->trig_rd  = 0;
+            mntr->trig_wr  = 0;
+            mntr->trig_err = 0;
+        }
+        mntr = mntr->next;
+    }
+    os_mutex_unlock(&g_skmonitor.lock);
+#endif
 }
 
 __init int32 sock_monitor_init(void)

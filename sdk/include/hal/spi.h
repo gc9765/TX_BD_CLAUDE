@@ -239,6 +239,11 @@ enum spi_ioctl_cmd {
 
     SPI_XIP_REG_OPT,
 
+    SPI_XIP_DMA_LOCK,
+    SPI_XIP_DMA_UNLOCK,
+    SPI_XIP_REGS_OPT,
+
+
 };
 
 

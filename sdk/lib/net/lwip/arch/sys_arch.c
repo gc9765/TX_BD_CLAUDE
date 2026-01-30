@@ -110,13 +110,7 @@ sys_sem_new(sys_sem_t *sem, u8_t count)
 void
 sys_sem_free(sys_sem_t *sem)
 {
-    // LWIP_ASSERT("sem != NULL", sem != NULL);
-    if((sem==NULL))
-    {
-        printf("%s %d-------> FREE sem == NULL",__FUNCTION__,__LINE__);  
-        return;
-
-    }
+    LWIP_ASSERT("sem != NULL", sem != NULL);
     if (RET_OK != os_sema_del(&sem->sem)) {
         lwip_printf("sys_sem_free error!");
         ASSERT(0);
@@ -137,10 +131,6 @@ sys_arch_sem_wait(sys_sem_t *sem, u32_t timeout)
 {
     LWIP_ASSERT("sem != NULL", sem != NULL);
     LWIP_ASSERT("sem->sem_vaild != NULL", sem->sem_vaild != FALSE);
-    // if((sem==NULL)||(sem->sem_vaild ==FALSE))
-    // {
-        
-    // }
     u32_t start = sys_now();
 
     if (os_sema_down(&sem->sem, (timeout != 0) ? (timeout) : (osWaitForever)) < 1) {
@@ -152,14 +142,8 @@ sys_arch_sem_wait(sys_sem_t *sem, u32_t timeout)
 void
 sys_sem_signal(sys_sem_t *sem)
 {
-    // LWIP_ASSERT("sem != NULL", sem != NULL);
-    // LWIP_ASSERT("sem->sem_vaild != NULL", sem->sem_vaild != FALSE);
-    if((sem==NULL)||(sem->sem_vaild==FALSE))
-    {
-        printf("%s %d------->sem == NULL",__FUNCTION__,__LINE__);   
-        printf("sem->sem_vaild == NULL");
-        return;
-    }
+    LWIP_ASSERT("sem != NULL", sem != NULL);
+    LWIP_ASSERT("sem->sem_vaild != NULL", sem->sem_vaild != FALSE);
     os_sema_up(&sem->sem);
 }
 

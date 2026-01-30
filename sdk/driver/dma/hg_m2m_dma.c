@@ -9,7 +9,7 @@
 #include "hal/dma.h"
 #include "dev/dma/hg_m2m_dma.h"
 
-#define DMA_LEN_THRESHOLD       777
+#define DMA_LEN_THRESHOLD       (0xFFFFFFFF)
 static void hg_m2m0_dma_irq_handler(void *data)
 {
     struct mem_dma_dev *dma = (struct mem_dma_dev *)data;

@@ -23,6 +23,7 @@
 struct usbh_video_resolution {
     rt_uint16_t wWidth;
     rt_uint16_t wHeight;
+    rt_uint32_t dwDefaultFrameInterval;
 };
 
 struct usbh_video_format {

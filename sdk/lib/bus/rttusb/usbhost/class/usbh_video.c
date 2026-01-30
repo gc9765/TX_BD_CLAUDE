@@ -159,21 +159,23 @@ int usbh_videostreaming_get_cur_probe(struct usbh_video *video_class)
     return usbh_video_get(video_class, VIDEO_REQUEST_GET_CUR, video_class->data_intf, 0x00, VIDEO_VS_PROBE_CONTROL, (rt_uint8_t *)&video_class->probe, 26);
 }
 
-int usbh_videostreaming_set_cur_probe(struct usbh_video *video_class, rt_uint8_t formatindex, rt_uint8_t frameindex)
+int usbh_videostreaming_set_cur_probe(struct usbh_video *video_class, rt_uint8_t formatindex, rt_uint8_t frameindex, rt_uint32_t dwDefaultFrameInterval)
 {
     video_class->probe.bFormatIndex = formatindex;
     video_class->probe.bFrameIndex = frameindex;
     video_class->probe.dwMaxPayloadTransferSize = 0;
-    video_class->probe.dwFrameInterval = 333333;
+    video_class->probe.dwFrameInterval = dwDefaultFrameInterval;
+    os_printf("%s set probe interval:%x\n",__FUNCTION__,dwDefaultFrameInterval);
     return usbh_video_set(video_class, VIDEO_REQUEST_SET_CUR, video_class->data_intf, 0x00, VIDEO_VS_PROBE_CONTROL, (rt_uint8_t *)&video_class->probe, 26);
 }
 
-int usbh_videostreaming_set_cur_commit(struct usbh_video *video_class, rt_uint8_t formatindex, rt_uint8_t frameindex)
+int usbh_videostreaming_set_cur_commit(struct usbh_video *video_class, rt_uint8_t formatindex, rt_uint8_t frameindex, rt_uint32_t dwDefaultFrameInterval)
 {
     memcpy(&video_class->commit, &video_class->probe, sizeof(struct video_probe_and_commit_controls));
     video_class->commit.bFormatIndex = formatindex;
     video_class->commit.bFrameIndex = frameindex;
-    video_class->commit.dwFrameInterval = 333333;
+    video_class->commit.dwFrameInterval = dwDefaultFrameInterval;
+    os_printf("%s set commit interval:%x\n",__FUNCTION__,dwDefaultFrameInterval);
     return usbh_video_set(video_class, VIDEO_REQUEST_SET_CUR, video_class->data_intf, 0x00, VIDEO_VS_COMMIT_CONTROL, (rt_uint8_t *)&video_class->commit, 26);
 }
 
@@ -243,7 +245,7 @@ int usbh_video_open(struct usbh_video *video_class,
     }
 
     step = 1;
-    ret = usbh_videostreaming_set_cur_probe(video_class, formatidx, frameidx);
+    ret = usbh_videostreaming_set_cur_probe(video_class, formatidx, frameidx, video_class->format[formatidx-1].frame[frameidx-1].dwDefaultFrameInterval);
     if (ret < 0) {
         goto errout;
     }
@@ -267,7 +269,7 @@ int usbh_video_open(struct usbh_video *video_class,
     }
 
     step = 5;
-    ret = usbh_videostreaming_set_cur_probe(video_class, formatidx, frameidx);
+    ret = usbh_videostreaming_set_cur_probe(video_class, formatidx, frameidx, video_class->format[formatidx-1].frame[frameidx-1].dwDefaultFrameInterval);
     if (ret < 0) {
         goto errout;
     }
@@ -279,7 +281,7 @@ int usbh_video_open(struct usbh_video *video_class,
     }
 
     step = 7;
-    ret = usbh_videostreaming_set_cur_commit(video_class, formatidx, frameidx);
+    ret = usbh_videostreaming_set_cur_commit(video_class, formatidx, frameidx, video_class->format[formatidx-1].frame[frameidx-1].dwDefaultFrameInterval);
     if (ret < 0) {
         goto errout;
     }
@@ -394,9 +396,10 @@ void usbh_video_list_info(struct usbh_video *video_class)
         os_printf("  Resolution:\r\n");
         for (rt_uint8_t j = 0; j < video_class->format[i].num_of_frames; j++) {
             os_printf("      FrameIndex:%u\r\n", j + 1);
-            os_printf("      wWidth: %d, wHeight: %d\r\n",
+            os_printf("      wWidth: %d, wHeight: %d dwDefaultFrameInterval:%x\r\n",
                          video_class->format[i].frame[j].wWidth,
-                         video_class->format[i].frame[j].wHeight);
+                         video_class->format[i].frame[j].wHeight,
+                         video_class->format[i].frame[j].dwDefaultFrameInterval);
         }
     }
 
@@ -452,7 +455,7 @@ __exit_end:
         video_class->isoin = *ep_desc;  
         video_class->video_rx_size = ep_desc->wMaxPacketSize;
 
-        video_class->uvc_head = 12;  //BULK HEAD
+        video_class->uvc_head = 12+4;  //BULK HEAD
     }  
 
 }
@@ -470,6 +473,7 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
     rt_uint8_t *p;
     rt_uint8_t intf;
     uhcd_t hcd = NULL;
+    rt_int32_t cfg_len = 0;
 
     if (p_intf[0] == NULL) {
         return -EIO;
@@ -497,6 +501,8 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
     os_printf("p_intf[0]:%x\n",p_intf[0]);
 
     p = (rt_uint8_t *)p_intf[0]->device->cfg_desc;
+    cfg_len = p_intf[0]->device->cfg_desc->wTotalLength;
+    os_printf("cfg_len:%x\n",cfg_len);
 
     // analysis_uvc_desc(p_intf[0]->device->cfg_desc,p_intf[0]->device->cfg_desc->wTotalLength);
 
@@ -569,18 +575,21 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
 
                             video_class->format[format_index - 1].frame[frame_index - 1].wWidth = ((struct video_cs_if_vs_frame_uncompressed_descriptor *)p)->wWidth;
                             video_class->format[format_index - 1].frame[frame_index - 1].wHeight = ((struct video_cs_if_vs_frame_uncompressed_descriptor *)p)->wHeight;
+                            video_class->format[format_index - 1].frame[frame_index - 1].dwDefaultFrameInterval = ((struct video_cs_if_vs_frame_uncompressed_descriptor *)p)->dwDefaultFrameInterval;
                             break;
                         case VIDEO_VS_FRAME_MJPEG_DESCRIPTOR_SUBTYPE:
                             frame_index = p[DESC_bFrameIndex];
 
                             video_class->format[format_index - 1].frame[frame_index - 1].wWidth = ((struct video_cs_if_vs_frame_mjpeg_descriptor *)p)->wWidth;
                             video_class->format[format_index - 1].frame[frame_index - 1].wHeight = ((struct video_cs_if_vs_frame_mjpeg_descriptor *)p)->wHeight;
+                            video_class->format[format_index - 1].frame[frame_index - 1].dwDefaultFrameInterval = ((struct video_cs_if_vs_frame_mjpeg_descriptor *)p)->dwDefaultFrameInterval;
                             break;
                         case VIDEO_VS_FRAME_FRAME_BASED_DESCRIPTOR_SUBTYPE:
                             frame_index = p[DESC_bFrameIndex];
 
                             video_class->format[format_index - 1].frame[frame_index - 1].wWidth = ((struct video_cs_if_vs_frame_h26x_descriptor *)p)->wWidth;
                             video_class->format[format_index - 1].frame[frame_index - 1].wHeight = ((struct video_cs_if_vs_frame_h26x_descriptor *)p)->wHeight;
+                            video_class->format[format_index - 1].frame[frame_index - 1].dwDefaultFrameInterval = ((struct video_cs_if_vs_frame_h26x_descriptor *)p)->dwDefaultFrameInterval;
                             break;
 
                         default:
@@ -595,10 +604,22 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
                 break;
         }
         /* skip to next descriptor */
+        if (cfg_len > 0) {
+            cfg_len -= p[DESC_bLength];
+        }
+        //os_printf("cfg_len:%d\n",cfg_len);
+        if (cfg_len <= 0) {
+            break;
+        }
         p += p[DESC_bLength];
     }
 
     usbh_video_list_info(video_class);
+
+    if (cfg_len != 0) {
+        os_printf("UVC cfg_desc analysis failed\n");
+        return RT_ERROR;
+    }
 
     usbh_video_intf_altersetting_ep_config(video_class);
 
@@ -607,6 +628,7 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
         os_printf("malloc rx_buff fail!!!!!!!!!!!\n");
         return RT_ENOMEM;
     }
+    os_printf("video_class->rx_buff:%x video_class->uvc_head:%d\n",video_class->rx_buff,video_class->uvc_head);
 
     #if USBH_VIDEO_PPB
     video_class->usbh_pingpang_flag = 0;
@@ -617,6 +639,8 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
         os_printf("malloc rx_double_buff fail!!!!!!!!!\n");
         return RT_ENOMEM;
     }    
+
+    os_printf("video_class->rx_double_buff:%x video_class->uvc_head:%d\n",video_class->rx_double_buff,video_class->uvc_head);
     #endif
 
     ret = usbh_video_close(p_intf[0]->device,video_class);
@@ -679,11 +703,17 @@ static rt_err_t rt_usbh_class_driver_video_disable(void *arg)
 
 bool rtt_uvc_data_deal(struct hgusb20_dev *p_dev, rt_uint8_t ep)
 {
-    rt_uint32_t rx_len = hgusb20_ep_get_dma_rx_len(p_dev, ep);
+    rt_int32_t rx_len = hgusb20_ep_get_dma_rx_len(p_dev, ep);
 
     if(rx_len == 0){
         return 1;
     }
+	
+	if(rx_len < 0){
+        os_printf("The length of the configured dma needs to be increased\n");
+        return 1;
+    }
+	
     rx_packet_len = rx_len;
     // printf("rx len:%d\n",rx_packet_len);
 
@@ -692,11 +722,17 @@ bool rtt_uvc_data_deal(struct hgusb20_dev *p_dev, rt_uint8_t ep)
 
 bool rtt_uvc_data_deal2(struct hgusb20_dev *p_dev, rt_uint8_t ep)
 {
-    rt_uint32_t rx_len = hgusb20_ep_get_dma_rx_len(p_dev, ep);
+    rt_int32_t rx_len = hgusb20_ep_get_dma_rx_len(p_dev, ep);
 
     if(rx_len == 0){
         return 1;
     }
+	
+	if(rx_len < 0){
+        os_printf("The length of the configured dma needs to be increased\n");
+        return 1;
+    }
+	
     rx_packet_len_2 = rx_len;
     // printf("rx len:%d\n",rx_packet_len_2);
 
@@ -728,6 +764,9 @@ void rtt_usbh_video_irq(void * dev, rt_uint8_t ep)
             hgusb20_set_address(p_dev, (&g_video_class[0])->pipe_in->inst->address);
             hgusb20_ep_rx_kick(p_dev, ep, (uint32)(g_video_class[0].rx_buff+g_video_class[0].uvc_head),g_video_class[0].video_rx_size);
             if(ret == 0) {
+                if( g_video_class[0].uvc_head ) {
+                    hw_memcpy(g_video_class[0].rx_double_buff + 12 , g_video_class[0].rx_double_buff+g_video_class[0].uvc_head, rx_packet_len);
+                }
                 ret = uvc_deal_mjpeg(p_dev, g_video_class[0].rx_double_buff, ep, g_video_class[0].isoin.bmAttributes);
             }
             g_video_class[0].usbh_pingpang_flag = 0;   
@@ -737,6 +776,9 @@ void rtt_usbh_video_irq(void * dev, rt_uint8_t ep)
             hgusb20_set_address(p_dev, (&g_video_class[0])->pipe_in->inst->address);
             hgusb20_ep_rx_kick(p_dev, ep, (uint32)(g_video_class[0].rx_double_buff+g_video_class[0].uvc_head),g_video_class[0].video_rx_size);            
             if(ret == 0) {
+                if( g_video_class[0].uvc_head ) {
+                    hw_memcpy(g_video_class[0].rx_buff + 12 , g_video_class[0].rx_buff+g_video_class[0].uvc_head, rx_packet_len);
+                }
                 ret = uvc_deal_mjpeg(p_dev, g_video_class[0].rx_buff, ep, g_video_class[0].isoin.bmAttributes);
             }
             g_video_class[0].usbh_pingpang_flag = 1;
@@ -757,6 +799,9 @@ void rtt_usbh_video_irq(void * dev, rt_uint8_t ep)
             hgusb20_set_address(p_dev, (&g_video_class[1])->pipe_in->inst->address);
             hgusb20_ep_rx_kick(p_dev, ep, (uint32)(g_video_class[1].rx_buff+g_video_class[1].uvc_head),g_video_class[1].video_rx_size);
             if(ret == 0) {
+                if( g_video_class[1].uvc_head ) {
+                    hw_memcpy(g_video_class[1].rx_double_buff + 12 , g_video_class[1].rx_double_buff+g_video_class[1].uvc_head, rx_packet_len_2);
+                }
                 ret = uvc_deal_h264(p_dev, g_video_class[1].rx_double_buff, ep, g_video_class[1].isoin.bmAttributes);
             }
             g_video_class[1].usbh_pingpang_flag = 0;                          
@@ -766,6 +811,9 @@ void rtt_usbh_video_irq(void * dev, rt_uint8_t ep)
             hgusb20_set_address(p_dev, (&g_video_class[1])->pipe_in->inst->address);
             hgusb20_ep_rx_kick(p_dev, ep, (uint32)(g_video_class[1].rx_double_buff+g_video_class[1].uvc_head),g_video_class[1].video_rx_size);
             if(ret == 0) {
+                if( g_video_class[1].uvc_head ) {
+                    hw_memcpy(g_video_class[1].rx_buff + 12 , g_video_class[1].rx_buff+g_video_class[1].uvc_head, rx_packet_len_2);
+                }
                 ret = uvc_deal_h264(p_dev, g_video_class[1].rx_buff, ep, g_video_class[1].isoin.bmAttributes);
             }
             g_video_class[1].usbh_pingpang_flag = 1;              
@@ -784,6 +832,9 @@ void rtt_usbh_video_irq(void * dev, rt_uint8_t ep)
         usb_dma_mjpeg_irq_times++;
         ret = rtt_uvc_data_deal(p_dev,ep); 
         if(ret == 0) {
+            if( g_video_class[0].uvc_head ) {
+                hw_memcpy(g_video_class[0].rx_buff + 12 , g_video_class[0].rx_buff+g_video_class[0].uvc_head, rx_packet_len);
+            }
             ret = uvc_deal_mjpeg(p_dev, g_video_class[0].rx_buff, ep, (&g_video_class[0])->isoin.bmAttributes);
         }
         hgusb20_set_address(p_dev, (&g_video_class[0])->pipe_in->inst->address);
@@ -799,6 +850,9 @@ void rtt_usbh_video_irq(void * dev, rt_uint8_t ep)
         usb_dma_h264_irq_times++;
         ret = rtt_uvc_data_deal2(p_dev,ep); 
         if(ret == 0) {
+            if( g_video_class[1].uvc_head ) {
+                hw_memcpy(g_video_class[1].rx_buff + 12 , g_video_class[1].rx_buff+g_video_class[1].uvc_head, rx_packet_len_2);
+            }            
             ret = uvc_deal_h264(p_dev, g_video_class[1].rx_buff, ep, (&g_video_class[1])->isoin.bmAttributes);
         }
         hgusb20_set_address(p_dev, (&g_video_class[1])->pipe_in->inst->address);
@@ -943,10 +997,20 @@ rt_uint32_t rtt_usbh_video_user_close(rt_uint8_t dev_num)
     switch(dev_num)
     {
         case 0:
+            #ifdef PSRAM_HEAP
+
+            #else
+            usb_jpeg_stream_deinit();
+            #endif
             uvc_room_deinit_mjpeg();
         break;
 
         case 1:
+            #ifdef PSRAM_HEAP
+
+            #else
+
+            #endif
             uvc_room_deinit_h264();
         break;
         
@@ -1038,11 +1102,20 @@ __attribute__((weak)) void usbh_video_run(struct usbh_video *video_class)
 
 __attribute__((weak)) void usbh_video_stop(struct usbh_video *video_class)
 {
-    #ifdef PSRAM_HEAP
+    switch (video_class->minor)
+    {
+        case 0:
+            os_printf("usbh_video_stop video dev 0\n");
+        break;
 
-    #else
-    usb_jpeg_stream_deinit();
-    #endif
+        case 1:
+            os_printf("usbh_video_stop video dev 1\n");
+        break;
+
+        default:
+        break;
+    }
+
 }
 
 ucd_t rt_usbh_class_driver_video(void)

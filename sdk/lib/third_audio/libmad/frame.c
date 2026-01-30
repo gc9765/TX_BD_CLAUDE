@@ -257,8 +257,8 @@ int free_bitrate(struct mad_stream *stream, struct mad_header const *header)
     peek_header = *header;
 
     if (decode_header(&peek_header, &peek_stream) == 0 &&
-	peek_header.layer == header->layer &&
-	peek_header.samplerate == header->samplerate) {
+    peek_header.layer == header->layer &&
+    peek_header.samplerate == header->samplerate) {
       unsigned int N;
 
       ptr = mad_bit_nextbyte(&stream->ptr);
@@ -266,16 +266,16 @@ int free_bitrate(struct mad_stream *stream, struct mad_header const *header)
       N = ptr - stream->this_frame;
 
       if (header->layer == MAD_LAYER_I) {
-	rate = (unsigned long) header->samplerate *
-	  (N - 4 * pad_slot + 4) / 48 / 1000;
+        rate = (unsigned long) header->samplerate *
+          (N - 4 * pad_slot + 4) / 48 / 1000;
       }
       else {
-	rate = (unsigned long) header->samplerate *
-	  (N - pad_slot + 1) / slots_per_frame / 1000;
+        rate = (unsigned long) header->samplerate *
+          (N - pad_slot + 1) / slots_per_frame / 1000;
       }
 
       if (rate >= 8)
-	break;
+	      break;
     }
 
     mad_bit_skip(&stream->ptr, 8);
@@ -352,7 +352,7 @@ int mad_header_decode(struct mad_header *header, struct mad_stream *stream)
 
     if (mad_stream_sync(stream) == -1) {
       if (end - stream->next_frame >= MAD_BUFFER_GUARD)
-	stream->next_frame = end - MAD_BUFFER_GUARD;
+	      stream->next_frame = end - MAD_BUFFER_GUARD;
 
       stream->error = MAD_ERROR_BUFLEN;
       goto fail;
@@ -377,8 +377,8 @@ int mad_header_decode(struct mad_header *header, struct mad_stream *stream)
   /* calculate free bit rate */
   if (header->bitrate == 0) {
     if ((stream->freerate == 0 || !stream->sync ||
-	 (header->layer == MAD_LAYER_III && stream->freerate > 640000)) &&
-	free_bitrate(stream, header) == -1)
+	  (header->layer == MAD_LAYER_III && stream->freerate > 640000)) &&
+	  free_bitrate(stream, header) == -1)
       goto fail;
 
     header->bitrate = stream->freerate;
@@ -425,7 +425,7 @@ int mad_header_decode(struct mad_header *header, struct mad_stream *stream)
 
   return 0;
 
- fail:
+  fail:
   stream->sync = 0;
 
   return -1;
@@ -472,7 +472,7 @@ int mad_frame_decode(struct mad_frame *frame, struct mad_stream *stream)
 
   return 0;
 
- fail:
+  fail:
   stream->anc_bitlen = 0;
   return -1;
 }
@@ -483,21 +483,25 @@ int mad_frame_decode(struct mad_frame *frame, struct mad_stream *stream)
  */
 void mad_frame_mute(struct mad_frame *frame)
 {
-  unsigned int s, sb;
+    unsigned int s, sb;
 
-  for (s = 0; s < 36; ++s) {
-    for (sb = 0; sb < 32; ++sb) {
-      frame->sbsample[0][s][sb] =
-      frame->sbsample[1][s][sb] = 0;
+    for (s = 0; s < 36; ++s) {
+        for (sb = 0; sb < 32; ++sb) {
+            frame->sbsample[0][s][sb] = 0;
+        #if !FORCE_MONO_CHANNEL
+            frame->sbsample[1][s][sb] = 0;
+        #endif
+        }
     }
-  }
 
-  if (frame->overlap) {
-    for (s = 0; s < 18; ++s) {
-      for (sb = 0; sb < 32; ++sb) {
-	(*frame->overlap)[0][sb][s] =
-	(*frame->overlap)[1][sb][s] = 0;
-      }
+    if (frame->overlap) {
+        for (s = 0; s < 18; ++s) {
+            for (sb = 0; sb < 32; ++sb) {
+                (*frame->overlap)[0][sb][s] = 0;
+            #if !FORCE_MONO_CHANNEL
+                (*frame->overlap)[1][sb][s] = 0;
+            #endif
+            }
+        }
     }
-  }
 }

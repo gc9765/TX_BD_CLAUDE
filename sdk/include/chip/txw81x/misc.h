@@ -315,20 +315,21 @@ __STATIC_INLINE void sys_dcache_clean_invalid_range (uint32_t *addr, int32_t dsi
  *  2、Precondition: dma buffer addr & size is 16byte aligned 
  *  3、DMA buffer size is not checked
  */
-//__STATIC_INLINE void sys_dcache_invalid_range (uint32_t *addr, int32_t dsize)
-//{
-//    if (((uint32)addr >= PSRAM_BASE) && 
-//        ((uint32)addr < PSRAM_END_ADDR) && 
-//        csi_is_cache_enable()) {
-//        ASSERT(!(((uint32)addr) & (BIT(CACHE_CIR_INV_ADDR_Pos)-1)));
-//        csi_dcache_invalid_range(addr, dsize);
-//    }
-//}
+__STATIC_INLINE void sys_dcache_invalid_range (uint32_t *addr, int32_t dsize)
+{
+    if (((uint32)addr >= PSRAM_BASE) && 
+        ((uint32)addr < PSRAM_END_ADDR) && 
+        csi_is_cache_enable()) {
+        //ASSERT(!(((uint32)addr) & (BIT(CACHE_CIR_INV_ADDR_Pos)-1)));
+        csi_dcache_invalid_range(addr, dsize);
+    }
+}
 
 #else
 #define sys_dcache_clean_range(addr, dsize)
 #define sys_dcache_clean_range_unaligned(addr, dsize)
 #define sys_dcache_clean_invalid_range(addr, dsize)
+#define sys_dcache_invalid_range(addr, dsize)
 #endif
 
 

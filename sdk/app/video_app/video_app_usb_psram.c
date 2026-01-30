@@ -23,11 +23,10 @@ void usb_jpeg_psram_stream_close(stream *s);
 extern int usb_dma_mjpeg_irq_times;
 
 static stream *g_usb_jpeg_s = NULL;
-
-struct data_structure *g_usbjpeg_stream_current_data = NULL;
-uint8_t *g_usb_current_malloc_buf[2];
-struct stream_jpeg_data_s *g_m = NULL;
-struct list_head *g_get_frame = NULL;
+static struct data_structure *g_usbjpeg_stream_current_data = NULL;
+static uint8_t *g_usb_current_malloc_buf[2];
+static struct stream_jpeg_data_s *g_m = NULL;
+static struct list_head *g_get_frame = NULL;
 
 
 
@@ -379,6 +378,7 @@ static void stream_get_usb_psram_thread(void *d)
 				{
 					current_photo_max_size = current_photo_size;
 				}
+				sys_dcache_clean_range((uint32_t*)((uint32_t)(el->data) & CACHE_CIR_INV_ADDR_Msk), j->len + ((uint32_t)(el->data)-((uint32_t)(el->data) & CACHE_CIR_INV_ADDR_Msk)));
 				//os_printf("current_photo_size:%d\tcurrent_photo_max_size:%d\n",current_photo_size,current_photo_max_size);
 				send_data_to_stream(data_s);
 				data_s = NULL;

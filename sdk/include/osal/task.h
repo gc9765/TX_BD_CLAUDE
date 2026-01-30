@@ -7,6 +7,10 @@ extern "C" {
 
 typedef void (*os_task_func_t)(void *arg);
 
+enum OS_TASK_FLAGS{
+    OS_TASK_FLAGS_LPRUN = BIT(31), //TASK在低功耗保活状态下需要调度运行
+};
+
 typedef enum  {
     OS_TASK_PRIORITY_IDLE         = 0,
     OS_TASK_PRIORITY_LOW          = 0x10,
@@ -24,13 +28,13 @@ typedef enum  {
         os_task_set_priority(task, prio); \
         os_task_run(task);\
     }while(0)
-    
+
 #define OS_TASK_INIT2(name, task, func, data, prio, stack,stksize) do { \
         os_task_init((const uint8 *)name, task, (os_task_func_t)func, (uint32)data); \
         os_task_set_stacksize(task, stack, stksize); \
         os_task_set_priority(task, prio); \
         os_task_run(task);\
-    }while(0)    
+    }while(0)
 
 #ifndef OS_BLKLIST
 #define OS_BLKLIST
@@ -44,7 +48,7 @@ struct os_task {
     os_task_func_t func;
     const char    *name;
     uint32_t       args;
-    uint32_t       priority:10, stack_size:22;
+    uint32_t       priority:8, stack_size:20, lprun:1, rev:3;
     void          *stack;
 };
 
@@ -62,7 +66,7 @@ struct os_task_info {
 int32 os_task_init(const uint8 *name, struct os_task *task, os_task_func_t func, uint32 data);
 int32 os_task_priority(struct os_task *task);
 int32 os_task_stacksize(struct os_task *task);
-int32 os_task_set_priority(struct os_task *task, uint8 priority);
+int32 os_task_set_priority(struct os_task *task, uint32 priority);
 int32 os_task_set_stacksize(struct os_task *task, void *stack, int32 stack_size);
 int32 os_task_run(struct os_task *task);
 int32 os_task_stop(struct os_task *task);
@@ -79,6 +83,7 @@ int32 os_task_yield(void);
 
 int32 os_sched_disable(void);
 int32 os_sched_enbale(void);
+void os_lpower_mode(uint8 enable);
 
 void *os_task_create(const char *name, os_task_func_t func, void *args, uint32 prio, uint32 time, void *stack, uint32 stack_size);
 int32 os_task_destroy(void *hdl);

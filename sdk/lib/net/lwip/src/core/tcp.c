@@ -1514,6 +1514,11 @@ tcp_fasttmr_start:
           goto tcp_fasttmr_start;
         }
       }
+
+      if (pcb->state >= FIN_WAIT_1) {
+          tcp_abandon(pcb, 0);
+      }
+
       pcb = next;
     } else {
       pcb = pcb->next;
@@ -1884,7 +1889,10 @@ tcp_alloc(u8_t prio)
       /* adjust err stats: memp_malloc failed above */
       MEMP_STATS_DEC(err, MEMP_TCP_PCB);
     }
+  }else{
+      printf("NO FREE TCP_PCB! total:%d\r\n", MEMP_NUM_TCP_PCB);
   }
+
   if (pcb != NULL) {
     /* zero out the whole pcb, so there is no need to initialize members to zero */
     memset(pcb, 0, sizeof(struct tcp_pcb));

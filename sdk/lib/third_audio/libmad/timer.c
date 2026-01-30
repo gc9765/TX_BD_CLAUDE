@@ -165,58 +165,58 @@ void mad_timer_set(mad_timer_t *timer, unsigned long seconds,
   }
 
   switch (denom) {
-  case 0:
-  case 1:
-    timer->fraction = 0;
-    break;
+    case 0:
+    case 1:
+      timer->fraction = 0;
+      break;
 
-  case MAD_TIMER_RESOLUTION:
-    timer->fraction = numer;
-    break;
+    case MAD_TIMER_RESOLUTION:
+      timer->fraction = numer;
+      break;
 
-  case 1000:
-    timer->fraction = numer * (MAD_TIMER_RESOLUTION /  1000);
-    break;
+    case 1000:
+      timer->fraction = numer * (MAD_TIMER_RESOLUTION /  1000);
+      break;
 
-  case 8000:
-    timer->fraction = numer * (MAD_TIMER_RESOLUTION /  8000);
-    break;
+    case 8000:
+      timer->fraction = numer * (MAD_TIMER_RESOLUTION /  8000);
+      break;
 
-  case 11025:
-    timer->fraction = numer * (MAD_TIMER_RESOLUTION / 11025);
-    break;
+    case 11025:
+      timer->fraction = numer * (MAD_TIMER_RESOLUTION / 11025);
+      break;
 
-  case 12000:
-    timer->fraction = numer * (MAD_TIMER_RESOLUTION / 12000);
-    break;
+    case 12000:
+      timer->fraction = numer * (MAD_TIMER_RESOLUTION / 12000);
+      break;
 
-  case 16000:
-    timer->fraction = numer * (MAD_TIMER_RESOLUTION / 16000);
-    break;
+    case 16000:
+      timer->fraction = numer * (MAD_TIMER_RESOLUTION / 16000);
+      break;
 
-  case 22050:
-    timer->fraction = numer * (MAD_TIMER_RESOLUTION / 22050);
-    break;
+    case 22050:
+      timer->fraction = numer * (MAD_TIMER_RESOLUTION / 22050);
+      break;
 
-  case 24000:
-    timer->fraction = numer * (MAD_TIMER_RESOLUTION / 24000);
-    break;
+    case 24000:
+      timer->fraction = numer * (MAD_TIMER_RESOLUTION / 24000);
+      break;
 
-  case 32000:
-    timer->fraction = numer * (MAD_TIMER_RESOLUTION / 32000);
-    break;
+    case 32000:
+      timer->fraction = numer * (MAD_TIMER_RESOLUTION / 32000);
+      break;
 
-  case 44100:
-    timer->fraction = numer * (MAD_TIMER_RESOLUTION / 44100);
-    break;
+    case 44100:
+      timer->fraction = numer * (MAD_TIMER_RESOLUTION / 44100);
+      break;
 
-  case 48000:
-    timer->fraction = numer * (MAD_TIMER_RESOLUTION / 48000);
-    break;
+    case 48000:
+      timer->fraction = numer * (MAD_TIMER_RESOLUTION / 48000);
+      break;
 
-  default:
-    timer->fraction = scale_rational(numer, denom, MAD_TIMER_RESOLUTION);
-    break;
+    default:
+      timer->fraction = scale_rational(numer, denom, MAD_TIMER_RESOLUTION);
+      break;
   }
 
   if (timer->fraction >= MAD_TIMER_RESOLUTION)
@@ -270,47 +270,47 @@ void mad_timer_multiply(mad_timer_t *timer, signed long scalar)
 signed long mad_timer_count(mad_timer_t timer, enum mad_units units)
 {
   switch (units) {
-  case MAD_UNITS_HOURS:
-    return timer.seconds / 60 / 60;
+    case MAD_UNITS_HOURS:
+      return timer.seconds / 60 / 60;
 
-  case MAD_UNITS_MINUTES:
-    return timer.seconds / 60;
+    case MAD_UNITS_MINUTES:
+      return timer.seconds / 60;
 
-  case MAD_UNITS_SECONDS:
-    return timer.seconds;
+    case MAD_UNITS_SECONDS:
+      return timer.seconds;
 
-  case MAD_UNITS_DECISECONDS:
-  case MAD_UNITS_CENTISECONDS:
-  case MAD_UNITS_MILLISECONDS:
+    case MAD_UNITS_DECISECONDS:
+    case MAD_UNITS_CENTISECONDS:
+    case MAD_UNITS_MILLISECONDS:
 
-  case MAD_UNITS_8000_HZ:
-  case MAD_UNITS_11025_HZ:
-  case MAD_UNITS_12000_HZ:
-  case MAD_UNITS_16000_HZ:
-  case MAD_UNITS_22050_HZ:
-  case MAD_UNITS_24000_HZ:
-  case MAD_UNITS_32000_HZ:
-  case MAD_UNITS_44100_HZ:
-  case MAD_UNITS_48000_HZ:
+    case MAD_UNITS_8000_HZ:
+    case MAD_UNITS_11025_HZ:
+    case MAD_UNITS_12000_HZ:
+    case MAD_UNITS_16000_HZ:
+    case MAD_UNITS_22050_HZ:
+    case MAD_UNITS_24000_HZ:
+    case MAD_UNITS_32000_HZ:
+    case MAD_UNITS_44100_HZ:
+    case MAD_UNITS_48000_HZ:
 
-  case MAD_UNITS_24_FPS:
-  case MAD_UNITS_25_FPS:
-  case MAD_UNITS_30_FPS:
-  case MAD_UNITS_48_FPS:
-  case MAD_UNITS_50_FPS:
-  case MAD_UNITS_60_FPS:
-  case MAD_UNITS_75_FPS:
-    return timer.seconds * (signed long) units +
-      (signed long) scale_rational(timer.fraction, MAD_TIMER_RESOLUTION,
-				   units);
+    case MAD_UNITS_24_FPS:
+    case MAD_UNITS_25_FPS:
+    case MAD_UNITS_30_FPS:
+    case MAD_UNITS_48_FPS:
+    case MAD_UNITS_50_FPS:
+    case MAD_UNITS_60_FPS:
+    case MAD_UNITS_75_FPS:
+      return timer.seconds * (signed long) units +
+        (signed long) scale_rational(timer.fraction, MAD_TIMER_RESOLUTION,
+            units);
 
-  case MAD_UNITS_23_976_FPS:
-  case MAD_UNITS_24_975_FPS:
-  case MAD_UNITS_29_97_FPS:
-  case MAD_UNITS_47_952_FPS:
-  case MAD_UNITS_49_95_FPS:
-  case MAD_UNITS_59_94_FPS:
-    return (mad_timer_count(timer, -units) + 1) * 1000 / 1001;
+    case MAD_UNITS_23_976_FPS:
+    case MAD_UNITS_24_975_FPS:
+    case MAD_UNITS_29_97_FPS:
+    case MAD_UNITS_47_952_FPS:
+    case MAD_UNITS_49_95_FPS:
+    case MAD_UNITS_59_94_FPS:
+      return (mad_timer_count(timer, -units) + 1) * 1000 / 1001;
   }
 
   /* unsupported units */
@@ -355,131 +355,124 @@ void mad_timer_string(mad_timer_t timer,
   frac = sub = 0;
 
   switch (fracunits) {
-  case MAD_UNITS_HOURS:
-  case MAD_UNITS_MINUTES:
-  case MAD_UNITS_SECONDS:
-    break;
+    case MAD_UNITS_HOURS:
+    case MAD_UNITS_MINUTES:
+    case MAD_UNITS_SECONDS:
+      break;
 
-  case MAD_UNITS_DECISECONDS:
-  case MAD_UNITS_CENTISECONDS:
-  case MAD_UNITS_MILLISECONDS:
+    case MAD_UNITS_DECISECONDS:
+    case MAD_UNITS_CENTISECONDS:
+    case MAD_UNITS_MILLISECONDS:
 
-  case MAD_UNITS_8000_HZ:
-  case MAD_UNITS_11025_HZ:
-  case MAD_UNITS_12000_HZ:
-  case MAD_UNITS_16000_HZ:
-  case MAD_UNITS_22050_HZ:
-  case MAD_UNITS_24000_HZ:
-  case MAD_UNITS_32000_HZ:
-  case MAD_UNITS_44100_HZ:
-  case MAD_UNITS_48000_HZ:
+    case MAD_UNITS_8000_HZ:
+    case MAD_UNITS_11025_HZ:
+    case MAD_UNITS_12000_HZ:
+    case MAD_UNITS_16000_HZ:
+    case MAD_UNITS_22050_HZ:
+    case MAD_UNITS_24000_HZ:
+    case MAD_UNITS_32000_HZ:
+    case MAD_UNITS_44100_HZ:
+    case MAD_UNITS_48000_HZ:
 
-  case MAD_UNITS_24_FPS:
-  case MAD_UNITS_25_FPS:
-  case MAD_UNITS_30_FPS:
-  case MAD_UNITS_48_FPS:
-  case MAD_UNITS_50_FPS:
-  case MAD_UNITS_60_FPS:
-  case MAD_UNITS_75_FPS:
-    {
-      unsigned long denom;
+    case MAD_UNITS_24_FPS:
+    case MAD_UNITS_25_FPS:
+    case MAD_UNITS_30_FPS:
+    case MAD_UNITS_48_FPS:
+    case MAD_UNITS_50_FPS:
+    case MAD_UNITS_60_FPS:
+    case MAD_UNITS_75_FPS:
+      {
+        unsigned long denom;
 
-      denom = MAD_TIMER_RESOLUTION / fracunits;
+        denom = MAD_TIMER_RESOLUTION / fracunits;
 
-      frac = timer.fraction / denom;
-      sub  = scale_rational(timer.fraction % denom, denom, subparts);
-    }
-    break;
+        frac = timer.fraction / denom;
+        sub  = scale_rational(timer.fraction % denom, denom, subparts);
+      }
+      break;
 
-  case MAD_UNITS_23_976_FPS:
-  case MAD_UNITS_24_975_FPS:
-  case MAD_UNITS_29_97_FPS:
-  case MAD_UNITS_47_952_FPS:
-  case MAD_UNITS_49_95_FPS:
-  case MAD_UNITS_59_94_FPS:
-    /* drop-frame encoding */
-    /* N.B. this is only well-defined for MAD_UNITS_29_97_FPS */
-    {
-      unsigned long frame, cycle, d, m;
+    case MAD_UNITS_23_976_FPS:
+    case MAD_UNITS_24_975_FPS:
+    case MAD_UNITS_29_97_FPS:
+    case MAD_UNITS_47_952_FPS:
+    case MAD_UNITS_49_95_FPS:
+    case MAD_UNITS_59_94_FPS:
+      /* drop-frame encoding */
+      /* N.B. this is only well-defined for MAD_UNITS_29_97_FPS */
+      {
+        unsigned long frame, cycle, d, m;
 
-      frame = mad_timer_count(timer, fracunits);
+        frame = mad_timer_count(timer, fracunits);
 
-      cycle = -fracunits * 60 * 10 - (10 - 1) * 2;
+        cycle = -fracunits * 60 * 10 - (10 - 1) * 2;
 
-      d = frame / cycle;
-      m = frame % cycle;
-      frame += (10 - 1) * 2 * d;
-      if (m > 2)
-	frame += 2 * ((m - 2) / (cycle / 10));
+        d = frame / cycle;
+        m = frame % cycle;
+        frame += (10 - 1) * 2 * d;
+        if (m > 2)
+          frame += 2 * ((m - 2) / (cycle / 10));
 
-      frac    = frame % -fracunits;
-      seconds = frame / -fracunits;
-    }
-    break;
+        frac    = frame % -fracunits;
+        seconds = frame / -fracunits;
+      }
+      break;
   }
 
   switch (units) {
-  case MAD_UNITS_HOURS:
-    minutes = seconds / 60;
-    hours   = minutes / 60;
+    case MAD_UNITS_HOURS:
+      minutes = seconds / 60;
+      hours   = minutes / 60;
 
-    sprintf(dest, format,
-	    hours,
-	    (unsigned int) (minutes % 60),
-	    (unsigned int) (seconds % 60),
-	    frac, sub);
-    break;
+      sprintf(dest, format, hours, (unsigned int) (minutes % 60),
+        (unsigned int) (seconds % 60),
+        frac, sub);
+      break;
 
-  case MAD_UNITS_MINUTES:
-    minutes = seconds / 60;
+    case MAD_UNITS_MINUTES:
+      minutes = seconds / 60;
 
-    sprintf(dest, format,
-	    minutes,
-	    (unsigned int) (seconds % 60),
-	    frac, sub);
-    break;
+      sprintf(dest, format, minutes, (unsigned int) (seconds % 60), frac, sub);
+      break;
 
-  case MAD_UNITS_SECONDS:
-    sprintf(dest, format,
-	    seconds,
-	    frac, sub);
-    break;
+    case MAD_UNITS_SECONDS:
+      sprintf(dest, format, seconds, frac, sub);
+      break;
 
-  case MAD_UNITS_23_976_FPS:
-  case MAD_UNITS_24_975_FPS:
-  case MAD_UNITS_29_97_FPS:
-  case MAD_UNITS_47_952_FPS:
-  case MAD_UNITS_49_95_FPS:
-  case MAD_UNITS_59_94_FPS:
-    if (fracunits < 0) {
-      /* not yet implemented */
-      sub = 0;
-    }
+    case MAD_UNITS_23_976_FPS:
+    case MAD_UNITS_24_975_FPS:
+    case MAD_UNITS_29_97_FPS:
+    case MAD_UNITS_47_952_FPS:
+    case MAD_UNITS_49_95_FPS:
+    case MAD_UNITS_59_94_FPS:
+      if (fracunits < 0) {
+        /* not yet implemented */
+        sub = 0;
+      }
 
-    /* fall through */
+      /* fall through */
 
-  case MAD_UNITS_DECISECONDS:
-  case MAD_UNITS_CENTISECONDS:
-  case MAD_UNITS_MILLISECONDS:
+    case MAD_UNITS_DECISECONDS:
+    case MAD_UNITS_CENTISECONDS:
+    case MAD_UNITS_MILLISECONDS:
 
-  case MAD_UNITS_8000_HZ:
-  case MAD_UNITS_11025_HZ:
-  case MAD_UNITS_12000_HZ:
-  case MAD_UNITS_16000_HZ:
-  case MAD_UNITS_22050_HZ:
-  case MAD_UNITS_24000_HZ:
-  case MAD_UNITS_32000_HZ:
-  case MAD_UNITS_44100_HZ:
-  case MAD_UNITS_48000_HZ:
+    case MAD_UNITS_8000_HZ:
+    case MAD_UNITS_11025_HZ:
+    case MAD_UNITS_12000_HZ:
+    case MAD_UNITS_16000_HZ:
+    case MAD_UNITS_22050_HZ:
+    case MAD_UNITS_24000_HZ:
+    case MAD_UNITS_32000_HZ:
+    case MAD_UNITS_44100_HZ:
+    case MAD_UNITS_48000_HZ:
 
-  case MAD_UNITS_24_FPS:
-  case MAD_UNITS_25_FPS:
-  case MAD_UNITS_30_FPS:
-  case MAD_UNITS_48_FPS:
-  case MAD_UNITS_50_FPS:
-  case MAD_UNITS_60_FPS:
-  case MAD_UNITS_75_FPS:
-    sprintf(dest, format, mad_timer_count(timer, units), sub);
-    break;
+    case MAD_UNITS_24_FPS:
+    case MAD_UNITS_25_FPS:
+    case MAD_UNITS_30_FPS:
+    case MAD_UNITS_48_FPS:
+    case MAD_UNITS_50_FPS:
+    case MAD_UNITS_60_FPS:
+    case MAD_UNITS_75_FPS:
+      sprintf(dest, format, mad_timer_count(timer, units), sub);
+      break;
   }
 }

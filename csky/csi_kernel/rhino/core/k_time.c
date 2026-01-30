@@ -4,8 +4,6 @@
 
 #include <k_api.h>
 
-void mcu_watchdog_feed(void);
-
 void krhino_tick_proc(void)
 {
 #if (RHINO_CONFIG_INTRPT_GUARD > 0)

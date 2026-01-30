@@ -842,11 +842,17 @@ static rt_err_t rt_usbh_class_driver_audio_disable(void *arg)
 
 bool rtt_uac_data_deal(struct hgusb20_dev *p_dev, rt_uint8_t ep)
 {
-    rt_uint32_t rx_len = hgusb20_ep_get_dma_rx_len(p_dev, ep);
+    rt_int32_t rx_len = hgusb20_ep_get_dma_rx_len(p_dev, ep);
 
     if((rx_len == 0) || (rx_len != AUDIO_RX_PACKET_SIZE)){
         return 1;
     }
+	
+	if(rx_len < 0){
+        os_printf("The length of the configured dma needs to be increased\n");
+        return 1;
+    }
+	
     usbmic_packet_len = rx_len;
     // os_printf("rx_len:%d\n", rx_len);
     return 0;    

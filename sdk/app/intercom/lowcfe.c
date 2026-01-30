@@ -152,7 +152,7 @@ void g711plc_dofe(LowcFE_c *lc,short *out)
 		g711plc_getfespeech(lc, out, FRAMESZ);
 		g711plc_overlapadds(tmp, out, out, lc->poverlap);
 		g711plc_scalespeech(lc, out);
-	} else if (lc->erasecnt > 5) {
+	} else if (lc->erasecnt > 2) {
 		g711plc_zeros(out, FRAMESZ);
 	} else {
 		g711plc_getfespeech(lc, out, FRAMESZ);

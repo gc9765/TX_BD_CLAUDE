@@ -76,6 +76,7 @@ void dma_memcpy(struct dma_device *dma, void *dst, const void *src, uint32 n)
 
 //    xfer_data.irq_data          = 0;
     ((const struct dma_hal_ops *)dma->dev.ops)->xfer(dma, &xfer_data);
+    sys_dcache_invalid_range((void *)d, (int32_t)d2-(int32_t)d);
 
     //处理头
     memcpy(d1, dma_buf, 16);
@@ -125,10 +126,10 @@ void dma_memset(struct dma_device *dma, void *dst, uint8 c, uint32 n)
     addr = addr&CACHE_CIR_INV_ADDR_Msk;
     d = (uint8*)addr;//&CACHE_CIR_INV_ADDR_Msk; 
     sys_dcache_clean_invalid_range((void *)d, (int32_t)d2-(int32_t)d);
-    
-    
 
     ((const struct dma_hal_ops *)dma->dev.ops)->xfer(dma, &xfer_data);
+    sys_dcache_invalid_range((void *)d, (int32_t)d2-(int32_t)d);
+
     
     for(i = 0;i < 16;i++){        //处理头
         d1[i] = val;
@@ -165,8 +166,9 @@ void dma_blkcpy(struct dma_device *dma , struct dma_blkcpy_cfg *cfg)
     sys_dcache_clean_range((void *)cfg->src,  cfg->src_width * cfg->blk_height);
 
     sys_dcache_clean_invalid_range((void *)cfg->dest, cfg->dst_width * cfg->blk_height);
-
     ((const struct dma_hal_ops *)dma->dev.ops)->xfer(dma, &xfer_data);
+    sys_dcache_invalid_range((void *)cfg->dest, cfg->dst_width * cfg->blk_height);
+    
 }
 #endif
 

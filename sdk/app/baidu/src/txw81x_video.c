@@ -225,6 +225,9 @@ int video_txw81_jpeg_alloc(struct photo_st **stp, jpeg_read_h *rh, void *arg)
         // 创建拍照的任务
         OS_TASK_INIT("brtc_visual", &photo_s->task, jpeg_capture_thread, (uint32)photo_s, OS_TASK_PRIORITY_NORMAL, 1024);
     }
+	else {
+		os_printf("photo_s malloc failed!!!\r\n");
+	}
 
     *stp = photo_s;
     return 0;

@@ -710,6 +710,7 @@ netconn_alloc(enum netconn_type t, netconn_callback callback)
 
   conn = (struct netconn *)memp_malloc(MEMP_NETCONN);
   if (conn == NULL) {
+    printf("NO FREE NETCONN! total:%d\r\n", MEMP_NUM_NETCONN);
     return NULL;
   }
 

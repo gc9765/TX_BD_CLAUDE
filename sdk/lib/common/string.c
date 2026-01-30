@@ -13,6 +13,7 @@ __bobj static osprint_hook __print_hook;
 __bobj static void *__print_hook_priv;
 __bobj void *console_handle;
 __bobj int8 __disable_print__;
+__bobj int8 __disable_print_color__;
 __bobj int8 __print_level__;
 __bobj char _print_buff_p[PRINT_BUFF_SIZE];
 
@@ -179,6 +180,11 @@ void disable_print(int8_t dis)
     __disable_print__ = dis;
 }
 
+void disable_print_color(int8 dis)
+{
+    __disable_print_color__ = dis;
+}
+
 static void hgprintf_uart(char *str, int32 len)
 {
     int32 off = 0;
@@ -192,6 +198,7 @@ void hgprintf_out(char *str, int32 len, uint8 level)
 {
     osprint_hook _print;
     void *_print_priv;
+    uint8 color = 0;
 
     uint32 flag = disable_irq();
     _print_priv = __print_hook_priv;
@@ -202,20 +209,25 @@ void hgprintf_out(char *str, int32 len, uint8 level)
         return;
     }
 
-    if (level > 7) level = 7;
+    if (level > 7) 
+        level = 7;
+
+    if(level && !__disable_print_color__)
+        color = level;
+
     if (_print) {
-        if (level) _print(_print_priv, (char *)__print_color__[level]);
+        if (color) _print(_print_priv, (char *)__print_color__[color]);
         _print(_print_priv, str);
-        if (level) _print(_print_priv, (char *)__print_color__[8]);
+        if (color) _print(_print_priv, (char *)__print_color__[8]);
     } else {
-        if (level) hgprintf_uart((char *)__print_color__[level], 0);
+        if (color) hgprintf_uart((char *)__print_color__[color], 0);
         hgprintf_uart(str, len);
-        if (level) hgprintf_uart((char *)__print_color__[8], 0);
+        if (color) hgprintf_uart((char *)__print_color__[8], 0);
     }
 
-    if (level) sys_errlog_save((char *)__print_color__[level], 0, level);
+    if (color) sys_errlog_save((char *)__print_color__[color], 0, level);
     sys_errlog_save(str, len, level);
-    if (level) sys_errlog_save((char *)__print_color__[8], 0, level);
+    if (color) sys_errlog_save((char *)__print_color__[8], 0, level);
 }
 
 void hgvprintf(const char *fmt, va_list ap)
@@ -373,7 +385,7 @@ char *_os_strcpy(char *dest, const char *src)
     struct sys_heap *heap = &sram_heap;
 #endif
 
-    int32 n   = strlen(src);
+    int32 n   = strlen(src) + 1;  // +'\0'
     int32 ret = sysheap_of_check(heap, dest, n);
     if (ret == -1) {
         //os_printf("%s: WARING: OF CHECK 0x%x\r\n", dest, __FUNCTION__);
@@ -454,13 +466,14 @@ int _os_sprintf(char *str, const char *format, ...)
     struct sys_heap *heap = &sram_heap;
 #endif
 
-    int ret, len;
+    int ret, len, check_len;
     va_list ap;
 
     va_start(ap, format);
     len = vsprintf(str, format, ap);
     va_end(ap);
-    ret = sysheap_of_check(heap, str, len);
+    check_len = len + 1; // +'\0'
+    ret = sysheap_of_check(heap, str, check_len);
     if (ret == 0) {
         os_printf("check addr fail: %x, size:%d \r\n", str, len);
         ASSERT(ret == 1);
@@ -477,7 +490,8 @@ int _os_vsnprintf(char *s, size_t n, const char *format, va_list arg)
 #endif
 
     int len = vsnprintf(s, n, format, arg);
-    int ret = sysheap_of_check(heap, s, len);
+    int check_len = (len < n) ? len + 1 : n;
+    int ret = sysheap_of_check(heap, s, check_len);
     if (ret == 0) {
         os_printf("check addr fail: %x, size:%d \r\n", s, len);
         ASSERT(ret == 1);
@@ -499,7 +513,8 @@ int _os_snprintf(char *str, size_t size, const char *format, ...)
     va_start(ap, format);
     len = vsnprintf(str, size, format, ap);
     va_end(ap);
-    ret = sysheap_of_check(heap, str, len);
+    int check_len = len = (len < size) ? len + 1 : size;
+    ret = sysheap_of_check(heap, str, check_len);
     if (ret == 0) {
         os_printf("check addr fail: %x, size:%d \r\n", str, len);
         ASSERT(ret == 1);

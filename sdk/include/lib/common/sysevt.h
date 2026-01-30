@@ -8,17 +8,10 @@ typedef enum {
 
 typedef sysevt_hdl_res(*sysevt_hdl)(uint32 event_id, uint32 data, uint32 priv);
 
-#ifdef SYS_EVENT_SUPPORT
 int32 sys_event_init(uint16 evt_max_cnt);
 int32 sys_event_new(uint32 event_id, uint32 data);
 int32 sys_event_take(uint32 event_id, sysevt_hdl hdl, uint32 priv);
 void sys_event_untake(uint32 event_id, sysevt_hdl hdl);
-#else
-#define sys_event_init(cnt)
-#define sys_event_new(id, data)
-#define sys_event_take(id, hdl, priv)
-#define sys_event_untake(id, hdl)
-#endif
 
 #define SYS_EVENT(main, sub) ((main)<<16|(sub&0xffff))
 
@@ -79,7 +72,8 @@ enum SYSEVT_NETWORK_SUBEVT { /* uint16 */
     SYSEVT_WIFI_DHCPC_START,
     SYSEVT_WIFI_DHCPC_DONE,
     SYSEVT_DHCPD_NEW_IP,
-    SYSEVT_DHCPD_IPPOOL_FULL,
+    SYSEVT_DHCPD_IPPOOL_FULL,    
+    SYSEVT_NTP_UPDATE,
 };
 #define SYSEVT_NEW_NETWORK_EVT(subevt, data) sys_event_new(SYS_EVENT(SYS_EVENT_NETWORK, subevt), data)
 

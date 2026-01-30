@@ -146,69 +146,12 @@ uint8_t *get_jpeg_buf(struct data_structure *data,uint32_t *len)
     }
 	return jpeg_buf_addr;
 }
-
 /***************************************************
  * 视频写入的注册函数
  * fp:文件句柄
  * d:视频帧的结构体
  * flen:需要写入的视频数据长度
 ***************************************************/
-int no_frame_record_jpeg_buffer(void *d, uint8_t** jpeg_data)
-{
-    uint8_t *jpeg_buf_addr = NULL;
-    void * get_f = (void *)d;
- 	uint32_t total_len;
-	struct stream_jpeg_data_s *el,*tmp;
-
-	struct data_structure  *data = (struct data_structure  *)d;
-    struct stream_jpeg_data_s *dest_list = (struct stream_jpeg_data_s *)GET_DATA_BUF(data);
-    struct stream_jpeg_data_s *dest_list_tmp = dest_list;
-    total_len = GET_DATA_LEN(data);
-
-	uint32_t uint_len = GET_NODE_LEN(data);
-	uint32 jpg_len = total_len;
-
-	uint8_t* jpeg_out = (uint8_t*)custom_malloc_psram(jpg_len);
-	memset(jpeg_out, 0, jpg_len);
-	uint32_t offset = 0;
-
-	int jpg_count = 0;
-
-    LL_FOREACH_SAFE(dest_list,el,tmp)
-    {
-        if(dest_list_tmp == el)
-        {
-            continue;
-        }
-        //读取完毕删除
-        //图片保存起来
-
-        if(total_len)
-        {
-            jpeg_buf_addr = (uint8_t *)GET_JPG_SELF_BUF(data,el->data);
-            if(total_len >= uint_len)
-            {
-				hw_memcpy(jpeg_out + offset, jpeg_buf_addr, uint_len);
-
-				offset += uint_len;
-                total_len -= uint_len;
-            }
-            else
-            {
-				hw_memcpy(jpeg_out + offset, jpeg_buf_addr, total_len);
-				offset += total_len;
-                total_len = 0;
-            }
-        }
-
-		DEL_JPEG_NODE(get_f,el);
-		jpg_count++;
-    }
-
-	*jpeg_data = jpeg_out;
-	return jpg_len;
-}
-
 int no_frame_record_video2(void *fp,void *d,int flen)
 {
     uint8_t *jpeg_buf_addr = NULL;

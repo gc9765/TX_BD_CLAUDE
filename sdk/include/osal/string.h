@@ -51,6 +51,10 @@ void *_os_zalloc_psram_t(int size, const char *func, int line);
 void *_os_realloc_psram_t(void *ptr, int size, const char *func, int line);
 void *_os_calloc_psram_t(size_t nmemb, size_t size, const char *func, int line);
 
+void mem_free_rec(void *addr, void *lr);
+void mem_alloc_rec(void *addr, void *lr);
+void mem_reclist_dump(void);
+
 #ifdef M2M_DMA
 void hw_memcpy(void *dest, const void *src, uint32 size);
 void hw_memset(void * dest, uint8 val, uint32 n);
@@ -91,12 +95,13 @@ int32 os_strtok(char *str, char *separator, char *argv[], int argv_size);
 #define IS_MCAST_ADDR(a)  ((a)[0]&0x01)
 #define IS_ZERO_ADDR(a)   (!((a)[0] | (a)[1] | (a)[2] | (a)[3] | (a)[4] | (a)[5]))
 #define SSID_MAX_LEN      (32)
-#define PASSWD_MAX_LEN    (32)
+#define PASSWD_MAX_LEN    (63)
 
 #define os_printf(fmt, ...)  hgprintf(KERN_TSOH fmt, ##__VA_ARGS__)
 #define _os_printf(fmt, ...) hgprintf(fmt, ##__VA_ARGS__)
 
 void disable_print(int8 dis);
+void disable_print_color(int8 dis);
 void hgprintf(const char *fmt, ...);
 void hgprintf_out(char *str, int32 len, uint8 level);
 

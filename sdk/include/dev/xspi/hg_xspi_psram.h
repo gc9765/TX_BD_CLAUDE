@@ -117,7 +117,9 @@ enum psram_type {
     APS3208K_OKUD,
     APS6408L_OBMx,
     APS1604M_3SQR_TXW817_812,
-
+    SCKW18X128800,
+    SCKM18X032800,
+    PSRAM_TYPE_END,
 };
 
   
@@ -131,7 +133,8 @@ enum psram_type {
   
 /***** LL API AND DRIVER API *****/
 
-uint8_t psram_init(enum psram_type pt, uint32 clk_hz,uint32 check_size) ;
+uint8_t psram_init(enum psram_type pt, uint32 clk_hz,uint32 check_size);
+int psram_auto_init();
 void psram_deinit(enum psram_type pt) ;
 
 

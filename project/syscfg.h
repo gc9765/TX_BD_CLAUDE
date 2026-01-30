@@ -37,7 +37,7 @@ struct sys_config {
     uint8  bssid[6], mac[6];
     uint8  ssid[32];
     uint8  psk[32];
-    char   passwd[32];
+    char   passwd[PASSWD_MAX_LEN+1];
     uint16 bss_max_idle, beacon_int;
     uint16 ack_tmo, dtim_period;
     uint32 key_mgmt;

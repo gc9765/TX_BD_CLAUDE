@@ -617,3 +617,9 @@ void wifi_dev_status(uint32 dev_id)
 #endif
 }
 
+#ifdef FMAC_EN
+__weak void hgic_custom_driver_data_handler(uint8 *data, uint16 len)
+{
+    // do nothing default
+}
+#endif

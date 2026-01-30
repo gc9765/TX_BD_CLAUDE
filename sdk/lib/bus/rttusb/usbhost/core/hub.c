@@ -94,17 +94,9 @@ void rt_usbh_root_hub_connect_handler(struct uhcd *hcd, rt_uint8_t port, rt_bool
         return;
     }   
 
-    msg.type = USB_MSG_CONNECT_CHANGE;
+    msg.type = USB_MSG_CONNECT_IRQ;
     msg.content.hub = hcd->roothub;
-    hcd->roothub->port_status[port - 1] |= PORT_CCS | PORT_CCSC;
-    if(isHS)
-    {
-        hcd->roothub->port_status[port - 1] &= ~PORT_LSDA;
-    }
-    else
-    {
-        hcd->roothub->port_status[port - 1] |= PORT_LSDA;
-    }
+
     rt_usbh_event_signal(hcd, &msg);
 }
 
@@ -118,10 +110,9 @@ void rt_usbh_root_hub_disconnect_handler(struct uhcd *hcd, rt_uint8_t port)
         return;
     }
 
-    msg.type = USB_MSG_CONNECT_CHANGE;
+    msg.type = USB_MSG_DISCONNECT_IRQ;
     msg.content.hub = hcd->roothub;
-    hcd->roothub->port_status[port - 1] |= PORT_CCSC;
-    hcd->roothub->port_status[port - 1] &= ~PORT_CCS;
+
     rt_usbh_event_signal(hcd, &msg);
 }
 
@@ -450,7 +441,7 @@ static rt_err_t rt_usbh_hub_port_change(uhub_t hub)
         ret = rt_usbh_hub_get_port_status(hub, i + 1, &pstatus);
         if(ret != RT_EOK) continue;
 
-        LOG_D("port %d status 0x%x", i + 1, pstatus);
+        os_printf("port %d status 0x%x", i + 1, pstatus);
 
         /* check port status change */
         if (pstatus & PORT_CCSC)
@@ -763,9 +754,34 @@ static void rt_usbh_hub_thread_entry(void* parameter)
         if (rt_mq_recv(hcd->usb_mq, &msg, sizeof(struct uhost_msg), RT_WAITING_FOREVER) < 0)
             continue;
 
+        //USB CONNECT 同步状态设置
+        if (msg.type == USB_MSG_CONNECT_IRQ) {
+            uhub_t hub = msg.content.hub;
+            rt_bool_t isHS = RT_TRUE;
+            rt_uint8_t port = 1;
+            hub->port_status[port - 1] |= PORT_CCS | PORT_CCSC;
+            if(isHS)
+            {
+                hub->port_status[port - 1] &= ~PORT_LSDA;
+            }
+            else
+            {
+                hub->port_status[port - 1] |= PORT_LSDA;
+            }            
+        }
+
+        //USB DISCONNECT 同步状态设置
+        if (msg.type == USB_MSG_DISCONNECT_IRQ) {
+            uhub_t hub = msg.content.hub;
+            rt_uint8_t port = 1;
+            hub->port_status[port - 1] |= PORT_CCSC;
+            hub->port_status[port - 1] &= ~PORT_CCS;
+        }
+            
         switch (msg.type)
         {
-        case USB_MSG_CONNECT_CHANGE:
+        case USB_MSG_CONNECT_IRQ:
+        case USB_MSG_DISCONNECT_IRQ:
             rt_usbh_hub_port_change(msg.content.hub);
             break;
         case USB_MSG_CALLBACK:
@@ -782,7 +798,8 @@ static void rt_usbh_hub_thread_entry(void* parameter)
 
 __exit_end:
     hcd->thread_status  = 0;
-	/* 挂起线程等待删除 */
+	os_printf("%s %d\n",__FUNCTION__,__LINE__);
+    /* 挂起线程等待删除 */
     rt_thread_suspend(hcd->thread);
 }
 
@@ -852,6 +869,8 @@ void rt_usbh_hub_init(uhcd_t hcd)
 void rt_usbh_hub_deinit(uhcd_t hcd)
 {
     struct uhost_msg msg;
+    rt_uint32_t timeout = 150;
+
     if(hcd->thread != RT_NULL)
     {
         msg.type = USB_MSG_DELETE_THREAD;
@@ -860,6 +879,12 @@ void rt_usbh_hub_deinit(uhcd_t hcd)
 
         do {
             os_sleep_ms(10);
+            timeout--;
+            if (timeout == 0) {
+				//正常不应该触发超时，需排查主线程内部是否有阻塞
+                os_printf("usbh wait hcd thread timeout!!!\n");
+                break;
+            }
         } while (hcd->thread_status);
         
 

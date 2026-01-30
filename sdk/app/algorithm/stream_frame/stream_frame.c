@@ -127,8 +127,9 @@ static void *find_stream(const char *name)
         {
             //这里应该是要进行回收的,这里就直接返回吧,重新创建一个同样名字的流
             //旧的流让它回收,防止有异步的可能
-            if(s->used == STREAM_AVAILABLE_AGAIN && s->ref == 0)
+            if(s->ref == 0)
             {
+                s->name = NULL;
                 goto find_stream_end;
             }
             s->open_ref++;
@@ -372,19 +373,16 @@ void *open_stream(const char *name,int data_count,int recv_count,stream_priv_fun
     s = find_stream(name);
     if(s)
     {
+        flags = disable_irq();
         //stream不是可用或者不是重复可用,则返回空,代表名称有了,可能没有及时回收,需要等待及时回收才可以创建同一个名字的流
         if(s->used != STREAM_AVAILABLE_AGAIN && s->used != STREAM_AVAILABLE)
         {
-            flags = disable_irq();
             s->open_ref--;
             s->ref--;
             enable_irq(flags);
             s = NULL;
             goto open_stream_end;
         }
-
-
-        flags = disable_irq();
         //没有被使用,则初始化对应数据
         s->used = STREAM_ISUED;
         enable_irq(flags);
@@ -451,7 +449,7 @@ void *open_stream(const char *name,int data_count,int recv_count,stream_priv_fun
 
         if(d_list_head)
         {
-            self_free(src_d_list_head);
+            self_free(d_list_head);
         }
 
         if(func)
@@ -481,15 +479,18 @@ int close_stream(stream *s)
     }
 
     struct data_list *elt,*tmp;
+    struct data_list *del_u;
     s->enable = 0;  //关闭使能
     s->used = STREAM_UNAVAILABLE;    //代表不可使用
+    del_u = s->d_list_u;
+    s->d_list_u = NULL;
     enable_irq(flags);
     s->func(s,NULL,STREAM_CLOSE_ENTER);
     
     //释放一下自己接收到的数据链表内容,然后它就没有接收的数据了
-    DL_FOREACH_SAFE(s->d_list_u,elt,tmp) {
+    DL_FOREACH_SAFE(del_u,elt,tmp) {
       //从已有链表释放
-      DL_DELETE(s->d_list_u,elt);
+      DL_DELETE(del_u,elt);
 
       //进行elt->data删除
       free_data(elt->data);
@@ -543,6 +544,10 @@ int streamSrc_bind_streamDest(stream *s,const char *name)
     stream *dest = NULL;
     struct stream_list *s_list;
     uint32_t flags;
+    if(!s)
+    {
+        return res;
+    }
     dest = find_stream(name);
     if(dest)
     {
@@ -688,6 +693,7 @@ int send_data_to_stream(struct data_structure *data)
     DL_FOREACH(each_list,elt) 
     {
 
+        elt->s->send_ref++;
         if(elt->s->enable && elt->s->used == STREAM_ISUED)
         {
             //先判断一下该数据是否要发送到流,如果不需要,则不需要进行往下操作
@@ -732,6 +738,7 @@ int send_data_to_stream(struct data_structure *data)
             }
 
         }
+        elt->s->send_ref--;
     }
     //告诉流,发送数据完成
     data->s->func(data->s,data,STREAM_SEND_DATA_FINISH);
@@ -1005,7 +1012,30 @@ int stream_gc_marker_timer(uint32_t t)
         //如果被标记或者ref为0,则会自动启动gc处理
         if(s->used == STREAM_WAIT_GC_MARKER || s->ref == 0)
         {
+            if(s->send_ref)
+            {
+                continue;
+            }
 
+            if(s->d_list_u)
+            {
+                struct data_list *elt,*tmp;
+                uint32_t flags;
+                DL_FOREACH_SAFE(s->d_list_u,elt,tmp) {
+                    //从已有链表释放
+                    DL_DELETE(s->d_list_u,elt);
+              
+                    //进行elt->data删除
+                    free_data(elt->data);
+              
+                    //放回到空闲链表
+                    elt->prev = NULL;
+                    elt->next = NULL;
+                    flags = disable_irq();
+                    DL_APPEND(s->d_list_f,elt);
+                    enable_irq(flags);
+                  }
+            }
             //删除自己bind的stream
 
             if(s->s_list)
@@ -1055,13 +1085,20 @@ int stream_gc_marker_timer(uint32_t t)
                 //如果引用为0,则代表这个流不需要继续存在,可以被删除
                 if(!s->ref)
                 {
+                    int status;
+                    uint32_t flag = disable_irq();
+                    status = s->used ;
+                    s->used = STREAM_WAIT_GC_CLEAN;
+                    enable_irq(flag);
+                    char *name = s->name; 
+                    
                     #ifdef STREAM_FRAME_DEBUG_GC
                     //如果这里将name设置为NULL,则可以在被清除之前也可以创建数据,但是有一个问题就是,尽量不要用类似全局,因为可能会推迟释放资源
                     os_printf("%s wait gc name:%s\t%X\tfunc:%X\n",__FUNCTION__,s->name,s,s->func);
                     #endif
                     s->name = NULL;
                     //如果等于STREAM_AVAILABLE_AGAIN,代表已经执行过一次
-                    if(s->used != STREAM_AVAILABLE_AGAIN)
+                    if(status != STREAM_AVAILABLE_AGAIN)
                     {
                         s->func(s,NULL,STREAM_MARK_GC_END);
                     }
@@ -1114,6 +1151,9 @@ int stream_gc_clean_timer(uint32_t t)
         if(el->func)
         {
             el->func(el,NULL,STREAM_DEL); 
+        }
+        if ( el->ref != 0 ) {
+            os_printf("s:%x s->ref:%x\n",el,el->ref);
         }
         self_free(el);
     }

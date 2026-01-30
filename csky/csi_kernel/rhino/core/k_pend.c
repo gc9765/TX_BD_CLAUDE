@@ -2,9 +2,9 @@
  * Copyright (C) 2015-2017 Alibaba Group Holding Limited
  */
 
+#include <stdio.h>
 #include <k_api.h>
 #include "csi_core.h"
-
 
 RHINO_INLINE void pend_list_add(klist_t *head, ktask_t *task)
 {
@@ -52,7 +52,8 @@ void pend_task_wakeup(ktask_t *task)
 void pend_to_blk_obj(blk_obj_t *blk_obj, ktask_t *task, tick_t timeout, uint32_t psr)
 {
     if(__in_disable_irq(psr) || __in_interrupt()){
-        assert_internal(__FUNCTION__, __LINE__, "SYS IRQ DISABLED");
+        printf("\0013** FATAL CALL , %s **\r\n", __in_disable_irq(psr)?"IRQ DISABLED":"IN INTERRUPT");
+        assert_internal(__FUNCTION__, __LINE__, "** FATAL CALL ! **");
     }
 
     /* task need to remember which object is blocked on */

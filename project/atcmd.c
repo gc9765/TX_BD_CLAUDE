@@ -24,8 +24,7 @@ int32 sys_atcmd_sysdbg(const char *cmd, char *argv[], uint32 argc)
     }
 }
 
-extern void app_main(void);
-extern void auto_send_video(void *);
+extern void brtc_cmd(const char *cmd, char *argv[], uint32 argc);
 static const struct hgic_atcmd static_atcmds[] = {
     { "AT+RST", sys_atcmd_reset },
     { "AT+GOTOBOOT", sys_atcmd_goto_boot },
@@ -90,7 +89,7 @@ static const struct hgic_atcmd static_atcmds[] = {
     { "AT+PAIR", sys_wifi_atcmd_pair },
     { "AT+HWMODE", sys_wifi_atcmd_hwmode },
     { "AT+BLENC", sys_ble_atcmd_blenc },
-    { "AT+PING", sys_atcmd_ping},
+    //{ "AT+PING", sys_atcmd_ping},
     //{ "AT+ICMPMNTR", sys_atcmd_icmp_mntr},
     //{ "AT+IPERF2", sys_atcmd_iperf2},
     {"AT+SAVE_AUDIO",demo_atcmd_save_audio},
@@ -102,8 +101,7 @@ static const struct hgic_atcmd static_atcmds[] = {
 	//{"AT+RSO",demo_atcmd_select_resolution},
     { "AT+OSD", demo_atcmd_save_osd},
 	{"AT+PLAY_MP3",demon_atcmd_play_mp3},
-	{"AT+BAIDU_DEMO",app_main},
-    {"AT+VISUAL",auto_send_video},
+	{"AT+BRTC_CMD",brtc_cmd},
 
 #if BLE_METER_TEST_EN    
     {"AT+BLE_START", atcmd_ble_start_hdl},

@@ -24,8 +24,8 @@
 
 #define DUPLEX_TYPE    HALF_DUPLEX
 
-#define PLC_PROCESS    1
-#define ZERO_ORDER_HOLD        1
+#define PLC_PROCESS            1
+#define CHANGE_PLAY_SPEED      1
 
 #define SAMPLERATE             8000
 
@@ -48,9 +48,6 @@
 #define NODE_DATA_LEN          ENCODED_DATA_BYTE 
 
 #define NUM_OF_FRAME           1
-
-#define HW_TIMER_SYNC_CODE        0
-#define SW_TIMER_SYNC_CODE        1
 
 #define LOSE_STATISTICAL          0
 
@@ -79,7 +76,7 @@ struct os_task intercom_client_handle_task;
 
 volatile uint16 play_sort = 0;
 uint16 g_current_sort = 1;
-uint8 g_numofcached = 0;
+uint32_t g_numofcached = 0;
 uint8 g_send_sequence = 0;
 uint32 g_send_sort = 0;
 uint32 g_s_identify_num = 0;
@@ -107,10 +104,10 @@ uint8 g_transfer_mode = SEND_MODE;
 uint8 g_switch_recv_success = 1;
 uint8 g_code_sema_init = 0;
 
-uint32 interval_time = CODE_MODE;
-
 AdpcmEncoder *Enc_Inst = NULL;
 AdpcmDecoder *Dec_Inst = NULL;
+
+extern struct sonic_process_priv *sonic_priv;
 
 void intercom_server_handle(void *d);
 void intercom_client_handle(void *d);
@@ -124,14 +121,8 @@ int intercom_client_init(void);
 void intercom_send(uint8 num);
 void lose_packet_check(void);
 
-#if HW_TIMER_SYNC_CODE
-static struct timer_device *ctl_timer = NULL;
-void decode_sem_up(uint32 args, uint32 flags);
-#elif SW_TIMER_SYNC_CODE
 static struct os_timer ctl_timer;
 void decode_sem_up(uint32 *args);
-#endif
-
 
 void intercom_init(void)
 {
@@ -373,7 +364,7 @@ static int opcode_func_s(stream *s,void *priv,int opcode)
 			{
 				stream_data_dis_mem_custom(s);
 			}
-			streamSrc_bind_streamDest(s,R_SPEAKER);	
+			streamSrc_bind_streamDest(s,R_SONIC_PROCESS);	
 			#if SERVER_RECORD && INTERCOM_SERVER	
 			streamSrc_bind_streamDest(s,R_INTERMEDIATE_DATA);
 			#endif			
@@ -637,18 +628,8 @@ void intercom_server_handle(void *d)
 	OS_TASK_INIT("intercom_record_thread", &intercom->record_task, intercom_record_thread, NULL, OS_TASK_PRIORITY_NORMAL, 1024);
 	#endif
 
-#if HW_TIMER_SYNC_CODE
-	ctl_timer = (struct timer_device*)dev_get(HG_TIMER0_DEVID);
-	err = timer_device_open(ctl_timer, TIMER_TYPE_PERIODIC, 0);
-	if(err == -1)
-		goto intercom_server_handle;
-	err = timer_device_start(ctl_timer, 7200000, (timer_cb_hdl)decode_sem_up, (uint32_t)ctl_timer);		//30ms
-	if(err == -1)
-		goto intercom_server_handle;	
-#elif SW_TIMER_SYNC_CODE
 	os_timer_init(&ctl_timer, (os_timer_func_t)decode_sem_up, OS_TIMER_MODE_PERIODIC, &ctl_timer);
 	os_timer_start(&ctl_timer, CODE_MODE);
-#endif
 	return;	
 	
 intercom_server_handle:
@@ -729,19 +710,8 @@ void intercom_client_handle(void *d)
 	OS_TASK_INIT("intercom_recv", &intercom->recv_task, intercom_recv, NULL, OS_TASK_PRIORITY_NORMAL+1, 1024);
 	OS_TASK_INIT("retransfer_check", &intercom->retransfer_task, retransfer_check, NULL, OS_TASK_PRIORITY_NORMAL-1, 1024);
 
-#if HW_TIMER_SYNC_CODE
-	ctl_timer = (struct timer_device*)dev_get(HG_TIMER0_DEVID);
-	err = timer_device_open(ctl_timer, TIMER_TYPE_PERIODIC, 0);
-	if(err == -1)
-		goto intercom_client_handle;
-	err = timer_device_start(ctl_timer, 7200000, (timer_cb_hdl)decode_sem_up, (uint32_t)ctl_timer);		//30ms
-	if(err == -1)
-		goto intercom_client_handle;	
-#elif SW_TIMER_SYNC_CODE
 	os_timer_init(&ctl_timer, (os_timer_func_t)decode_sem_up, OS_TIMER_MODE_PERIODIC, &ctl_timer);
 	os_timer_start(&ctl_timer, CODE_MODE);
-#endif
-
 	return;	
 	
 intercom_client_handle:
@@ -1357,32 +1327,8 @@ void mute_speaker(uint8 enable)
 	gpio_set_val(PIN_SPK_MUTE, enable);
 }
 
-#if HW_TIMER_SYNC_CODE
-void decode_sem_up(uint32 args, uint32 flags)
-{
-	static uint32_t time = CODE_MODE;
-	static uint32_t period = 0;
-	struct timer_device* timer_dev = (struct timer_device*)args;
-	if(time != interval_time) {
-		if(interval_time == CODE_MODE) 
-			period = 7200000;
-		else if(interval_time == (CODE_MODE-1))
-			period = 6960000;
-		else if(interval_time == (CODE_MODE+1))
-			period = 7200000;
-		timer_device_ioctl(timer_dev, TIMER_SET_PERIOD, period, 0);
-		time =  interval_time;
-	}
-#elif  SW_TIMER_SYNC_CODE	
 void decode_sem_up(uint32 *args)
 {
-	static uint32_t time = CODE_MODE;
-	struct os_timer *timer = (struct os_timer *)args;
-	if(time != interval_time) {
-		os_timer_stop(timer);
-		os_timer_start(timer, interval_time);
-	}
-#endif
 	if(g_code_sema_init) {
 		os_sema_up(&decode_sem);
 	}
@@ -1593,21 +1539,9 @@ void intercom_encoded_handle(void *d)
 		}
 	}
 }
-static uint32 rounding(float x, uint32 limit)
-{
-	uint32 res =  (x < ((float)(limit-0.5)))?(x+0.5):(limit-0.5);
-	return res;
-}
-static void zero_order_hold(int16 *inbuf, int16 *outbuf, uint32 insize, uint32 outsize)
-{
-	float rate = (float)insize/outsize;
 
-	for(uint32 i=0; i<outsize; i++)
-	{
-		*(outbuf+i) = *(inbuf+rounding((i*rate), insize));
-	}
-}
-static int send_to_stream(uint8 cached) 
+void set_sonic_speed(struct sonic_process_priv *sonic_priv, float speed);
+static int send_to_stream(uint32_t cached) 
 {
 	int16 *send_stream_buf = NULL;
 	struct data_structure *get_f = NULL;
@@ -1624,6 +1558,8 @@ static int send_to_stream(uint8 cached)
 	static uint32_t plc_cnt = 0;
 	int send_res = 0;
 	static uint32_t lose_sum = 0;
+	static uint8_t play_speed_sta = 2;
+	static float play_speed = 1.0f;
 #if LOSE_STATISTICAL
 	static uint32_t last_statistical_time = 0;
 #endif
@@ -1650,13 +1586,7 @@ send_to_stream_again:
 				mute_speaker(1);
 			#endif
 				force_del_data(get_f);
-				del_audio_sublist(sublist_l);
-				if(cached<=(playofwait-2))
-					interval_time = (CODE_MODE+1);
-				else if(cached>=(playofwait+2))
-					interval_time = (CODE_MODE-1);
-				else
-					interval_time = CODE_MODE-1;	
+				del_audio_sublist(sublist_l);	
 				g_intercom_start = 0;
 				g_current_sort += 1;
 				return 0;
@@ -1691,7 +1621,7 @@ send_to_stream_again:
 			else {
 				#if PLC_PROCESS == 1	
                     code_len = adpcm_decode_plc(Dec_Inst,decode_data);
-					timestamp = last_timestamp+interval_time;
+					timestamp = last_timestamp+CODE_MODE;
 					last_timestamp = timestamp;
 				#else
 					os_memset(decode_data, 0, DECODED_DATA_LEN*2);
@@ -1706,7 +1636,7 @@ send_to_stream_again:
 		{
 		#if PLC_PROCESS == 1
 			code_len = adpcm_decode_plc(Dec_Inst,decode_data);
-			timestamp = last_timestamp+interval_time;
+			timestamp = last_timestamp+CODE_MODE;
 			last_timestamp = timestamp;
 		#else
 			os_memset(decode_data, 0, DECODED_DATA_LEN*2);
@@ -1717,35 +1647,40 @@ send_to_stream_again:
 				play_start_flag &= ~BIT(0);
 		}
 		g_current_sort += 1;
-	#if ZERO_ORDER_HOLD == 1
-		if(cached<=(playofwait-2)) {
-			zero_order_hold(decode_data, send_stream_buf, DECODED_DATA_LEN, (DECODED_DATA_LEN+8));
-			set_sound_data_len(get_f, (2*(DECODED_DATA_LEN+8)));
-			interval_time = (CODE_MODE+1);
+	#if CHANGE_PLAY_SPEED == 1
+		if(cached<=(playofwait-5)) {
+			if(play_speed_sta != 0) {
+				play_speed = 0.9f;
+				set_sonic_speed(sonic_priv, play_speed);
+				play_speed_sta = 0;
+			}
 		}
-		else if(cached>=(playofwait+2)) {
-			zero_order_hold(decode_data, send_stream_buf, DECODED_DATA_LEN, (DECODED_DATA_LEN-8));	
-			set_sound_data_len(get_f, (2*(DECODED_DATA_LEN-8)));
-			interval_time = (CODE_MODE-1);
+		else if(cached>=(playofwait+5)) {
+			if(play_speed_sta != 1) {
+				play_speed = 1.1f;
+				set_sonic_speed(sonic_priv, play_speed);
+				play_speed_sta = 1;
+			}
 		}
-		else {
-			os_memcpy(send_stream_buf, decode_data, (DECODED_DATA_LEN*2));
-			set_sound_data_len(get_f, DECODED_DATA_LEN*2);
-			interval_time = CODE_MODE;
+		else if(cached==playofwait) {
+			if(play_speed_sta != 2) {
+				play_speed = 1.0f;
+				set_sonic_speed(sonic_priv, play_speed);
+				play_speed_sta = 2;
+			}
 		}			
-	#else
+	#endif
 		os_memcpy(send_stream_buf, decode_data, DECODED_DATA_LEN*2);
 		set_sound_data_len(get_f, DECODED_DATA_LEN*2);
-	#endif
 		get_f->type = SET_DATA_TYPE(SOUND, SOUND_INTERCOM);
-		send_res = set_stream_data_time(get_f,timestamp);
-		send_data_to_stream(get_f);
+		set_stream_data_time(get_f,timestamp);
+		send_res = send_data_to_stream(get_f);
 		current_dac_data = NULL;
 		g_intercom_start = 1;
-		if((now_dac_filter_type == SOUND_INTERCOM) && (send_res>0)){
+		if((now_dac_filter_type == SOUND_INTERCOM) && (send_res>0) &&(cached>=1)){    
 			cached -= 1;
 			os_sleep_ms(2);
-			goto send_to_stream_again;
+			goto send_to_stream_again;     
 		}
 	}
 #if LOSE_STATISTICAL
@@ -1755,7 +1690,7 @@ send_to_stream_again:
 		last_statistical_time = os_jiffies();
 	}
 #endif
-    // os_printf("g_numofcached:%d %d %d %d\n",cached,g_current_sort,new_sort,plc_cnt); 
+//	os_printf("g_numofcached:%d\n",cached); 
 	return 0;
 }
 
@@ -1840,7 +1775,6 @@ void intercom_decoded_handle(void *d)
 		#if MUTE_SPEAKER == 1
 			mute_speaker(1);
 		#endif
-			interval_time = CODE_MODE;
 			play_start_flag &= ~BIT(0);
 			g_intercom_start = 0;
 		}
@@ -1857,12 +1791,7 @@ void intercom_encode_switch(uint8 enable)
 }
 void intercom_suspend(void)
 {
-#if HW_TIMER_SYNC_CODE
-	struct timer_device* timer_dev = (struct timer_device*)dev_get(HG_TIMER0_DEVID);
-	timer_device_close(timer_dev);
-#elif SW_TIMER_SYNC_CODE
 	os_timer_stop(&ctl_timer);
-#endif
 	g_code_sema_init = 0;
 	play_start_flag &= ~BIT(1);
 	os_sleep_ms(60);
@@ -1879,14 +1808,7 @@ void intercom_suspend(void)
 
 void intercom_resume(void)
 {
-#if HW_TIMER_SYNC_CODE
-	int err = -1;
-	struct timer_device* timer_dev = (struct timer_device*)dev_get(HG_TIMER0_DEVID);
-	timer_device_open(timer_dev, TIMER_TYPE_PERIODIC, 0);
-	err = timer_device_start(ctl_timer, 7200000, (timer_cb_hdl)decode_sem_up, (uint32_t)ctl_timer);
-#elif SW_TIMER_SYNC_CODE
 	os_timer_start(&ctl_timer,CODE_MODE);
-#endif	
 	g_numofcached = get_audio_sublist_count((struct list_head *)&intercom->useList_head);
 	for(uint8 i=0; i<g_numofcached; i++)
 	{

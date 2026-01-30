@@ -608,6 +608,7 @@ int32 sdh_open(struct sdh_device *sdhost,uint8 bus_w)
         os_printf("mmcsd alloc host fail");
         return 0;
     }
+    sdh_hw->opened = 0;
 
 	SYSCTRL->SYS_CON1 &= ~(BIT(20));
 	delay_us(10);
@@ -833,6 +834,8 @@ int32 sdh_close(struct sdh_device *sdhost)
 	struct hgsdh *sdh_hw = (struct hgsdh*)sdhost; 
 	struct hgsdh_hw *hw =  (struct hgsdh_hw *)sdh_hw->hw;
     ll_sdhc_close(hw);
+    sdh_hw->opened = 0;
+    sdh_hw->dsleep = 0;
     sysctrl_sdhc_clk_close();
     os_sema_del(&sdhost->dat_sema);
     NVIC_DisableIRQ(SDHOST_IRQn);
@@ -840,11 +843,27 @@ int32 sdh_close(struct sdh_device *sdhost)
     return 0;
 }
 
+#ifdef CONFIG_SLEEP
 int32 sdh_suspend(struct sdh_device *sdhost)
 {
 	struct hgsdh *sdh_hw = (struct hgsdh*)sdhost; 
-	struct hgsdh_hw *hw =  (struct hgsdh_hw *)sdh_hw->hw;
+	struct hgsdh_hw *hw  = (struct hgsdh_hw *)sdh_hw->hw;
 	struct hgsdh_hw *hw_cfg;
+    if (!sdh_hw->opened || sdh_hw->dsleep)
+    {
+        return RET_OK;
+    }
+
+    if (os_mutex_lock(&sdhost->lock, osWaitForever))
+    {
+        return RET_ERR;
+    }
+
+    if (0 > os_mutex_lock(&sdhost->bp_suspend_lock, 10000)) 
+    {
+        return RET_ERR;
+    }
+    
 	sysctrl_sdhc_clk_close();
 	sdhost->cfg_backup = (uint32 *)os_malloc(sizeof(struct hgsdh_hw));	
 	//memcpy((uint8 *)sdhost->cfg_backup,(uint8 *)hw,sizeof(struct hgsdh_hw));
@@ -859,6 +878,8 @@ int32 sdh_suspend(struct sdh_device *sdhost)
     hw_cfg->ISMP = hw->ISMP;
 #endif
 	irq_disable(sdh_hw->irq_num);
+    sdh_hw->dsleep = 1;
+    os_mutex_unlock(&sdhost->bp_suspend_lock);
 	return 0;
 }
 
@@ -867,6 +888,16 @@ int32 sdh_resume(struct sdh_device *sdhost)
 	struct hgsdh *sdh_hw = (struct hgsdh*)sdhost; 
 	struct hgsdh_hw *hw =  (struct hgsdh_hw *)sdh_hw->hw;
 	struct hgsdh_hw *hw_cfg;
+
+    if ((!sdh_hw->opened) || (!sdh_hw->dsleep)) {
+        return RET_OK;
+    }
+
+    if (0 > os_mutex_lock(&sdhost->bp_resume_lock, 10000)) 
+    {
+        return RET_ERR;
+    }
+
 	sysctrl_sdhc_clk_open();
 	hw_cfg = (struct hgsdh_hw*)sdhost->cfg_backup;
 	//memcpy((uint8 *)hw,(uint8 *)sdhost->cfg_backup,sizeof(struct hgsdh_hw));	
@@ -881,8 +912,12 @@ int32 sdh_resume(struct sdh_device *sdhost)
 #endif
 	irq_enable(sdh_hw->irq_num);
 	os_free(sdhost->cfg_backup);	
+    sdh_hw->dsleep = 0;
+    os_mutex_unlock(&sdhost->bp_resume_lock);
+    os_mutex_unlock(&sdhost->lock);
 	return 0;
 }
+#endif
 
 
 
@@ -890,15 +925,19 @@ void hgsdh_attach(uint32 dev_id, struct hgsdh *sdhost)
 {
     sdhost->dev.open                  = sdh_open;
     sdhost->dev.close                 = sdh_close;
-    sdhost->dev.suspend               = sdh_suspend;
-    sdhost->dev.resume                = sdh_resume;	
-    //sdhost->dev.init                  = sdh_init;
     sdhost->dev.iocfg                 = sdh_cfg;
     sdhost->dev.cmd                   = sdh_cmd;
     sdhost->dev.write                 = sdh_write;
     sdhost->dev.read                  = sdh_read;   
     sdhost->dev.complete              = sdh_complete;   
+
     memset(&sdhost->dev.dat_sema,0,sizeof(sdhost->dev.dat_sema));
+#ifdef CONFIG_SLEEP
+    sdhost->dev.suspend               = sdh_suspend;
+    sdhost->dev.resume                = sdh_resume;	
+    os_mutex_init(&sdhost->dev.bp_suspend_lock);
+    os_mutex_init(&sdhost->dev.bp_resume_lock);
+#endif
     os_mutex_init(&sdhost->dev.lock);
     irq_disable(sdhost->irq_num);
     dev_register(dev_id, (struct dev_obj *)sdhost); 

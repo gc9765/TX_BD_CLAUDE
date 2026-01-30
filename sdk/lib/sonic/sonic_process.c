@@ -55,3 +55,8 @@ void sonicStream_set_pitch(sonicStream stream, float pitch)
 {
 	sonicSetPitch(stream, pitch);
 }
+
+void sonicStream_set_speed(sonicStream stream, float speed)
+{
+	sonicSetSpeed(stream, speed);
+}

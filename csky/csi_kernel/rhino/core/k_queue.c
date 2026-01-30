@@ -256,6 +256,7 @@ kstat_t krhino_queue_recv(kqueue_t *queue, tick_t ticks, void **msg)
     NULL_PARA_CHK(queue);
     NULL_PARA_CHK(msg);
 
+    krhino_check_fatal_call(__FUNCTION__);
     RHINO_CRITICAL_ENTER();
 
     cur_cpu_num = cpu_cur_get();

@@ -22,5 +22,5 @@
     int get_node_uvc_len();
     extern int usb_dma_irq_times;
 	
-	void usb_jpeg_psram_dual_stream_deinit(stream *s);
+	void usb_jpeg_psram_dual_stream_close(stream *s);
 #endif

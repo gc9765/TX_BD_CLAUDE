@@ -103,112 +103,128 @@ mad_fixed_t I_sample(struct mad_bitptr *ptr, unsigned int nb)
  */
 int mad_layer_I(struct mad_stream *stream, struct mad_frame *frame)
 {
-  struct mad_header *header = &frame->header;
-  unsigned int nch, bound, ch, s, sb, nb;
-  unsigned char allocation[2][32], scalefactor[2][32];
+    struct mad_header *header = &frame->header;
+    unsigned int nch, bound, ch, s, sb, nb;
+    unsigned char allocation[2][32], scalefactor[2][32];
+    mad_fixed_t sbsample_temp = 0;
 
-  nch = MAD_NCHANNELS(header);
+    nch = MAD_NCHANNELS(header);
 
-  bound = 32;
-  if (header->mode == MAD_MODE_JOINT_STEREO) {
-    header->flags |= MAD_FLAG_I_STEREO;
-    bound = 4 + header->mode_extension * 4;
-  }
-
-  /* check CRC word */
-
-  if (header->flags & MAD_FLAG_PROTECTION) {
-    header->crc_check =
-      mad_bit_crc(stream->ptr, 4 * (bound * nch + (32 - bound)),
-		  header->crc_check);
-
-    if (header->crc_check != header->crc_target &&
-	!(frame->options & MAD_OPTION_IGNORECRC)) {
-      stream->error = MAD_ERROR_BADCRC;
-      return -1;
-    }
-  }
-
-  /* decode bit allocations */
-
-  for (sb = 0; sb < bound; ++sb) {
-    for (ch = 0; ch < nch; ++ch) {
-      nb = mad_bit_read(&stream->ptr, 4);
-
-      if (nb == 15) {
-	stream->error = MAD_ERROR_BADBITALLOC;
-	return -1;
-      }
-
-      allocation[ch][sb] = nb ? nb + 1 : 0;
-    }
-  }
-
-  for (sb = bound; sb < 32; ++sb) {
-    nb = mad_bit_read(&stream->ptr, 4);
-
-    if (nb == 15) {
-      stream->error = MAD_ERROR_BADBITALLOC;
-      return -1;
+    bound = 32;
+    if (header->mode == MAD_MODE_JOINT_STEREO) {
+        header->flags |= MAD_FLAG_I_STEREO;
+        bound = 4 + header->mode_extension * 4;
     }
 
-    allocation[0][sb] =
-    allocation[1][sb] = nb ? nb + 1 : 0;
-  }
+    /* check CRC word */
 
-  /* decode scalefactors */
+    if (header->flags & MAD_FLAG_PROTECTION) {
+        header->crc_check =
+        mad_bit_crc(stream->ptr, 4 * (bound * nch + (32 - bound)),header->crc_check);
 
-  for (sb = 0; sb < 32; ++sb) {
-    for (ch = 0; ch < nch; ++ch) {
-      if (allocation[ch][sb]) {
-	scalefactor[ch][sb] = mad_bit_read(&stream->ptr, 6);
+        if (header->crc_check != header->crc_target &&
+            !(frame->options & MAD_OPTION_IGNORECRC)) {
+            stream->error = MAD_ERROR_BADCRC;
+            return -1;    
+        }
+    } 
 
+    /* decode bit allocations */
+
+    for (sb = 0; sb < bound; ++sb) {
+        for (ch = 0; ch < nch; ++ch) {
+            nb = mad_bit_read(&stream->ptr, 4);
+
+            if (nb == 15) {
+              stream->error = MAD_ERROR_BADBITALLOC;
+              return -1;
+            }
+
+            allocation[ch][sb] = nb ? nb + 1 : 0;
+        }
+    }
+
+    for (sb = bound; sb < 32; ++sb) {
+        nb = mad_bit_read(&stream->ptr, 4);
+
+        if (nb == 15) {
+            stream->error = MAD_ERROR_BADBITALLOC;
+            return -1;
+        }
+
+        allocation[0][sb] =
+        allocation[1][sb] = nb ? nb + 1 : 0;
+    }
+
+    /* decode scalefactors */
+
+    for (sb = 0; sb < 32; ++sb) {
+        for (ch = 0; ch < nch; ++ch) {
+            if (allocation[ch][sb]) {
+                scalefactor[ch][sb] = mad_bit_read(&stream->ptr, 6);
 # if defined(OPT_STRICT)
 	/*
 	 * Scalefactor index 63 does not appear in Table B.1 of
 	 * ISO/IEC 11172-3. Nonetheless, other implementations accept it,
 	 * so we only reject it if OPT_STRICT is defined.
 	 */
-	if (scalefactor[ch][sb] == 63) {
-	  stream->error = MAD_ERROR_BADSCALEFACTOR;
-	  return -1;
-	}
+                if (scalefactor[ch][sb] == 63) {
+                    stream->error = MAD_ERROR_BADSCALEFACTOR;
+                    return -1;
+                }
 # endif
-      }
-    }
-  }
-
-  /* decode samples */
-
-  for (s = 0; s < 12; ++s) {
-    for (sb = 0; sb < bound; ++sb) {
-      for (ch = 0; ch < nch; ++ch) {
-	nb = allocation[ch][sb];
-	frame->sbsample[ch][s][sb] = nb ?
-	  mad_f_mul(I_sample(&stream->ptr, nb),
-		    sf_table[scalefactor[ch][sb]]) : 0;
-      }
+            }
+        }
     }
 
-    for (sb = bound; sb < 32; ++sb) {
-      if ((nb = allocation[0][sb])) {
-	mad_fixed_t sample;
+    /* decode samples */
+    for (s = 0; s < 12; ++s) {
+        for (sb = 0; sb < bound; ++sb) {
+            for (ch = 0; ch < nch; ++ch) {
+                nb = allocation[ch][sb];
+                sbsample_temp = nb ?
+                mad_f_mul(I_sample(&stream->ptr, nb),
+                sf_table[scalefactor[ch][sb]]) : 0;
+#if FORCE_MONO_CHANNEL
+                if(ch == 0)
+#endif
+                {
+                    frame->sbsample[ch][s][sb] = sbsample_temp;
+                }
+            }
+        }
 
-	sample = I_sample(&stream->ptr, nb);
+        for (sb = bound; sb < 32; ++sb) {
+            if ((nb = allocation[0][sb])) {
+                mad_fixed_t sample;
 
-	for (ch = 0; ch < nch; ++ch) {
-	  frame->sbsample[ch][s][sb] =
-	    mad_f_mul(sample, sf_table[scalefactor[ch][sb]]);
-	}
-      }
-      else {
-	for (ch = 0; ch < nch; ++ch)
-	  frame->sbsample[ch][s][sb] = 0;
-      }
+                sample = I_sample(&stream->ptr, nb);
+
+                for (ch = 0; ch < nch; ++ch) {
+                    sbsample_temp = mad_f_mul(sample, 
+                    sf_table[scalefactor[ch][sb]]);
+#if FORCE_MONO_CHANNEL
+                    if(ch == 0)
+#endif
+                    {
+                        frame->sbsample[ch][s][sb] = sbsample_temp;
+                    }
+                }
+            }
+            else {
+                for (ch = 0; ch < nch; ++ch) {
+#if FORCE_MONO_CHANNEL
+                    if(ch == 0)
+#endif
+                    {
+                        frame->sbsample[ch][s][sb] = 0;
+                    }
+                }
+            }
+        }
     }
-  }
 
-  return 0;
+    return 0;
 }
 
 /* --- Layer II ------------------------------------------------------------ */
@@ -330,205 +346,232 @@ void II_samples(struct mad_bitptr *ptr,
  */
 int mad_layer_II(struct mad_stream *stream, struct mad_frame *frame)
 {
-  struct mad_header *header = &frame->header;
-  struct mad_bitptr start;
-  unsigned int index, sblimit, nbal, nch, bound, gr, ch, s, sb;
-  unsigned char const *offsets;
-  unsigned char allocation[2][32], scfsi[2][32], scalefactor[2][32][3];
-  mad_fixed_t samples[3];
+    struct mad_header *header = &frame->header;
+    struct mad_bitptr start;
+    unsigned int index, sblimit, nbal, nch, bound, gr, ch, s, sb;
+    unsigned char const *offsets;
+    unsigned char allocation[2][32], scfsi[2][32], scalefactor[2][32][3];
+    mad_fixed_t samples[3];
+    mad_fixed_t sbsample_temp = 0;
 
-  nch = MAD_NCHANNELS(header);
+    nch = MAD_NCHANNELS(header);
 
-  if (header->flags & MAD_FLAG_LSF_EXT)
-    index = 4;
-  else if (header->flags & MAD_FLAG_FREEFORMAT)
-    goto freeformat;
-  else {
-    unsigned long bitrate_per_channel;
-
-    bitrate_per_channel = header->bitrate;
-    if (nch == 2) {
-      bitrate_per_channel /= 2;
-
-# if defined(OPT_STRICT)
-      /*
-       * ISO/IEC 11172-3 allows only single channel mode for 32, 48, 56, and
-       * 80 kbps bitrates in Layer II, but some encoders ignore this
-       * restriction. We enforce it if OPT_STRICT is defined.
-       */
-      if (bitrate_per_channel <= 28000 || bitrate_per_channel == 40000) {
-	stream->error = MAD_ERROR_BADMODE;
-	return -1;
-      }
-# endif
-    }
-    else {  /* nch == 1 */
-      if (bitrate_per_channel > 192000) {
-	/*
-	 * ISO/IEC 11172-3 does not allow single channel mode for 224, 256,
-	 * 320, or 384 kbps bitrates in Layer II.
-	 */
-	stream->error = MAD_ERROR_BADMODE;
-	return -1;
-      }
-    }
-
-    if (bitrate_per_channel <= 48000)
-      index = (header->samplerate == 32000) ? 3 : 2;
-    else if (bitrate_per_channel <= 80000)
-      index = 0;
+    if (header->flags & MAD_FLAG_LSF_EXT)
+        index = 4;
+    else if (header->flags & MAD_FLAG_FREEFORMAT)
+        goto freeformat;
     else {
-    freeformat:
-      index = (header->samplerate == 48000) ? 0 : 1;
-    }
-  }
+        unsigned long bitrate_per_channel;
 
-  sblimit = sbquant_table[index].sblimit;
-  offsets = sbquant_table[index].offsets;
-
-  bound = 32;
-  if (header->mode == MAD_MODE_JOINT_STEREO) {
-    header->flags |= MAD_FLAG_I_STEREO;
-    bound = 4 + header->mode_extension * 4;
-  }
-
-  if (bound > sblimit)
-    bound = sblimit;
-
-  start = stream->ptr;
-
-  /* decode bit allocations */
-
-  for (sb = 0; sb < bound; ++sb) {
-    nbal = bitalloc_table[offsets[sb]].nbal;
-
-    for (ch = 0; ch < nch; ++ch)
-      allocation[ch][sb] = mad_bit_read(&stream->ptr, nbal);
-  }
-
-  for (sb = bound; sb < sblimit; ++sb) {
-    nbal = bitalloc_table[offsets[sb]].nbal;
-
-    allocation[0][sb] =
-    allocation[1][sb] = mad_bit_read(&stream->ptr, nbal);
-  }
-
-  /* decode scalefactor selection info */
-
-  for (sb = 0; sb < sblimit; ++sb) {
-    for (ch = 0; ch < nch; ++ch) {
-      if (allocation[ch][sb])
-	scfsi[ch][sb] = mad_bit_read(&stream->ptr, 2);
-    }
-  }
-
-  /* check CRC word */
-
-  if (header->flags & MAD_FLAG_PROTECTION) {
-    header->crc_check =
-      mad_bit_crc(start, mad_bit_length(&start, &stream->ptr),
-		  header->crc_check);
-
-    if (header->crc_check != header->crc_target &&
-	!(frame->options & MAD_OPTION_IGNORECRC)) {
-      stream->error = MAD_ERROR_BADCRC;
-      return -1;
-    }
-  }
-
-  /* decode scalefactors */
-
-  for (sb = 0; sb < sblimit; ++sb) {
-    for (ch = 0; ch < nch; ++ch) {
-      if (allocation[ch][sb]) {
-	scalefactor[ch][sb][0] = mad_bit_read(&stream->ptr, 6);
-
-	switch (scfsi[ch][sb]) {
-	case 2:
-	  scalefactor[ch][sb][2] =
-	  scalefactor[ch][sb][1] =
-	  scalefactor[ch][sb][0];
-	  break;
-
-	case 0:
-	  scalefactor[ch][sb][1] = mad_bit_read(&stream->ptr, 6);
-	  /* fall through */
-
-	case 1:
-	case 3:
-	  scalefactor[ch][sb][2] = mad_bit_read(&stream->ptr, 6);
-	}
-
-	if (scfsi[ch][sb] & 1)
-	  scalefactor[ch][sb][1] = scalefactor[ch][sb][scfsi[ch][sb] - 1];
+        bitrate_per_channel = header->bitrate;
+        if (nch == 2) {
+            bitrate_per_channel /= 2;
 
 # if defined(OPT_STRICT)
-	/*
-	 * Scalefactor index 63 does not appear in Table B.1 of
-	 * ISO/IEC 11172-3. Nonetheless, other implementations accept it,
-	 * so we only reject it if OPT_STRICT is defined.
-	 */
-	if (scalefactor[ch][sb][0] == 63 ||
-	    scalefactor[ch][sb][1] == 63 ||
-	    scalefactor[ch][sb][2] == 63) {
-	  stream->error = MAD_ERROR_BADSCALEFACTOR;
-	  return -1;
-	}
+            /*
+            * ISO/IEC 11172-3 allows only single channel mode for 32, 48, 56, and
+            * 80 kbps bitrates in Layer II, but some encoders ignore this
+            * restriction. We enforce it if OPT_STRICT is defined.
+            */
+            if (bitrate_per_channel <= 28000 || bitrate_per_channel == 40000) {
+              stream->error = MAD_ERROR_BADMODE;
+              return -1;
+            }
 # endif
-      }
+        }
+        else {  /* nch == 1 */
+            if (bitrate_per_channel > 192000) {
+              /*
+              * ISO/IEC 11172-3 does not allow single channel mode for 224, 256,
+              * 320, or 384 kbps bitrates in Layer II.
+              */
+                stream->error = MAD_ERROR_BADMODE;
+                return -1;
+            }
+        }
+
+        if (bitrate_per_channel <= 48000)
+            index = (header->samplerate == 32000) ? 3 : 2;
+        else if (bitrate_per_channel <= 80000)
+            index = 0;
+        else {
+            freeformat:
+            index = (header->samplerate == 48000) ? 0 : 1;
+        }
     }
-  }
 
-  /* decode samples */
+    sblimit = sbquant_table[index].sblimit;
+    offsets = sbquant_table[index].offsets;
 
-  for (gr = 0; gr < 12; ++gr) {
+    bound = 32;
+    if (header->mode == MAD_MODE_JOINT_STEREO) {
+        header->flags |= MAD_FLAG_I_STEREO;
+        bound = 4 + header->mode_extension * 4;
+    }
+
+    if (bound > sblimit)
+        bound = sblimit;
+
+    start = stream->ptr;
+
+    /* decode bit allocations */
+
     for (sb = 0; sb < bound; ++sb) {
-      for (ch = 0; ch < nch; ++ch) {
-	if ((index = allocation[ch][sb])) {
-	  index = offset_table[bitalloc_table[offsets[sb]].offset][index - 1];
+        nbal = bitalloc_table[offsets[sb]].nbal;
 
-	  II_samples(&stream->ptr, &qc_table[index], samples);
-
-	  for (s = 0; s < 3; ++s) {
-	    frame->sbsample[ch][3 * gr + s][sb] =
-	      mad_f_mul(samples[s], sf_table[scalefactor[ch][sb][gr / 4]]);
-	  }
-	}
-	else {
-	  for (s = 0; s < 3; ++s)
-	    frame->sbsample[ch][3 * gr + s][sb] = 0;
-	}
-      }
+        for (ch = 0; ch < nch; ++ch)
+            allocation[ch][sb] = mad_bit_read(&stream->ptr, nbal);
     }
 
     for (sb = bound; sb < sblimit; ++sb) {
-      if ((index = allocation[0][sb])) {
-	index = offset_table[bitalloc_table[offsets[sb]].offset][index - 1];
+        nbal = bitalloc_table[offsets[sb]].nbal;
 
-	II_samples(&stream->ptr, &qc_table[index], samples);
-
-	for (ch = 0; ch < nch; ++ch) {
-	  for (s = 0; s < 3; ++s) {
-	    frame->sbsample[ch][3 * gr + s][sb] =
-	      mad_f_mul(samples[s], sf_table[scalefactor[ch][sb][gr / 4]]);
-	  }
-	}
-      }
-      else {
-	for (ch = 0; ch < nch; ++ch) {
-	  for (s = 0; s < 3; ++s)
-	    frame->sbsample[ch][3 * gr + s][sb] = 0;
-	}
-      }
+        allocation[0][sb] =
+        allocation[1][sb] = mad_bit_read(&stream->ptr, nbal);
     }
 
-    for (ch = 0; ch < nch; ++ch) {
-      for (s = 0; s < 3; ++s) {
-	for (sb = sblimit; sb < 32; ++sb)
-	  frame->sbsample[ch][3 * gr + s][sb] = 0;
-      }
-    }
-  }
+    /* decode scalefactor selection info */
 
-  return 0;
+    for (sb = 0; sb < sblimit; ++sb) {
+        for (ch = 0; ch < nch; ++ch) {
+            if (allocation[ch][sb])
+                scfsi[ch][sb] = mad_bit_read(&stream->ptr, 2);
+        }
+    }
+
+    /* check CRC word */
+
+    if (header->flags & MAD_FLAG_PROTECTION) {
+        header->crc_check =
+            mad_bit_crc(start, mad_bit_length(&start, &stream->ptr),header->crc_check);
+
+        if (header->crc_check != header->crc_target && !(frame->options & MAD_OPTION_IGNORECRC)) {
+            stream->error = MAD_ERROR_BADCRC;
+            return -1;
+        }
+    }
+
+    /* decode scalefactors */
+
+    for (sb = 0; sb < sblimit; ++sb) {
+        for (ch = 0; ch < nch; ++ch) {
+            if (allocation[ch][sb]) { 
+                scalefactor[ch][sb][0] = mad_bit_read(&stream->ptr, 6);
+
+                switch (scfsi[ch][sb]) {
+                  case 2:
+                      scalefactor[ch][sb][2] =
+                      scalefactor[ch][sb][1] =
+                      scalefactor[ch][sb][0];
+                      break;
+
+                  case 0:
+                      scalefactor[ch][sb][1] = mad_bit_read(&stream->ptr, 6);
+                      /* fall through */
+
+                  case 1:
+                  case 3:
+                      scalefactor[ch][sb][2] = mad_bit_read(&stream->ptr, 6);
+                }
+
+                if (scfsi[ch][sb] & 1)
+                    scalefactor[ch][sb][1] = scalefactor[ch][sb][scfsi[ch][sb] - 1];
+
+# if defined(OPT_STRICT)
+                /*
+                * Scalefactor index 63 does not appear in Table B.1 of
+                * ISO/IEC 11172-3. Nonetheless, other implementations accept it,
+                * so we only reject it if OPT_STRICT is defined.
+                */
+                if (scalefactor[ch][sb][0] == 63 ||
+                    scalefactor[ch][sb][1] == 63 ||
+                    scalefactor[ch][sb][2] == 63) {
+                  stream->error = MAD_ERROR_BADSCALEFACTOR;
+                  return -1;
+                }
+# endif
+            }
+        }
+    }
+
+    /* decode samples */
+    for (gr = 0; gr < 12; ++gr) {
+        for (sb = 0; sb < bound; ++sb) {
+            for (ch = 0; ch < nch; ++ch) {
+                if ((index = allocation[ch][sb])) {
+                    index = offset_table[bitalloc_table[offsets[sb]].offset][index - 1];
+
+                    II_samples(&stream->ptr, &qc_table[index], samples);
+
+                    for (s = 0; s < 3; ++s) {
+                        sbsample_temp =
+                        mad_f_mul(samples[s], sf_table[scalefactor[ch][sb][gr / 4]]);
+#if FORCE_MONO_CHANNEL
+                        if(ch == 0)
+#endif
+                        {
+                            frame->sbsample[ch][3 * gr + s][sb] = sbsample_temp;
+                        }
+                    }
+                }
+                else {
+                    for (s = 0; s < 3; ++s) {
+#if FORCE_MONO_CHANNEL
+                        if(ch == 0)
+#endif
+                        {
+                            frame->sbsample[ch][3 * gr + s][sb] = 0;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (sb = bound; sb < sblimit; ++sb) {
+            if ((index = allocation[0][sb])) {
+                index = offset_table[bitalloc_table[offsets[sb]].offset][index - 1];
+
+                II_samples(&stream->ptr, &qc_table[index], samples);
+
+                for (ch = 0; ch < nch; ++ch) {
+                    for (s = 0; s < 3; ++s) {
+                        sbsample_temp =
+                        mad_f_mul(samples[s], sf_table[scalefactor[ch][sb][gr / 4]]);
+#if FORCE_MONO_CHANNEL
+                        if(ch == 0)
+#endif
+                        {
+                            frame->sbsample[ch][3 * gr + s][sb] = sbsample_temp;
+                        }
+                    }
+                }
+            }
+            else {
+                for (ch = 0; ch < nch; ++ch) {
+                    for (s = 0; s < 3; ++s) {
+#if FORCE_MONO_CHANNEL
+                        if(ch == 0)
+#endif
+                        {
+                            frame->sbsample[ch][3 * gr + s][sb] = 0;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (ch = 0; ch < nch; ++ch) {
+            for (s = 0; s < 3; ++s) {
+                for (sb = sblimit; sb < 32; ++sb) {}
+#if FORCE_MONO_CHANNEL
+                    if(ch == 0)
+#endif
+                    {
+                        frame->sbsample[ch][3 * gr + s][sb] = 0;
+                    }
+            }
+        }
+    }
+
+    return 0;
 }

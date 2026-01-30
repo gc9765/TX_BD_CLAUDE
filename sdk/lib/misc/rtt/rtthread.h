@@ -79,6 +79,7 @@ typedef struct os_timer    *rt_timer_t;
 #define rt_memset       os_memset
 #define rt_memcpy       os_memcpy
 #define rt_malloc       os_malloc
+#define rt_zalloc       os_zalloc
 #define rt_free         os_free
 #define rt_strlen       os_strlen
 

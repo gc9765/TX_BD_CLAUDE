@@ -14,7 +14,9 @@
 int sem_destroy(sem_t *sem)
 {
     struct os_semaphore *s = (struct os_semaphore *)(*sem);
-    os_sema_del(s);
+    if (os_sema_del(s) < 0) {
+        return -1;
+    }
     os_free(s);
     return 0;
 }
@@ -39,9 +41,12 @@ int sem_init(sem_t *sem, int pshared, unsigned value)
         return -ENOMEM;
     }
 
-    os_sema_init(s, 0);
+    if (os_sema_init(s, value) < 0) {
+        os_free(s);
+        return -1;
+    }
     *sem = (sem_t)s;
-    return RET_OK;
+    return 0;
 }
 
 int sem_post(sem_t *sem)
@@ -51,17 +56,17 @@ int sem_post(sem_t *sem)
 
 int sem_timedwait(sem_t *sem, const struct timespec *abstime)
 {
-    return os_sema_down((struct os_semaphore *)(*sem), pthread_timespec_delta(abstime));
+    return (os_sema_down((struct os_semaphore *)(*sem), pthread_timespec_delta(abstime)) == 1 ? 0 : -1);
 }
 
 int sem_trywait(sem_t *sem)
 {
-    return os_sema_down((struct os_semaphore *)(*sem), 0);
+    return (os_sema_down((struct os_semaphore *)(*sem), 0) == 1 ? 0 : -1);
 }
 
 int sem_wait(sem_t *sem)
 {
-    return os_sema_down((struct os_semaphore *)(*sem), osWaitForever);
+    return (os_sema_down((struct os_semaphore *)(*sem), osWaitForever) == 1 ? 0 : -1);
 }
 
 #endif

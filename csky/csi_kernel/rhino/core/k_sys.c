@@ -230,3 +230,16 @@ uint32_t krhino_version_get(void)
     return RHINO_VERSION;
 }
 
+void krhino_check_fatal_call(const char *func)
+{
+#ifdef SYSCHK_FATAL_CALL
+    uint8_t loop = 0;
+    uint32_t psr = __get_PSR();
+    if(__in_disable_irq(psr) || __in_interrupt()){
+        while(loop++ < 10){
+            printf("\0013**DANGEROUS** DO NOT CALL %s %s !\r\n", func, __in_disable_irq(psr)?"WHEN IRQ DISABLED":"IN INTERRUPT");
+        }
+    }
+#endif
+}
+

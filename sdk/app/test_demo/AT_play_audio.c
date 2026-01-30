@@ -244,7 +244,7 @@ int at_play_audio_thread(void *d)
 		if(data)
 		{
 			wav_buf = get_stream_real_data(data);
-//			os_printf("wb:%x\n",wav_buf);
+			os_printf("wb:%x\r\n",wav_buf);
 			if((read_total_len+audio_len) > audio_data_len) {
 				readLen = osal_fread((uint8_t*)wav_buf, 1, (audio_data_len-read_total_len), fp);
 			}

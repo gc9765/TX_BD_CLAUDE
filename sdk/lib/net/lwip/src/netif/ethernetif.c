@@ -260,7 +260,16 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
     }
 
     if (ret) {
-        //lwip_printf("Send to netdev error,ret:%d\n", ret);
+        switch(ret){ //转换成lwip自定义的error
+            case -ENOMEM:
+                ret = ERR_MEM;
+                break;
+            default:
+                ret = ERR_ARG;
+                break;
+        }
+
+        //printf("Send to netdev error,ret:%d\n", ret);
         return ret;
     }
 
@@ -589,6 +598,15 @@ uint8 *lwip_netif_get_mac(struct netdev *ndev)
     struct netif *nif = (struct netif *)ndev->stack_data;
     return nif ? nif->hwaddr : NULL;
 }
+int32 lwip_netif_set_mac(struct netdev *ndev, uint8 *mac)
+{
+    struct netif *nif = (struct netif *)ndev->stack_data;
+    if (nif) {
+        os_memcpy(nif->hwaddr, mac, ETH_HWADDR_LEN);
+        return RET_OK;
+    }
+    return -EINVAL;
+}
 
 ip_addr_t lwip_netif_get_ip2(const char *name)
 {
@@ -606,6 +624,15 @@ uint8 *lwip_netif_get_mac2(const char *name)
 {
     struct netif *nif =  netif_find(name);
     return nif ? nif->hwaddr : NULL;
+}
+int32 lwip_netif_set_mac2(const char *name, uint8 *mac)
+{
+    struct netif *nif = netif_find(name);
+    if (nif) {
+        os_memcpy(nif->hwaddr, mac, ETH_HWADDR_LEN);
+        return RET_OK;
+    }
+    return -EINVAL;
 }
 
 int32 lwip_netif_hook_inputdata(struct netif *nif, uint8 *data, uint32 len)

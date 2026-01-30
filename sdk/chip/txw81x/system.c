@@ -30,6 +30,7 @@ extern int  main(void);
 extern int  dev_init(void);
 extern void device_init(void);
 extern void set_psram_status(uint8_t res);
+extern uint8_t get_psram_status();
 
 extern int32_t g_top_irqstack;
 extern uint32_t __heap_start;
@@ -39,6 +40,9 @@ extern uint32_t __psram_heap_end;
 extern struct os_workqueue main_wkq;
 extern uint32 *sysvar_mgr;
 extern uint8_t assert_holdup;
+
+const uint32 g_DEFAULT_SYS_CLK = DEFAULT_SYS_CLK;
+const uint32 g_SYS_CACHE_ENABLE = SYS_CACHE_ENABLE;
 
 uint32 srampool_start = 0;
 uint32 srampool_end   = 0;
@@ -160,6 +164,10 @@ __SYS_INIT void SystemInit(void)
 #ifndef FPGA_SUPPORT
     system_clock_init();
 #endif
+    if (DEFAULT_SYS_CLK > (192*1000000) ) {
+        void ll_clock_set_apb0_div(uint8 apb0_div);
+        ll_clock_set_apb0_div(2);
+    }
 
     void hg_xspi_sample_offset(uint32 ospi_base, int8 rx_offset, int8 tx_offset);
     hg_xspi_sample_offset((uint32)HG_OSPI_BASE, -2, 0);
@@ -200,6 +208,7 @@ __SYS_INIT void SystemInit(void)
         if(!is_dsleep_wakeup()) sysctrl_gpio_funcmap_default(); 
     #endif
     
+//    pmu_set_deadcode_pending();
     mcu_watchdog_feed();
     mcu_watchdog_timeout_level(8);
 }
@@ -241,11 +250,18 @@ __init void pre_main(void)
     assert_holdup = ASSERT_HOLDUP;
     save_boot_loader_addr();
 
+	uint8_t res;
     if(NOW_PSRAM > PSRAM_DEF(E_PSRAM)) {
         //printf("now_psram:%d\t%d\n",NOW_PSRAM,PSRAM_DEF(E_PSRAM));
-        uint8_t res = psram_init(APS1604M_3SQR, (60*1000000),512);
+		res = psram_init(APS1604M_3SQR, (60*1000000),512);
         //外部psram初始化,所以需要配置对应的状态
         set_psram_status(res);
+    } else {
+        //is not ready?
+        if(!get_psram_status()) {
+            res = psram_auto_init();
+            set_psram_status(res);
+        }
     }
 
 #if MPOOL_ALLOC

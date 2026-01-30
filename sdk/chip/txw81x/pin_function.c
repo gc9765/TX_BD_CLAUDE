@@ -399,6 +399,16 @@ static int xspi_pin_func(int dev_id, int request)
 #define OSPI_MAP0_D2(n)         ((n & 0xF)<<24)
 #define OSPI_MAP0_D3(n)         ((n & 0xF)<<28)
 
+#define GPIO_A  (0x40020A00)
+#define GPIO_B  (0x40020B00)
+#define GPIO_C  (0x40020C00)
+#define GPIO_D  (0x40020D00)
+#define GPIO_E  (0x40020E00)
+
+#define REG_GPIO_DIR_INPUT(port, n)      (*(volatile unsigned int*)(port+0x00)) &= ~(3<<(n<<1))
+#define REG_GPIO_PDL_100(port, n)        (*(volatile unsigned int*)(port+0x18)) |= BIT(((n-0)<<2))
+#define REG_GPIO_PDH_100(port, n)        (*(volatile unsigned int*)(port+0x1C)) |= BIT(((n-8)<<2))
+
     int ret = RET_OK;
     int switch_off = request & 0x80;
     int psram_type = request & 0x7F;
@@ -408,7 +418,7 @@ static int xspi_pin_func(int dev_id, int request)
     }
     
     switch (psram_type) {
-        case 0:
+        case 0: //APS1604M_3SQR,
             if (!switch_off) {
                 //这里不能随意修改,外置psram配置,并且只能开机调用一次(特殊处理)
                 *((volatile uint32_t*)0x40020180) = 0x00004000; //IOFUNCMASK0
@@ -419,20 +429,20 @@ static int xspi_pin_func(int dev_id, int request)
                 *((volatile uint32_t*)0x40020a14) = 0x02222112;
                 *((volatile uint32_t*)0x40020a34) = 0x02222002;
             } else {
-                gpio_set_dir(PA_7 , GPIO_DIR_INPUT);
-                gpio_set_dir(PA_8 , GPIO_DIR_INPUT);
-                gpio_set_dir(PA_11, GPIO_DIR_INPUT);
-                gpio_set_dir(PA_12, GPIO_DIR_INPUT);
-                gpio_set_dir(PA_13, GPIO_DIR_INPUT);
-                gpio_set_dir(PA_14, GPIO_DIR_INPUT);
+                REG_GPIO_DIR_INPUT(GPIO_A, 7);
+                REG_GPIO_DIR_INPUT(GPIO_A, 8);
+                REG_GPIO_DIR_INPUT(GPIO_A, 11);
+                REG_GPIO_DIR_INPUT(GPIO_A, 12);
+                REG_GPIO_DIR_INPUT(GPIO_A, 13);
+                REG_GPIO_DIR_INPUT(GPIO_A, 14);
             }
             break;
-        case 1:
+        case 1: // APS1604M_DQRA,
             /* not support */
             break;
-        case 2:
+        case 2: //APS3208K_OKUD,
             if (!switch_off) {
-                gpio_set_mode(PE_4, GPIO_PULL_DOWN, GPIO_PULL_LEVEL_100K);
+                REG_GPIO_PDL_100(GPIO_E, 4);
 
                 SYSCTRL_REG_OPT( 
                     SYSCTRL->OSPI_MAP_CTL0 = OSPI_MAP0_CLK(8) | OSPI_MAP0_DQS(4) | OSPI_MAP0_DM(15) | OSPI_MAP0_CS(10) |
@@ -453,9 +463,9 @@ static int xspi_pin_func(int dev_id, int request)
                 ); 
             }
             break;
-        case 3:
+        case 3: //APS6408L_OBMx,
             if (!switch_off) {
-                gpio_set_mode(PE_4, GPIO_PULL_DOWN, GPIO_PULL_LEVEL_100K);
+                REG_GPIO_PDL_100(GPIO_E, 4);
 
                 SYSCTRL->OSPI_MAP_CTL0 = OSPI_MAP0_CLK(9) | OSPI_MAP0_DQS(14) | OSPI_MAP0_DM(15) | OSPI_MAP0_CS(8) |
                                          OSPI_MAP0_D0(4) | OSPI_MAP0_D1(5) | OSPI_MAP0_D2(6) | OSPI_MAP0_D3(7);
@@ -492,17 +502,17 @@ static int xspi_pin_func(int dev_id, int request)
                 *((volatile uint32_t*)0x40020E10) = 0x00000101;
                 *((volatile uint32_t*)0x40020E30) = 0x00000101;
             } else {
-                gpio_set_dir(PC_8 , GPIO_DIR_INPUT);
-                gpio_set_dir(PC_10 , GPIO_DIR_INPUT);
-                gpio_set_dir(PC_14, GPIO_DIR_INPUT);
-                gpio_set_dir(PE_0, GPIO_DIR_INPUT);
-                gpio_set_dir(PE_2, GPIO_DIR_INPUT);
-                gpio_set_dir(PA_0, GPIO_DIR_INPUT);
+                REG_GPIO_DIR_INPUT(GPIO_C, 8);
+                REG_GPIO_DIR_INPUT(GPIO_C, 10);
+                REG_GPIO_DIR_INPUT(GPIO_C, 14);
+                REG_GPIO_DIR_INPUT(GPIO_E, 0);
+                REG_GPIO_DIR_INPUT(GPIO_E, 2);
+                REG_GPIO_DIR_INPUT(GPIO_A, 0);
             }
             break;
         case 5://SCKW18X128800
             if (!switch_off) {
-                gpio_set_mode(PE_6, GPIO_PULL_DOWN, GPIO_PULL_LEVEL_100K);
+                REG_GPIO_PDL_100(GPIO_E, 6);
                 SYSCTRL_REG_OPT(
                     SYSCTRL->OSPI_MAP_CTL0 = OSPI_MAP0_CLK(5) | OSPI_MAP0_DQS(6) | OSPI_MAP0_DM(6) | OSPI_MAP0_CS(4) |
                                              OSPI_MAP0_D0(14) | OSPI_MAP0_D1(13) | OSPI_MAP0_D2(12) | OSPI_MAP0_D3(11);
@@ -523,7 +533,7 @@ static int xspi_pin_func(int dev_id, int request)
             break;
         case 6://SCKM18X032800
             if (!switch_off) {
-                gpio_set_mode(PE_4, GPIO_PULL_DOWN, GPIO_PULL_LEVEL_100K);
+                REG_GPIO_PDL_100(GPIO_E, 4);
                 SYSCTRL_REG_OPT(
                     SYSCTRL->OSPI_MAP_CTL0 = OSPI_MAP0_CLK(8) | OSPI_MAP0_DQS(4) | OSPI_MAP0_DM(4) | OSPI_MAP0_CS(10) |
                                              OSPI_MAP0_D0(14) | OSPI_MAP0_D1(13) | OSPI_MAP0_D2(12) | OSPI_MAP0_D3(11);
@@ -578,11 +588,17 @@ static int spi_pin_func(int dev_id, int request)
                 gpio_iomap_inout(PIN_SPI1_CLK, GPIO_IOMAP_IN_SPI1_SCK_IN, GPIO_IOMAP_OUT_SPI1_SCK_OUT);
                 gpio_iomap_inout(PIN_SPI1_IO0, GPIO_IOMAP_IN_SPI1_IO0_IN, GPIO_IOMAP_OUT_SPI1_IO0_OUT);
                 gpio_iomap_inout(PIN_SPI1_IO1, GPIO_IOMAP_IN_SPI1_IO1_IN__LCD_D12_IN_MASK1_31, GPIO_IOMAP_OUT_SPI1_IO1_OUT);
+                gpio_iomap_input(PIN_SPI1_IO2,GPIO_IOMAP_IN_SPI1_IO2_IN__IIS1_BCLK_IN);
+                gpio_iomap_output(PIN_SPI1_IO2,GPIO_IOMAP_OUT_SPI1_IO2_OUT);
+                gpio_iomap_input(PIN_SPI1_IO3,GPIO_IOMAP_IN_SPI1_IO3_IN__IIS1_DAT_IN);
+                gpio_iomap_output(PIN_SPI1_IO3,GPIO_IOMAP_OUT_SPI1_IO3_OUT);
             } else {
                 gpio_set_dir(PIN_SPI1_CS, GPIO_DIR_INPUT);
                 gpio_set_dir(PIN_SPI1_CLK, GPIO_DIR_INPUT);
                 gpio_set_dir(PIN_SPI1_IO0, GPIO_DIR_INPUT);
                 gpio_set_dir(PIN_SPI1_IO1, GPIO_DIR_INPUT);
+                gpio_set_dir(PIN_SPI1_IO2, GPIO_DIR_INPUT);
+                gpio_set_dir(PIN_SPI1_IO3, GPIO_DIR_INPUT);
             }
             break;
         default:

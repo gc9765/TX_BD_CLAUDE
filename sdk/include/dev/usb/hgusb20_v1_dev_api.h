@@ -548,7 +548,7 @@ bool usb_host_ep0_request(struct hgusb20_dev *p_dev, uint8 *pBuf);
   * @return 
   * @note
   */
-void hgusb20_host_ep0_setup(struct hgusb20_dev *p_dev);
+uint32_t hgusb20_host_ep0_setup(struct hgusb20_dev *p_dev);
 
 /** 
   * @brief  usb host ep0 send IN packet & request a data packet
@@ -556,7 +556,7 @@ void hgusb20_host_ep0_setup(struct hgusb20_dev *p_dev);
   * @return 
   * @note   addr = p_dev->usb_ep0_buf, len = p_dev->ep0_ptr.rx_len
   */
-void hgusb20_host_ep0_rx(struct hgusb20_dev *p_dev, uint8 *pBuf, bool first_pkt);
+uint32_t hgusb20_host_ep0_rx(struct hgusb20_dev *p_dev, uint8 *pBuf, bool first_pkt);
 /** 
   * @brief  usb host ep0 send IN packet & request a data packet
   * @param  p_dev    : hgusb20_dev use @ref dev_get() function to get the handle.
@@ -564,7 +564,7 @@ void hgusb20_host_ep0_rx(struct hgusb20_dev *p_dev, uint8 *pBuf, bool first_pkt)
   * @return 
   * @note   addr = p_dev->usb_ep0_buf, len = p_dev->ep0_ptr.rx_len
   */
-void hgusb20_host_ep0_tx(struct hgusb20_dev *p_dev, uint8 *pBuf, uint8 len);
+uint32_t hgusb20_host_ep0_tx(struct hgusb20_dev *p_dev, uint8 *pBuf, uint8 len);
 
 /** 
   * @brief  usb host endpiont init
@@ -638,7 +638,8 @@ bool hgusb20_host_is_crc_err(struct hgusb20_dev *p_dev, uint8 ep_num);
 void hgusb20_host_reset_phy(struct hgusb20_dev * p_dev);
 
 int32 hgusb20_host_set_interval(struct hgusb20_dev *p_dev, uint8_t ep_host, uint8_t mode, uint32_t interval);
-
+void hgusb20_host_reset_ep_rxcsr(struct hgusb20_dev *p_dev, uint8 ep_num);
+void hgusb20_host_reset_ep_txcsr(struct hgusb20_dev *p_dev, uint8 ep_num);
 /**
   * @}
   */

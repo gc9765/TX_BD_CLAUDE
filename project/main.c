@@ -44,6 +44,8 @@
 #include "remote_control.h"
 #include "lib/sdhost/sdhost.h"
 #include "lib/ble/ble_def.h"
+#include "lib/ble/ble_demo.h"
+#include "lib/ble/uble.h"
 #include "lib/common/dsleepdata.h"
 #include "dns_eloop/dns_eloop.h"
 
@@ -57,6 +59,10 @@
 #include "keyWork.h"
 #include "flashdisk/flashdisk.h"
 #include "osal_file.h"
+
+  #include "lwip/tcp.h"
+  #include "lwip/ip_addr.h"
+  #include "lwip/priv/tcp_priv.h" 
 
 #if MP3_EN
 #include "mp3/mp3_decode.h"
@@ -99,6 +105,55 @@ struct hgic_atcmd_normal {
 struct hgic_atcmd_normal *atcmd_uart_normal = NULL;
 
 
+/// TCP 状态字符串数组
+  static const char *const tcp_dbg_state_str[] = {
+      "CLOSED",
+      "LISTEN",
+      "SYN_SENT",
+      "SYN_RCVD",
+      "ESTABLISHED",
+      "FIN_WAIT_1",
+      "FIN_WAIT_2",
+      "CLOSE_WAIT",
+      "CLOSING",
+      "LAST_ACK",
+      "TIME_WAIT"
+  };
+
+  // 外部声明全局 TCP PCB 链表
+  extern struct tcp_pcb *tcp_active_pcbs;
+  extern struct tcp_pcb *tcp_tw_pcbs;
+  extern union tcp_listen_pcbs_t tcp_listen_pcbs;
+
+  // 打印单个 TCP PCB
+  static void print_tcp_pcb(struct tcp_pcb *pcb, const char *list_name)
+  {
+      if (pcb == NULL) return;
+
+      // 确保状态值在有效范围内
+      int state_idx = (int)pcb->state;
+      if (state_idx < 0 || state_idx > 10) {
+          state_idx = 0;
+      }
+
+      // IPv4 only: local_ip 和 remote_ip 直接是 ip4_addr_t，只有一个 addr 成员
+      u32_t local_addr = pcb->local_ip.addr;
+      u32_t remote_addr = pcb->remote_ip.addr;
+
+      os_printf("[%s] %-12s Local:%d.%d.%d.%d:%-6d Remote:%d.%d.%d.%d:%d\n",
+          list_name,
+          tcp_dbg_state_str[state_idx],
+          (int)((local_addr >> 0) & 0xFF),
+          (int)((local_addr >> 8) & 0xFF),
+          (int)((local_addr >> 16) & 0xFF),
+          (int)((local_addr >> 24) & 0xFF),
+          pcb->local_port,
+          (int)((remote_addr >> 0) & 0xFF),
+          (int)((remote_addr >> 8) & 0xFF),
+          (int)((remote_addr >> 16) & 0xFF),
+          (int)((remote_addr >> 24) & 0xFF),
+          pcb->remote_port);
+  }
 
 #if NET_PAIR
 void set_pair_mode(uint8_t enable)
@@ -227,7 +282,7 @@ __weak void user_io_preconfig()
 
 __weak void user_protocol()
 {
-    spook_init();
+//    spook_init();
 }
 
 __weak void user_hardware_config()
@@ -357,6 +412,17 @@ sysevt_hdl_res sysevt_wifi_event(uint32 event_id, uint32 data, uint32 priv){
         case SYSEVT_WIFI_CONNECTTED:
 			aid_to_mac((uint16)data,mac);
 			user_sta_add((char *)mac);
+#if BLE_PAIR_NET == 2
+            char *ble_pair_network_succ = "network_connect_succ";
+            struct lmac_ops *lops = (struct lmac_ops *)g_ops;
+            struct bt_ops *bt_ops = (struct bt_ops *)lops->btops;
+
+            os_printf("notify client: %s\r\n", ble_pair_network_succ);
+            uble_gatt_notify(10, (uint8 *)ble_pair_network_succ, os_strlen(ble_pair_network_succ));
+            os_sleep(1);
+            ble_demo_stop(bt_ops);
+            ble_set_coexist_en(bt_ops, 0, 0);
+#endif
             //240327
             if (sys_cfgs.wifi_mode == WIFI_MODE_STA) {
                 if(sys_cfgs.dhcpc_en){//dynamic ip, 
@@ -380,14 +446,10 @@ sysevt_hdl_res sysevt_wifi_event(uint32 event_id, uint32 data, uint32 priv){
 			#endif
                 syscfg_save_AP_msg((uint8_t*)bssid,channel,&bss_data);
             }
-            // extern void app_main(void);
-            // app_main();
             break;
 		case SYSEVT_WIFI_STA_DISCONNECT:
-            os_printf("SYSEVT_WIFI_STA_DISCONNECT #################\n");
 			aid_to_mac((uint16)data,mac);
 			user_sta_del((char *)mac);
-            // baidu_chat_agent_demo_close();
 			break;
 		case SYSEVT_WIFI_STA_CONNECTTED:
 			aid_to_mac((uint16)data,mac);
@@ -476,6 +538,34 @@ sysevt_hdl_res sysevt_lte_event(uint32 event_id, uint32 data, uint32 priv)
     return SYSEVT_CONTINUE;
 }
 
+//sysevt_hdl_res sysevt_ble_event(uint32 event_id, uint32 data, uint32 priv)
+//{
+//    switch (event_id) {
+//        case SYS_EVENT(SYS_EVENT_BLE, SYSEVT_BLE_NETWORK_CONFIGURED):
+//#if BLE_SUPPORT 
+//    		wpa_passphrase(sys_cfgs.ssid, sys_cfgs.passwd, sys_cfgs.psk);
+//    		ieee80211_conf_set_ssid(WIFI_MODE_STA, sys_cfgs.ssid);
+//    		ieee80211_conf_set_psk(WIFI_MODE_STA, sys_cfgs.psk);
+//    		ieee80211_conf_set_keymgmt(WIFI_MODE_STA, sys_cfgs.key_mgmt);
+//    		sys_cfgs.wifi_mode = WIFI_MODE_STA;
+//    		syscfg_save();
+//
+//    		ieee80211_iface_stop(WIFI_MODE_AP);
+//            ieee80211_iface_stop(WIFI_MODE_STA);
+//    		wificfg_flush(WIFI_MODE_STA);
+//    		netdev_set_wifi_mode((struct netdev *)dev_get(HG_WIFI0_DEVID), WIFI_MODE_STA);
+//    		ieee80211_iface_start(WIFI_MODE_STA);
+//#if BLE_PAIR_NET == 1
+//			struct lmac_ops *lops = (struct lmac_ops *)g_ops;
+//			struct bt_ops *bt_ops = (struct bt_ops *)lops->btops;
+//            ble_demo_stop(bt_ops);
+//#endif
+//#endif
+//            break;
+//    }
+//    return SYSEVT_CONTINUE;
+//}
+
 __init static void sys_wifi_start_acs(void *ops){
 	int32 ret;
 	struct lmac_acs_ctl acs_ctl;
@@ -527,11 +617,19 @@ __init static void sys_wifi_parameter_init(void *ops)
 #endif
 //使用小电流时，就不使用增大发射功率的功率表
 #if (WIFI_RF_PWR_LEVEL != 1) && (WIFI_RF_PWR_LEVEL != 2)
+#if (WIFI_FEM_CHIP == LMAC_FEM_GSR2701) || (WIFI_FEM_CHIP == LMAC_FEM_KCT8227D) || (WIFI_FEM_CHIP == LMAC_FEM_GSR2701_5V)
+    uint8 gain_table[] = {
+        96, 96, 96, 96, 88, 88, 64, 64,         // NON HT OFDM
+        96, 96, 96, 88, 88, 64, 64, 64,         // HT
+        64, 64, 64, 64,                         // DSSS
+    };
+#else
     uint8 gain_table[] = {
         125, 125, 105, 100, 85, 85, 64, 64,     // NON HT OFDM
         125, 105, 105, 85,  85, 64, 64, 64,     // HT
         80,  80,  80,  80,                      // DSSS
     };
+#endif
     lmac_set_tx_modulation_gain(ops, gain_table, sizeof(gain_table));
 #endif
     lmac_set_temperature_compesate_en(ops, WIFI_TEMPERATURE_COMPESATE_EN);
@@ -565,10 +663,10 @@ __init static void sys_wifi_test_mode_init(void *ops)
         64, 64, 64, 64,                     //DSSS
     };
 
-    lmac_set_tx_modulation_gain(ops, default_gain_table, sizeof(default_gain_table));
 #if WIFI_FEM_CHIP != LMAC_FEM_NONE
     lmac_set_fem(ops, WIFI_FEM_CHIP);   //初始化FEM之后，不能进行RF档位选择！
 #endif
+    lmac_set_tx_modulation_gain(ops, default_gain_table, sizeof(default_gain_table));
 }
 
 __init static void sys_wifi_init()
@@ -678,12 +776,13 @@ static void sys_dhcpc_check(void)
             lwip_netif_set_dhcp2("w0", 1);
         }
     }
-
+	// 新增：DHCP 完成后启动百度 AI 对话
     if(sys_status.dhcpc_done && !brtc_ai_chat_running) {
         brtc_ai_chat_running = 1;
         os_sleep_ms(5000);
+		
         extern void app_main(void);
-        app_main();
+        app_main();  // 调用百度 AI 主程序
     }
 }
 
@@ -916,6 +1015,7 @@ __init static void app_network_init()
 
 
 #ifdef CONFIG_UMAC4
+#if BLE_SUPPORT 
     #if BLE_PAIR_NET == 1
         //配网仅仅支持station模式
         if(sys_cfgs.wifi_mode == WIFI_MODE_STA)
@@ -934,11 +1034,16 @@ __init static void app_network_init()
             {
                 ble_reset_pair_network(38, NULL);
             }
-
         }
+    #elif BLE_PAIR_NET == 2
+        struct lmac_ops *lops = (struct lmac_ops *)g_ops;
+	    struct bt_ops *bt_ops = (struct bt_ops *)lops->btops;
+
+        ble_set_coexist_en(bt_ops, 1, 0);
+		ble_demo_start(bt_ops, 2);
     #endif
 #endif
-
+#endif
 
 #if LOWPOWER_DEMO == 1
 	app_lowpower_init();
@@ -985,8 +1090,76 @@ uint8 vcam_en()
 }
 
 
+void wechat_fs_init(void) {
+    FRESULT fr;
+    void *fp;
+    const char *test_file = "0:/fs_test.txt";
+    const char *test_data = "Hello SD Card! File R/W Test - 2026-01-22";
+    char read_buf[64];
+    size_t bytes_written, bytes_read;
+
+    // 创建DCIM目录
+    fr = osal_fmkdir("0:/DCIM");
+	if(fr != FR_OK && fr != FR_EXIST) {
+        os_printf("[FS] Mkdir DCIM Fail: %d\r\n", fr);
+    } else {
+        os_printf("[FS] Mkdir DCIM Success!\r\n");
+    }
+
+    // ====== SD卡文件读写测试 ======
+    os_printf("\n=== SD卡文件读写测试开始 ===\n");
+
+    // 1. 创建并写入文件
+    fp = osal_fopen(test_file, "w");
+    if (!fp) {
+        os_printf("[FS_TEST] 错误: 无法创建文件 %s\n", test_file);
+        os_printf("[FS_TEST] 路径可能不正确，尝试其他路径...\n");
+
+        // 尝试不同路径
+        fp = osal_fopen("fs_test.txt", "w");
+        if (!fp) {
+            os_printf("[FS_TEST] 错误: 无法在根目录创建文件\n");
+            os_printf("=== SD卡文件读写测试失败 ===\n\n");
+            return;
+        }
+    }
+
+    bytes_written = osal_fwrite(test_data, 1, strlen(test_data), fp);
+    osal_fclose(fp);
+    os_printf("[FS_TEST] 写入文件: %s, 字节数: %u\n", test_file, bytes_written);
+
+    // 2. 读取并验证文件
+    fp = osal_fopen(test_file, "r");
+    if (!fp) {
+        os_printf("[FS_TEST] 错误: 无法打开文件进行读取\n");
+        os_printf("=== SD卡文件读写测试失败 ===\n\n");
+        return;
+    }
+
+    memset(read_buf, 0, sizeof(read_buf));
+    bytes_read = osal_fread(read_buf, 1, sizeof(read_buf) - 1, fp);
+    osal_fclose(fp);
+    os_printf("[FS_TEST] 读取文件: %s, 字节数: %u\n", test_file, bytes_read);
+    os_printf("[FS_TEST] 内容: %s\n", read_buf);
+
+    // 3. 验证数据
+    if (strcmp(test_data, read_buf) == 0) {
+        os_printf("[FS_TEST] ✓ 文件读写测试成功！数据验证通过\n");
+    } else {
+        os_printf("[FS_TEST] ✗ 文件读写测试失败！数据不匹配\n");
+    }
+
+    os_printf("=== SD卡文件读写测试结束 ===\n\n");
+}
+
 void hardware_init(uint8 vcam)
 {
+	// 早期初始化喇叭静音 GPIO (PA_6: 0=mute, 1=unmute)
+	gpio_set_mode(PA_6, GPIO_PULL_NONE, GPIO_PULL_LEVEL_NONE);
+	gpio_set_dir(PA_6, GPIO_DIR_OUTPUT);
+	gpio_set_val(PA_6, 0);  // 0=mute, 启动时静音
+	os_printf("### Early init: speaker muted (PA_6=0)\r\n");
+
 	//gpio_set_val(PC_7,1);
 	//gpio_iomap_output(PC_7,GPIO_IOMAP_OUTPUT);
     if(vcam == FALSE)
@@ -1064,8 +1237,8 @@ void hardware_init(uint8 vcam)
 #endif
 
 #if SD_SAVE
-	void sd_save_thread_start();
-    sd_save_thread_start();
+//	void sd_save_thread_start();
+//    sd_save_thread_start();
 #endif
 
 
@@ -1120,47 +1293,17 @@ void hardware_init(uint8 vcam)
 
 	//user_hardware_config();
 }
-void cpu_loading_print_ex(uint8 all)
-{
-#define OS_TASK_COUNT (30)
- uint32 i = 0;
- uint32 diff_tick = 0;
- uint32 count = 32;
- struct os_task_info tsk_runtime[OS_TASK_COUNT + 1];
- static uint64 cpu_loading_tick = 0;
- uint64 jiff = os_jiffies();
 
- count = os_task_runtime(tsk_runtime, OS_TASK_COUNT + 1);
- diff_tick = DIFF_JIFFIES(cpu_loading_tick, jiff);
- cpu_loading_tick = jiff;
-
- os_printf("---------------------------------------------------\r\n");
- os_printf("Task Runtime Statistic, interval:%dms\r\n", diff_tick);
- os_printf("PID      Name            %%CPU(Time)    Stack  Prio \r\n", diff_tick);
- os_printf("---------------------------------------------------\r\n");
- for (i = 0; i < count && i < OS_TASK_COUNT + 1; i++) {
-        if (tsk_runtime[i].time > 0 || all) {
-            os_printf("%2d     %-12s\t%2d%%(%6d)   %4d  %d (%p)\r\n",
-                      tsk_runtime[i].id,
-                      tsk_runtime[i].name ? tsk_runtime[i].name : (const uint8 *)"----",
-                      (tsk_runtime[i].time * 100) / diff_tick,
-                      tsk_runtime[i].time,
-                      tsk_runtime[i].stack * 4,
-                      tsk_runtime[i].prio,
-                      tsk_runtime[i].arg);
-        }
-    }
-    os_printf("---------------------------------------------------\r\n");
-}
 static int32 main_loop(struct os_work *work)
 {
     static int8 print_interval = 0;
-    sys_dhcpc_check();
+	
+    sys_dhcpc_check();  // sys_dhcpc_check,如果wifi连接成功则可以开始连接百度云
+	
     if (print_interval++ >= 5) {
         uint32 sysheap_freesize(struct sys_heap *heap);
         os_printf("ip:%x  freemem:%d\r\n", lwip_netif_get_ip2("w0").addr,sysheap_freesize(&sram_heap));
         print_interval = 0;
-        cpu_loading_print_ex(1);
     }
 
     #ifdef PSRAM_HEAP
@@ -1174,6 +1317,7 @@ static int32 main_loop(struct os_work *work)
     dsleep_ip_addr_set(lwip_netif_get_ip2("w0").addr);
 #endif
     os_run_work_delay(&main_wk, 1000);
+
 	return 0;
 }
 
@@ -1258,11 +1402,11 @@ int main(void)
     sys_cfg_load();
     vcam = vcam_en();
     user_io_preconfig();
-  
     sys_event_init(32);
     sys_event_take(SYS_EVENT(SYS_EVENT_WIFI, 0), sysevt_wifi_event, 0);
     sys_event_take(SYS_EVENT(SYS_EVENT_NETWORK, 0), sysevt_network_event, 0);
     sys_event_take(SYS_EVENT(SYS_EVENT_LTE, 0), sysevt_lte_event, 0);
+//    sys_event_take(SYS_EVENT(SYS_EVENT_BLE, 0), sysevt_ble_event, 0);
     sys_atcmd_init();
     sys_wifi_init();
     // enter wifi test mode
@@ -1282,17 +1426,15 @@ int main(void)
         dsleep_test_init();
 #endif
 #endif
-	
+		
         app_network_init();
-        mcu_watchdog_timeout(0);
+		
+		wechat_fs_init();
+		
+        mcu_watchdog_timeout(5);
         OS_WORK_INIT(&main_wk, main_loop, 0);
         os_run_work_delay(&main_wk, 1000);
     }
-
-    // //开音频
-    // gpio_iomap_output(PA_6,GPIO_IOMAP_OUTPUT);
-    // gpio_set_val(PA_6,0);
-    
     pmu_clr_deadcode_pending();
 #ifdef LLM_DEMO
 extern void llm_demo(void);

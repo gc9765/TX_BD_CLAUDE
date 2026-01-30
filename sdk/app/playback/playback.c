@@ -135,6 +135,51 @@ void jpeg_file_get(uint8* photo_name,uint32 reset,char* file)
 	
 }
 
+
+void jpeg_photo_renderer(const uint8_t *data, size_t len, uint32 scale_w, uint32 scale_h) {
+#if 1
+	if (data == NULL || len == 0) {
+		os_printf("jpeg_photo_renderer: Invalid data or length\n");
+		return;
+	}
+
+	uint8_t *data_buf = NULL;
+	uint32_t count = 0;
+	uint32_t data_len;
+	uint8_t *photo_sd_cache = NULL;
+	uint32_t photo_sd_cache_size = 8*1024; 
+
+	data_len = len;
+	_os_printf("data_len:%d\r\n",data_len);
+	
+	//从psram中申请一个空间
+	data_buf = (uint8_t*)custom_malloc_psram(data_len);
+	if(!data_buf)
+	{
+		goto jpeg_photo_renderer_end;
+	}
+
+	memcpy(data_buf, data, data_len);
+
+	jpg_analyze(data_buf,(uint8_t *)photo_size);
+	_os_printf("width:%d  high:%d\r\n",photo_size[0],photo_size[1]);
+	jpg_decode_to_lcd((uint32)data_buf,photo_size[1],photo_size[0],scale_w,scale_h);
+	while(!jpg_decode_is_finish() && count < 1000)
+	{
+		os_sleep_ms(1);
+		count++;
+	}
+	os_printf("%s count:%d\n",__FUNCTION__,count);
+
+jpeg_photo_renderer_end:
+	if(data_buf)
+	{
+		custom_free_psram(data_buf);
+		data_buf = NULL;
+	}
+#endif
+}
+
 void jpeg_photo_explain(uint8* photo_name, uint32 scale_w, uint32 scale_h){
 
 	uint32_t data_count;
@@ -163,7 +208,7 @@ void jpeg_photo_explain(uint8* photo_name, uint32 scale_w, uint32 scale_h){
 
 	while(!photo_sd_cache)
 	{
-		photo_sd_cache = (uint8_t*)custom_malloc(photo_sd_cache_size);
+		photo_sd_cache = (uint8_t*)custom_malloc_psram(photo_sd_cache_size);
 		if(!photo_sd_cache)
 		{
 			photo_sd_cache_size >>= 1;
@@ -221,7 +266,7 @@ jpeg_photo_explain_end:
 
 	if(photo_sd_cache)
 	{
-		custom_free(photo_sd_cache);
+		custom_free_psram(photo_sd_cache);
 	}
 
 }

@@ -94,14 +94,13 @@ uint16_t thumb2_checksum(const void *pData, int length);
 
 #ifdef LWIP_DEBUG
 
-// #include "stdio.h"
+#include "stdio.h"
 
 void assert_printf(char *msg, int line, char *file);
 
 /* Plaform specific diagnostic output */
 #define LWIP_PLATFORM_DIAG(vars) printf vars
-// #define LWIP_PLATFORM_ASSERT(flag) { assert_printf((flag), __LINE__, __FILE__); }
-#define LWIP_PLATFORM_ASSERT(flag) { printf((flag), __LINE__, __FILE__); }
+#define LWIP_PLATFORM_ASSERT(flag) { assert_printf((flag), __LINE__, __FILE__); }
 #else
 #define LWIP_PLATFORM_DIAG(msg) { ; }
 #define LWIP_PLATFORM_ASSERT(flag) { ; }

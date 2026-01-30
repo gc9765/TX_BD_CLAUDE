@@ -556,8 +556,17 @@ static void udp_rx_msg_timer(void *ei, void *d)
 		start_time = os_jiffies();
 		return;
 	}
-	uint32_t speed = speed_count/(os_jiffies()-start_time);
-	os_printf("speed:%d KB/s\n",speed);
+
+	uint32_t speed = 0;
+	uint32 time = (os_jiffies()-start_time);
+	if(time){
+		speed = speed_count/time;
+		os_printf("speed:%d KB/s\n",speed);
+	}else{
+		os_printf("!!!!!!!!!!!!!!!!!!!!!time err %d\n",time);
+	}
+
+
 	//os_printf("count:%d\ttime:%d\t%d\tspeed:%d KB/s\n",speed_count,(os_jiffies()-start_time),speed,speed_count/(os_jiffies()-start_time));
 	start_time = os_jiffies();
 	speed_count = 0;

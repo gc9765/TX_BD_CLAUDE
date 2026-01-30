@@ -42,6 +42,33 @@ extern "C" {
 #define CLK_RC10M              10000000
 #define CLK_LXOSC32K           32000
 
+#define EFUSE_PACK_OFFSET               119
+#define EFUSE_BIOS_ID                   113
+#define EFUSE_5_10M_DIS_OFFSET          118
+#define EFUSE_5_10M_DIS_SIZE            1       //bit 2
+
+//芯片封装定义
+#define PACK_811_100                    0x01
+#define PACK_812_310                    0x02
+#define PACK_813_320                    0x03
+#define PACK_816_G00                    0x06    //QFN48
+    #define PACK_816_G00_FIX            0xF6    //QFN48 ， 改启动模式补救PCBA
+#define PACK_KL908                      0x07    //QFN48 PACK_816_G00 基础上增加VCC18 LDO封装
+    #define PACK_KL908F                 0x16    //QFN48
+#define PACK_816_810                    0x08    //QFN48
+#define PACK_817_810                    0x0A
+#define PACK_817_H24                    0x0B
+#define PACK_817_824                    0x0C
+#define PACK_817_812                    0x0D
+#define PACK_817_824F                   0x0F
+#define PACK_818_C04L                   0x10
+#define PACK_818_C08L                   0x11
+#define PACK_818_C016L                  0x12  
+#define PACK_818_C04F                   0x13
+#define PACK_818_C04LB                  0x14
+#define PACK_818_C08LP                  0x15
+#define PACK_817_824_GD                 0x1C
+
 struct __clock_cfg {
     uint8  clk_source_sel;
     uint8  clk_valid;
@@ -51,6 +78,7 @@ struct __clock_cfg {
     uint32 sys_clk;
     uint32 syspll_clk;
 	uint32 max_flash_clk;
+    uint32 flash_clk_mod;
     uint32 max_psram_clk;
 };
 
@@ -809,7 +837,8 @@ void system_reboot_test_mode(void);
 void system_reboot_normal_mode(void);
 int32 system_is_wifi_test_mode(void);
 void system_qspi_pretect_all(void);
-
+uint8 get_chip_pack(void);
+uint8 get_bios_id(void);
 
 #define sysctrl_dma_bridge_reset()
 

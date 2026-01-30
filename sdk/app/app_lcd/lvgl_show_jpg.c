@@ -47,6 +47,7 @@ int parse_jpg(uint8_t *jpg_buf,uint32_t maxsize,uint32_t *w,uint32_t *h)
 			break;
 			case 0xC0: /* Start of Frame */
 				parse_SOF(buf+i+4,w,h);
+                res = 0;
 				//printf("w:%d\th:%d\n",*w,*h);
 			break;
 			case 0xC4: /* Huffman Table */

@@ -640,6 +640,8 @@ static uint8 uvc_data_handle(UVC_MANAGE *uvc,struct hgusb20_dev *p_dev,uint8_t* 
         uvc->sta = 2;
         uvc->tgl = CURT_TGL;
         tgl_mark = CURT_TGL;
+
+        if(uvc->frame_len != 0) {
 #ifdef PSRAM_HEAP   
         set_uvc_frame_ready(uvc);                             //上一次frame已完成
         //_os_printf("_1_");
@@ -657,6 +659,22 @@ static uint8 uvc_data_handle(UVC_MANAGE *uvc,struct hgusb20_dev *p_dev,uint8_t* 
             uvc->frame_end = 1;         
         }
 #endif
+        } else {
+            // os_printf("!!!!!!!!!!!!!!!!!!!!!uvc->frame_len:%d\n",uvc->frame_len);
+            uvc_p[0]   = get_new_uvc_frame_head(1);                  //获取新的frame,然后检测下这个frame是不是已有blank，有的话，要先清
+            uvc_msg[0] = list_entry(uvc_p[0],UVC_MANAGE,list);//&uvc_msg_frame[0];
+            uvc_msg[0]->sta = 0;
+            if(uvc_msg[0] == uvc){
+                free_get_uvc_node_list(&uvc->list,&free_uvc_tab[0]); 
+                del_uvc_frame(uvc);
+                uvc_msg[0]->state = 1;
+            }else{
+                uvc->frame_end = 2;
+                uvc->sta = 0;   
+            }
+            return 0;
+        }
+
         // uvc_time = csi_kernel_get_ticks();
         
         
@@ -927,6 +945,7 @@ static uint8 uvc_data_handle2(UVC_MANAGE *uvc,struct hgusb20_dev *p_dev,uint8_t*
         uvc->sta = 2;
         uvc->tgl = CURT_TGL2;
         tgl_mark = CURT_TGL2;
+        if(uvc->frame_len != 0) {
 #ifdef PSRAM_HEAP   
         set_uvc_frame_ready(uvc);                             //上一次frame已完成
         //_os_printf("_O_");
@@ -944,6 +963,22 @@ static uint8 uvc_data_handle2(UVC_MANAGE *uvc,struct hgusb20_dev *p_dev,uint8_t*
             uvc->frame_end = 1;         
         }
 #endif
+        } else {
+            // os_printf("!!!!!!!!!!!!!!!!!!!!!uvc->frame_len:%d\n",uvc->frame_len);
+            uvc_p[1]   = get_new_uvc_frame_head2(1);                  //获取新的frame,然后检测下这个frame是不是已有blank，有的话，要先清
+            uvc_msg[1] = list_entry(uvc_p[0],UVC_MANAGE,list);//&uvc_msg_frame[0];
+            uvc_msg[1]->sta = 0;
+            if(uvc_msg[1] == uvc){
+                free_get_uvc_node_list(&uvc->list,&free_uvc_tab[0]); 
+                del_uvc_frame(uvc);
+                uvc_msg[1]->state = 1;
+            }else{
+                uvc->frame_end = 2;
+                uvc->sta = 0;   
+            }
+            return 0;
+        }
+
         //uvc_time = os_jiffies();
         
         

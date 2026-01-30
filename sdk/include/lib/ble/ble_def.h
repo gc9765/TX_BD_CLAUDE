@@ -39,6 +39,7 @@ enum BLE_LL_IOCTL {
     BLE_IOCTL_SET_LL_LENGTH = 14,
     BLE_IOCTL_SET_DISCONNECT = 15,
     BLE_IOCTL_GET_RSSI = 16,
+	BLE_IOCTL_GET_BLE_EN = 17,
 };
 
 struct bt_rx_info {
@@ -88,6 +89,7 @@ struct bt_ops *ble_ll_init(struct lmac_ops *ops);
 #define ble_ll_set_ll_length(ops, length)                 ops->ioctl(ops, BLE_IOCTL_SET_LL_LENGTH, length, 0)
 #define ble_ll_set_disconnect(ops)                        ops->ioctl(ops, BLE_IOCTL_SET_DISCONNECT, 0, 0)
 #define ble_ll_get_rssi(ops)                              ops->ioctl(ops, BLE_IOCTL_GET_RSSI, 0, 0)
+#define ble_ll_get_ble_en(ops)                            ops->ioctl(ops, BLE_IOCTL_GET_BLE_EN, 0, 0)
 
 void ble_hci_do_command(struct bt_ops *ops, struct sk_buff *skb);
 void ble_hci_proc_cmd(struct bt_ops *btops, struct sk_buff *skb);

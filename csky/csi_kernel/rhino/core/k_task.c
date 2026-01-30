@@ -77,6 +77,7 @@ static kstat_t task_create(ktask_t *task, const name_t *name, void *arg,
     task->stack_size    = stack_size;
     task->mm_alloc_flag = mm_alloc_flag;
     task->cpu_num       = cpu_num;
+    task->lprun         = 0;
     cpu_binded          = cpu_binded;
 
 #if (RHINO_CONFIG_CPU_NUM > 1)
@@ -1085,10 +1086,19 @@ void krhino_task_dump(ktask_t *task, void* stack)
     int i = 0;
     uint32_t *p = (stack ? stack : task->task_stack);
     uint32_t *addr = 0;
+    uint32_t *sp = (uint32_t *)__get_SP();
+
+__lable:
     hgprintf("Task:%s\r\n", task->task_name);
     hgprintf("    task_state: %d\r\n", task->task_state);
     hgprintf("    stack_size: %d\r\n", task->stack_size * 4);
     hgprintf("    task_stack: 0x%08x,0x%08x,0x%08x\r\n", (uint32_t)task->task_stack_base, (uint32_t)p, (uint32_t)(task->task_stack_base + task->stack_size));
+    if(task == g_active_task[0]){
+        hgprintf("    task_lr   : %p\r\n", __builtin_return_address(0));
+        hgprintf("    task_pc   : %p\r\n", &&__lable);
+        p = sp;
+    }
+
     hgprintf("    stack dump:\r\n    ");
     for(addr=p; addr<task->task_stack_base+task->stack_size; addr++){
         hgprintf("0x%08x,", *addr);
@@ -1098,5 +1108,38 @@ void krhino_task_dump(ktask_t *task, void* stack)
         }
     }
     hgprintf("\r\n");
+}
+
+void krhino_task_set_lprun(ktask_t *task, uint8_t run)
+{
+    task->lprun = run;
+}
+
+void krhino_lpower_mode(uint8_t enable)
+{
+    CPSR_ALLOC();
+    uint8_t cur_cpu_num;
+    uint32_t ret = 0;
+    klist_t *taskhead;
+    klist_t *tmp;
+    ktask_t *task;
+
+    RHINO_CRITICAL_ENTER();
+    cur_cpu_num = cpu_cur_get();
+
+    taskhead = &g_kobj_list.task_head;
+    for (tmp = taskhead->next; tmp != taskhead ; tmp = tmp->next) {
+        task = krhino_list_entry(tmp, ktask_t, task_stats_item);
+        if(task != g_active_task[cur_cpu_num] && task != &g_idle_task[cur_cpu_num] && !task->lprun){
+            if(enable){
+                krhino_task_suspend(task);
+            }else{
+                krhino_task_resume(task);
+            }
+        }
+        ret ++;
+    }
+
+    RHINO_CRITICAL_EXIT_SCHED();
 }
 

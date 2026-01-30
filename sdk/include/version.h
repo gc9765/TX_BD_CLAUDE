@@ -34,8 +34,7 @@
 #ifndef MODULE_VERSION
 #define MODULE_VERSION(name) __at_section(".modver") \
                              const char *modver_##name = #name" v"\
-                             _V_S2_(SDK_MVER)"."_V_S2_(SDK_BVER)"."_V_S2_(SDK_PVER)"."_V_S2_(PROJECT_TYPE)"-"_V_S2_(SVN_VERSION)\
-                             ", build time:"__DATE__" "__TIME__
+                             _V_S2_(SDK_MVER)"."_V_S2_(SDK_BVER)"."_V_S2_(SDK_PVER)"-"_V_S2_(SVN_VERSION)", build time:"__DATE__" "__TIME__
 #endif
 #endif
 

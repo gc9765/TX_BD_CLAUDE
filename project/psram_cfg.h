@@ -21,6 +21,7 @@ enum psram_cfg_enum
 	PSRAM_DEF(4MByte_dri0_240M),
 	PSRAM_DEF(4MByteV2),
     PSRAM_DEF(8MByte),
+	PSRAM_DEF(8MByte_240M),
     PSRAM_DEF(16MByte),
     PSRAM_DEF(E_PSRAM),
     PSRAM_DEF(E2MByte),

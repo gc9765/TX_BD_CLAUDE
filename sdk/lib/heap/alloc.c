@@ -1,3 +1,4 @@
+
 #include "sys_config.h"
 #include "typesdef.h"
 #include "osal/string.h"
@@ -45,6 +46,8 @@ void *_os_realloc(void *ptr, int size)
     void *nptr = sysheap_alloc(&sram_heap, size, RETURN_ADDR(), 0);
     if (nptr) {
         os_memcpy(nptr, ptr, size);
+    }
+    if(ptr){
         _os_free(ptr);
     }
     return nptr;
@@ -79,8 +82,10 @@ void *_os_calloc_t(size_t nmemb, size_t size, const char *func, int line)
 void *_os_realloc_t(void *ptr, int size, const char *func, int line)
 {
     void *nptr = _os_malloc_t(size, func, line);
-    if (nptr) {
+    if (nptr && ptr) {
         os_memcpy(nptr, ptr, size);
+    }
+    if(ptr){
         _os_free_t(ptr);
     }
     return nptr;
@@ -151,12 +156,13 @@ void *_os_calloc_psram(size_t nmemb, size_t size)
 void *_os_realloc_psram(void *ptr, int size)
 {
     void *nptr = sysheap_alloc(&psram_heap, size, RETURN_ADDR(), 0);
-    if(nptr)
-    {
+    if(nptr){
         sys_dcache_clean_invalid_range(nptr,size);
+        if (ptr) {
+            os_memcpy(nptr, ptr, size);
+        }
     }
-    if (nptr) {
-        os_memcpy(nptr, ptr, size);
+    if(ptr){
         _os_free_psram(ptr);
     }
     return nptr;
@@ -200,10 +206,12 @@ void *_os_calloc_psram_t(size_t nmemb, size_t size, const char *func, int line)
 void *_os_realloc_psram_t(void *ptr, int size, const char *func, int line)
 {
     void *nptr = _os_malloc_psram_t(size, func, line);
-    if (nptr) {
+    if (nptr && ptr) {
         os_memcpy(nptr, ptr, size);
-        _os_free_psram_t(ptr);
     }
+    if(ptr){
+        _os_free_psram_t(ptr);
+    }    
     return nptr;
 }
 

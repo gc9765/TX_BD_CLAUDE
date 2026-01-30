@@ -379,12 +379,12 @@ struct hg_audio_v0 aufade = {
     .dev_type = AUDIO_TYPE_AUFADE,
 };
 
-//struct hg_audio_v0 aualaw = {
-//    .hw       = AUDIO_BASE,
-//    .irq_num  = AUALAW_IRQn,
-//    .p_comm   = (void *)&auadc.comm_dat,
-//    .dev_type = AUDIO_TYPE_AUALAW,
-//};
+struct hg_audio_v0 aualaw = {
+    .hw       = AUDIO_BASE,
+    .irq_num  = AUALAW_IRQn,
+    .p_comm   = (void *)&auadc.comm_dat,
+    .dev_type = AUDIO_TYPE_AUALAW,
+};
 
 struct hg_audio_v0 auvad = {
    .hw       = AUDIO_BASE,
@@ -560,7 +560,7 @@ void device_init(void)
     hg_audio_v0_attach(HG_AUADC_DEVID, &auadc);
     hg_audio_v0_attach(HG_AUDAC_DEVID, &audac);
     hg_audio_v0_attach(HG_AUVAD_DEVID, &auvad);
-    //hg_audio_v0_attach(HG_AUALAW_DEVID, &aualaw);
+    hg_audio_v0_attach(HG_AUALAW_DEVID, &aualaw);
     hg_audio_v0_attach(HG_AUEQ_DEVID, &aueq);
 	hg_audio_v0_attach(HG_AUFADE_DEVID, &aufade);
 

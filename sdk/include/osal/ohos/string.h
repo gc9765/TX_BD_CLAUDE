@@ -81,12 +81,12 @@ extern "C" {
 #define os_srand(v)        srand(v)
 #define os_rand()          rand()
 #define os_sscanf          sscanf
-#define os_htons(x) ((((x) & 0x00ffUL) << 8) | (((x) & 0xff00UL) >> 8))
+#define os_htons(x) ((((x) & (uint16)0x00ffUL) << 8) | (((x) & (uint16)0xff00UL) >> 8))
 #define os_ntohs(x) os_htons(x)
-#define os_htonl(x) ((((x) & 0x000000ffUL) << 24) | \
-                     (((x) & 0x0000ff00UL) <<  8) | \
-                     (((x) & 0x00ff0000UL) >>  8) | \
-                     (((x) & 0xff000000UL) >> 24))
+#define os_htonl(x) ((((x) & (uint32)0x000000ffUL) << 24) | \
+                     (((x) & (uint32)0x0000ff00UL) <<  8) | \
+                     (((x) & (uint32)0x00ff0000UL) >>  8) | \
+                     (((x) & (uint32)0xff000000UL) >> 24))
 #define os_ntohl(x) os_htonl(x)
 
 int strncasecmp(const char *s1, const char *s2, size_t n);

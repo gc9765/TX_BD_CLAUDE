@@ -21,6 +21,9 @@
 
 # ifndef LIBMAD_GLOBAL_H
 # define LIBMAD_GLOBAL_H
+
+#define FORCE_MONO_CHANNEL    0
+
 #define FPM_DEFAULT
 #define NDEBUG
 #include "sys_config.h"

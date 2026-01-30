@@ -453,7 +453,7 @@ uint32_t get_curmp3_songtime(uint32_t brate)
 void clear_curmp3_info(void)
 {
     if(cur_mp3_info) {
-        custom_free_psram(cur_mp3_info);
+        MP3_DECODE_FREE(cur_mp3_info);
         cur_mp3_info = NULL;
     }
 #if MP3_SAVE_INFO
@@ -467,7 +467,7 @@ void clear_curmp3_info(void)
 	while(list_n->next != head) {
 		list_n = list_n->next;
 		seek_table = list_entry((struct list_head *)list_n,MP3_SEEK_TABLE,sub_table_list);
-		custom_free_psram(seek_table);
+		MP3_DECODE_FREE(seek_table);
 	}
     os_sema_del(&seek_sema);
 #endif

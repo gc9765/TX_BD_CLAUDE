@@ -121,6 +121,8 @@ static int32 hg_sysaes_v3_hdl(struct sysaes_dev *dev, struct sysaes_para *para, 
     while(ll_sysctrl_dma2ahb_is_busy(DMA2AHB_BURST_CH_SYSAES_WR));
     hw->AES_CTRL |= AES_CTRL_START_MSK;
     ret = os_sema_down(&sysaes->done, 200);
+    
+    
     if (!ret) {
         if (flags == ENCRYPT) {
             SYS_AES_ERR_PRINTF("sysaes encrypt wait irq timeout!\r\n");
@@ -130,6 +132,7 @@ static int32 hg_sysaes_v3_hdl(struct sysaes_dev *dev, struct sysaes_para *para, 
         os_mutex_unlock(&sysaes->lock);
         return RET_ERR;
     }
+	sys_dcache_invalid_range((uint32 *)para->dest, para->aes_len);
     os_mutex_unlock(&sysaes->lock);
     return RET_OK;
 }

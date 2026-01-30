@@ -4,6 +4,8 @@
 
 #include <k_api.h>
 
+void mcu_watchdog_feed(void);
+
 #if (RHINO_CONFIG_CPU_USAGE_STATS > 0)
 void idle_count_set(idle_count_t value)
 {

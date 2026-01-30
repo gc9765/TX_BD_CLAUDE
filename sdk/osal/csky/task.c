@@ -39,9 +39,10 @@ int32 os_task_stacksize(struct os_task *task)
     return task->stack_size;
 }
 
-int32 _os_task_set_priority(struct os_task *task, uint8 priority)
+int32 _os_task_set_priority(struct os_task *task, uint32 prio)
 {
     int32 pri = KPRIO_NORMAL;
+    uint8 priority  = prio & 0xff;
 
     //ASSERT(task);
     //ASSERT(!task->hdl);
@@ -71,20 +72,25 @@ int32 _os_task_set_priority(struct os_task *task, uint8 priority)
 
     if (task) {
         task->priority = pri;
+        task->lprun    = (prio & OS_TASK_FLAGS_LPRUN) ? 1 : 0;
         if (task->hdl) {
             csi_kernel_task_set_prio(task->hdl, task->priority);
+            csi_kernel_task_set_lprun(task->hdl, task->lprun);
         }
     }
     return pri;
 }
 
-int32 os_task_set_priority(struct os_task *task, uint8 priority)
+int32 os_task_set_priority(struct os_task *task, uint32 pri)
 {
+    uint8 priority = pri & 0xff;
     if (priority >= OS_TASK_PRIORITY_HIGH) {
         priority = OS_TASK_PRIORITY_HIGH - 1;
+        pri &= 0xffffff00;
+        pri |= priority;
         os_printf("INVALID PRIORITY\r\n");
     }
-    return _os_task_set_priority(task, priority);
+    return _os_task_set_priority(task, pri);
 }
 
 int32 os_task_set_stacksize(struct os_task *task, void *stack, int32 stack_size)
@@ -102,6 +108,9 @@ int32 os_task_run(struct os_task *task)
     int32 ret = csi_kernel_task_new(os_task_entry, task->name,
                                     (void *)task, task->priority, 0, task->stack,
                                     task->stack_size, &task->hdl);
+    if(ret == RET_OK){
+        csi_kernel_task_set_lprun(task->hdl, task->lprun);
+    }
     //ASSERT(!ret);
     return ret;
 }
@@ -186,8 +195,13 @@ void *os_task_data(void *hdl)
 void *os_task_create(const char *name, os_task_func_t func, void *args, uint32 prio, uint32 time, void *stack, uint32 stack_size)
 {
     k_task_handle_t hdl = NULL;
-    uint32 priority = _os_task_set_priority(NULL, prio);
+    uint32 priority = os_task_set_priority(NULL, prio);
     int32 ret = csi_kernel_task_new(func, name, args, priority, time, stack, stack_size, &hdl);
+    if(ret == RET_OK){
+        if(prio & OS_TASK_FLAGS_LPRUN){
+            csi_kernel_task_set_lprun(hdl, 1);
+        }
+    }
     ASSERT(!ret);
     return hdl;
 }
@@ -211,26 +225,31 @@ int32 os_task_resume2(void  *hdl)
 
 int32 os_blklist_init(struct os_blklist *blkobj)
 {
-	void *csi_kernel_blklist_new();
+    void *csi_kernel_blklist_new();
     blkobj->hdl = csi_kernel_blklist_new();
     return  blkobj->hdl ? RET_OK : RET_ERR;
 }
 
 void os_blklist_del(struct os_blklist *blkobj)
 {
-	void csi_kernel_blklist_del(void *hdl);
+    void csi_kernel_blklist_del(void *hdl);
     csi_kernel_blklist_del(blkobj->hdl);
 }
 
 void os_blklist_suspend(struct os_blklist *blkobj, void *task_hdl)
 {
-	void csi_kernel_blklist_suspend(void *hdl, k_task_handle_t task_hdl);
+    void csi_kernel_blklist_suspend(void *hdl, k_task_handle_t task_hdl);
     csi_kernel_blklist_suspend(blkobj->hdl, task_hdl);
 }
 
 void os_blklist_resume(struct os_blklist *blkobj)
 {
-	void csi_kernel_blklist_wakeup(void *hdl);
+    void csi_kernel_blklist_wakeup(void *hdl);
     csi_kernel_blklist_wakeup(blkobj->hdl);
+}
+
+void os_lpower_mode(uint8 enable)
+{
+    csi_kernel_lpower_mode(enable);
 }
 

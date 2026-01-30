@@ -180,6 +180,8 @@ struct dsleep_cfg{
                                 gpiob_hold  : 1,//6
                                 dbg_en      : 1,//7
                                 fem_used    : 1;//8
+    uint8                       ext_dcdc    : 1,
+                                assert_hold : 1;
     uint8                       auto_dsleep_tmo;
     uint8                       pwm_pin[4]; //[0-3  valid]
     uint8                       pwm_mode;//2bit
@@ -204,6 +206,8 @@ struct dsleep_cfg{
     void * usr_kalive_priv;
     int32(*usr_wkdet_cb)(void *usr_wkdet_priv, uint8 *data, uint32 len);
     void * usr_wkdet_priv;
+    int32(*usr_dsleep_cb)(void *usr_dsleep_priv, uint32 dsleep_flag);
+    void * usr_dsleep_priv;
     struct lmac_wkdata_param    *wkdata;
 
     uint16                      aid;
@@ -218,6 +222,7 @@ struct dsleep_cfg{
     uint32                      gpioc_regs[GPIOC_REG_LEN];
     uint32                      sys_wdt_ms;
     uint32                      lp_wdt_ms;
+    uint8                       wkio_pupd_dis;
 };
 
 enum DSLEEP_MODE {
@@ -348,7 +353,7 @@ struct dsleep_priv {
     PMU_TypeDef             pmu_bak;
     union DSLEEP_LO_CFG     freq_table;
 
-    uint32 dsleep_rc_cnt;
+    uint32 dsleep_rst;
     
     uint32 pmu_con;
     //uint32 magic_num;
@@ -394,7 +399,8 @@ struct dsleep_priv {
     uint64                              last_rx;
     uint64                              last_rx_init;
     uint32                              key_updata_tmo;
-    //struct os_timer                     dsleep_tmr;
+    uint32                              dsleep_tmr_cnt;
+    struct os_timer                     dsleep_tmr;
     struct os_semaphore                 dsleep_sem;
 
     //move from dcfg
@@ -423,11 +429,14 @@ struct dsleep_priv {
     uint8                      rx_buff[512];
     uint32                      ap_lost_det : 1,
                                 wkdata_det  : 1,
-                                txnull_fail : 1;
+                                txnull_fail : 1,
+                                wkio_pending: 6;
     //no clear area
     struct  dsleep_cfg          dcfg;
     RTC_TIMER_TYPEDEF           rtc_timer;
     struct os_task              dsleep_task;
+    struct os_mutex             null_tx_mutex;
+    uint64                      timestamp_rx;
 };
 
 //#define ETH_P_ARP       0x0806      /* Address Resolution packet */

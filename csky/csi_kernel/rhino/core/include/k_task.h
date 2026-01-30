@@ -105,7 +105,7 @@ typedef struct {
     uint8_t          prio;
     /* base prio */
     uint8_t          b_prio;
-    uint8_t          mm_alloc_flag;
+    uint8_t          mm_alloc_flag:2, lprun:1, rev: 5;
 
     void     *arg;
     uint32_t  runtime;
@@ -303,6 +303,9 @@ kstat_t krhino_task_info_get(ktask_t *task, size_t idx, void **info);
  * this funtion pointer
  */
 void  krhino_task_deathbed(void);
+
+void krhino_task_set_lprun(ktask_t *task, uint8_t run);
+void krhino_lpower_mode(uint8_t enable);
 
 #endif /* K_TASK_H */
 

@@ -466,8 +466,8 @@ void volume_adjust(uint8_t vol)
 	{
 		backVol = vol;	
 		audac_ioctl(test,AUDAC_IOCTL_CMD_SET_DIGITAL_GAIN,dacgain_table[vol],0);
-		void user_volume_save(void);
-		user_volume_save();
+//		void user_volume_save(void);
+//		user_volume_save();
 	}
 	
 }

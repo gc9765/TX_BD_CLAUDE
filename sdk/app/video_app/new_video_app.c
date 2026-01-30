@@ -833,6 +833,7 @@ static int32 stream_get_jpg_work(struct os_work *work)
         else
         {
             free_all_jpg_node(get_f);
+			del_jpeg_frame(get_f);
         }
 
 		

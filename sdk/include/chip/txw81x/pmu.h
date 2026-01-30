@@ -401,6 +401,7 @@ enum vdd15_vol_level {
 #define pmu_clr_cp_fail_pending()                   PMU_REG_CLR_BITS(PMU->PMUCON7, BIT(2))
 #define pmu_get_deadcode_pending()                  ((PMU->PMUCON7 & BIT(1)) ? 1 : 0)
 #define pmu_clr_deadcode_pending()                  PMU_REG_CLR_BITS(PMU->PMUCON7, BIT(1))
+#define pmu_set_deadcode_pending()                  PMU_REG_SET_BITS(PMU->PMUCON7, BIT(1))
 
 #define GET_DIRECT_RUN_DISABLE_SIGN()               ((PMU->PMUCON7 & BIT(4)) ? 1 : 0)
 #define SET_DIRECT_RUN_DISABLE_SIGN(n)\

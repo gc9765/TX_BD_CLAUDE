@@ -78,5 +78,7 @@ size_t        krhino_global_space_get(void);
  */
 uint32_t      krhino_version_get(void);
 
+void          krhino_check_fatal_call(const char *func);
+
 #endif /* K_SYS_H */
 

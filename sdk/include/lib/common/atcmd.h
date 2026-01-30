@@ -6,6 +6,7 @@ int32 sys_atcmd_loaddef(const char *cmd, char *argv[], uint32 argc);
 int32 sys_atcmd_reset(const char *cmd, char *argv[], uint32 argc);
 int32 sys_atcmd_jtag(const char *cmd, char *argv[], uint32 argc);
 int32 sys_syscfg_dump_hdl(const char *cmd, char *argv[], uint32 argc);
+int32 sys_heap_dump_hdl(const char *cmd, char *argv[], uint32 argc);
 
 int32 sys_wifi_atcmd_set_channel(const char *cmd, char *argv[], uint32 argc);
 int32 sys_wifi_atcmd_set_encrypt(const char *cmd, char *argv[], uint32 argc);

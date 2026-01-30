@@ -250,6 +250,10 @@ k_task_stat_t csi_kernel_task_get_stat(k_task_handle_t task_handle);
 /// \return execution status code. \ref k_status_t
 k_status_t csi_kernel_task_set_prio(k_task_handle_t task_handle, k_priority_t priority);
 
+k_status_t csi_kernel_task_set_lprun(k_task_handle_t task_handle, uint8_t run);
+
+void csi_kernel_lpower_mode(uint8_t enable);
+
 /// Get current priority of a task.
 /// \param[in]     task_handle     task handle to operate.
 /// \return current priority value of the specified task.negative indicates error code.

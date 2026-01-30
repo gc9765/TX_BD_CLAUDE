@@ -145,6 +145,7 @@ static int32 other_jpg_work(struct os_work *work)
 {
     struct other_jpg_s *other_jpg_msg  = (struct other_jpg_s *)work;
     struct data_structure *data_s = NULL;
+    int res;
 	//static int count = 0;
     if(other_jpg_msg->data_s)
     {
@@ -168,9 +169,17 @@ static int32 other_jpg_work(struct os_work *work)
             msg->step_h = other_jpg_msg->step_h;
             data_s->type = SET_DATA_TYPE(JPEG,other_jpg_msg->type);
             extern int parse_jpg(uint8_t *jpg_buf,uint32_t maxsize,uint32_t *w,uint32_t *h);
-            parse_jpg(get_stream_real_data(data_s),get_stream_real_data_len(data_s),&msg->decode_w,&msg->decode_h);
-            //os_printf("w:%d\th:%d\tlen:%d\tdata_s:%X\n",yuv_msg->out_w,yuv_msg->out_h,get_stream_real_data_len(data_s),other_jpg_msg->data_s);
-            send_data_to_stream(data_s);
+            res = parse_jpg(get_stream_real_data(data_s),get_stream_real_data_len(data_s),&msg->decode_w,&msg->decode_h);
+            // os_printf("w:%d\th:%d\tlen:%d\tdata_s:%X\n",msg->decode_w,msg->decode_h,get_stream_real_data_len(data_s),other_jpg_msg->data_s);
+            if(!res)
+            {
+                send_data_to_stream(data_s);
+            }
+            else
+            {
+                force_del_data(data_s);
+            }
+
             other_jpg_msg->data_s = NULL;
         }
     }
@@ -278,6 +287,14 @@ static int opcode_func(stream *s,void *priv,int opcode)
 			}
 		}
 		break;
+
+        case STREAM_CLOSE_ENTER:
+        {
+            struct other_jpg_s *other_jpg_msg = (struct other_jpg_s *)s->priv;
+            os_work_cancle2(&other_jpg_msg->work, 1);
+        }
+        break;
+
         case STREAM_CLOSE_EXIT:
         {
             struct other_jpg_s *other_jpg_msg = (struct other_jpg_s *)s->priv;
@@ -404,6 +421,14 @@ static int opcode_func_not_bind(stream *s,void *priv,int opcode)
 			}
 		}
 		break;
+
+        case STREAM_CLOSE_ENTER:
+        {
+            struct other_jpg_s *other_jpg_msg = (struct other_jpg_s *)s->priv;
+            os_work_cancle2(&other_jpg_msg->work, 1);
+        }
+        break;
+
         case STREAM_CLOSE_EXIT:
         {
             struct other_jpg_s *other_jpg_msg = (struct other_jpg_s *)s->priv;
@@ -421,6 +446,7 @@ static int opcode_func_not_bind(stream *s,void *priv,int opcode)
             struct other_jpg_s *other_jpg_msg = (struct other_jpg_s *)s->priv;
             if(other_jpg_msg)
             {
+                os_printf("other_jpg_msg:%X\n",other_jpg_msg);
                 STREAM_LIBC_FREE((void*)other_jpg_msg);
             }
         }

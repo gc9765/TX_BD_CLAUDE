@@ -1499,8 +1499,8 @@ static void get_osd_w_h(uint16_t *w,uint16_t *h,uint8_t *rotate)
 }
 
 #if LCD_FILL_CLK
-struct timer_device *global_timer;
-uint32 capture_count = 0;
+static struct timer_device *global_timer = NULL;
+static uint32 capture_count = 0;
 
 void hs_capture_irq(uint32 irq, uint32 irq_data)
 {
@@ -1543,8 +1543,8 @@ void lcd_module_run(uint16_t *w,uint16_t *h,uint8_t *rotate){
 			os_printf("capture_count:%d\n",capture_count);
 
 			struct pwm_device * global_hgpwm = (struct pwm_device*)dev_get(HG_PWM0_DEVID);						
-			pwm_init(global_hgpwm, PWM_CHANNEL_0, 10-1, 5-1);								//24M clk TIMER2
-			pwm_start(global_hgpwm,PWM_CHANNEL_0);
+			pwm_init(global_hgpwm, PWM_CHANNEL_2, 10-1, 5-1);								//24M clk TIMER2
+			pwm_start(global_hgpwm,PWM_CHANNEL_2);
 
 			gpio_ioctl(HS_DC, GPIO_CMD_SET_IEEN, 1, 0);
 			gpio_iomap_input(HS_DC, GPIO_IOMAP_IN_TMR1_CAP_IN);

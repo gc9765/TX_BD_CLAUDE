@@ -39,6 +39,7 @@ void sysheap_status(struct sys_heap *heap, uint32 *status_buf, int32 buf_size, u
 int32 sysheap_valid_addr(struct sys_heap *heap, void *ptr);
 uint32 sysheap_time(struct sys_heap *heap);
 int sysheap_use_list(struct sys_heap *heap, uint32_t *list_buf, int32 buf_size);
+void sysheap_dump(struct sys_heap *heap);
 
 extern struct sys_heap sram_heap;
 extern struct sys_heap psram_heap;

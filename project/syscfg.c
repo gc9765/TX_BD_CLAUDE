@@ -321,14 +321,12 @@ void syscfg_set_default_val()
         sys_cfgs.mac[0] &= 0xfe;
         os_printf("use random mac "MACSTR"\r\n", MAC2STR(sys_cfgs.mac));
     }
-    os_sprintf(sys_cfgs.ssid,"%s%02x%02x%02x",SSID_DEFAULT,sys_cfgs.mac[5],sys_cfgs.mac[4],sys_cfgs.mac[3]);
-    os_sprintf(sys_cfgs.passwd,"%s","TP-LINK_D51");
-    // os_sprintf(sys_cfgs.ssid,"%s","taixin-1002");
-    // os_sprintf(sys_cfgs.passwd,"%s","tx123456789");
-    // os_sprintf(sys_cfgs.ssid,"%s","WLT2023-2.4G");
-    // os_sprintf(sys_cfgs.passwd,"%s","12345678");
-    // os_sprintf(sys_cfgs.ssid,"%s","shlm");
-    // os_sprintf(sys_cfgs.passwd,"%s","12345678");
+//    os_sprintf(sys_cfgs.ssid,"%s%02x%02x%02x",SSID_DEFAULT,sys_cfgs.mac[5],sys_cfgs.mac[4],sys_cfgs.mac[3]);
+//    os_sprintf(sys_cfgs.passwd,"%s","12345678");
+    os_sprintf(sys_cfgs.ssid,"%s","hugeic_cs");
+    os_sprintf(sys_cfgs.passwd,"%s","reload@matrix");
+//    os_sprintf(sys_cfgs.ssid,"%s","gc123");
+//    os_sprintf(sys_cfgs.passwd,"%s","gcgcgc123");	
 #ifdef CONFIG_UMAC4
     wpa_passphrase(sys_cfgs.ssid, sys_cfgs.passwd, sys_cfgs.psk);
 #else

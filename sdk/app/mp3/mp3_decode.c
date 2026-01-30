@@ -13,11 +13,11 @@
 #define MAX_MP3_DECODE_TXBUF    4
 
 struct mp3_decode_struct {
+	struct os_semaphore clean_sema;
     struct os_task task_hdl;
     stream *mp3_stream;
     uint8_t get_first_frame;
     uint8_t buf[BUFF_SIZE*2];
-    uint32_t buf_offset;
     uint32_t buf_size;
     uint32_t cur_sampleRate;
 	mp3_read_func mp3_read;
@@ -37,7 +37,7 @@ uint8_t get_mp3_decode_status(void)
 {
     return current_status;
 }
-
+   
 void set_mp3_decode_status(uint8_t status)
 {
     next_status = status; 
@@ -49,19 +49,6 @@ int32_t mp3_file_read(uint8_t *buf, uint32_t size)
 	
     read_len = osal_fread(buf, size, 1, mp3_fp);
     return read_len;
-}
-
-static signed int scale(mad_fixed_t sample)
-{
-    /* round */
-    sample += (1L << (MAD_F_FRACBITS - 16));
-    /* clip */
-    if (sample >= MAD_F_ONE)
-        sample = MAD_F_ONE - 1;
-    else if (sample < -MAD_F_ONE)
-        sample = -MAD_F_ONE;
-    /* quantize */
-    return sample >> (MAD_F_FRACBITS + 1 - 16);
 }
 
 static uint16_t CRC_16(uint8_t *temp,uint16_t len)
@@ -111,6 +98,8 @@ static enum mad_flow input(void *cb_data, struct mad_stream *stream)
 	uint32_t unproc_data_size = 0;    /*the unprocessed data's size*/
 	struct mp3_decode_struct *s = (struct mp3_decode_struct *)cb_data;
 
+	if(os_sema_down(&mp3_decode_s->clean_sema, 0))
+		mad_stream_init(stream);
     mp3_buf = s->buf;
     while(!s->get_first_frame) {
         read_len = s->mp3_read(s->buf+unproc_data_size,BUFF_SIZE);
@@ -150,7 +139,11 @@ static enum mad_flow input(void *cb_data, struct mad_stream *stream)
             if( ( (mp3_buf[i] << 8) | (mp3_buf[i+1] & 0xE0) ) == 0xFFE0 ) {
                 s->get_first_frame = 1;
                 unproc_data_size = s->buf_size - i;
-                break;
+                s->buf_size = unproc_data_size;
+                mad_stream_buffer(stream, s->buf, s->buf_size);
+                unproc_data_size = 0;
+				ret_code = MAD_FLOW_CONTINUE;
+				return ret_code;
             }
         }
         if(!s->get_first_frame) {
@@ -182,7 +175,7 @@ static enum mad_flow output(void *cb_data, struct mad_header const *header, stru
     uint32_t offset = 0;
     uint32_t nchannels, nsamples;
     uint32_t samplerate;
-	mad_fixed_t const *left_ch, *right_ch;
+	int16_t *left_ch, *right_ch;
     struct data_structure *data_s = NULL;
     struct mp3_decode_struct *s = (struct mp3_decode_struct *)cb_data;
     stream *mp3_stream = s->mp3_stream;
@@ -199,10 +192,10 @@ get_data_structure:
     if(data_s) {
         data = (int16_t*)get_stream_real_data(data_s);;
         while (nsamples--) {
-            sample_val = scale(*left_ch++);
+            sample_val = (*left_ch++);
             data[offset] = sample_val;
             if (nchannels == 2) {
-                sample_val = scale(*right_ch++);
+                sample_val = (*right_ch++);
                 data[offset] = (data[offset]+sample_val)/2;
             }
             offset++;
@@ -234,7 +227,6 @@ get_data_structure:
 
     if(next_status == MP3_STOP)
     {
-        current_status = MP3_STOP;
         return MAD_FLOW_STOP;
     }
     current_status = MP3_PLAY;
@@ -283,8 +275,11 @@ void mp3_decode_file_thread(void *d)
 	next_status = MP3_PLAY;
 	current_status = MP3_PLAY;
     mp3_play_finish = 0;
+    
     decode(s);
 
+    clear_curmp3_info();
+    mp3_decode_deinit();
     if(s->mp3_stream)
     {
         close_stream(s->mp3_stream);
@@ -295,8 +290,6 @@ void mp3_decode_file_thread(void *d)
     audio_dac_set_filter_type(former_dac_filter_type);	
 	if(former_dac_samplingrate != audio_dac_get_samplingrate())
 		audio_da_recfg(former_dac_samplingrate);
-    clear_curmp3_info();
-    mp3_decode_deinit();
 }
 
 void mp3_decode_deinit(void)
@@ -305,6 +298,8 @@ void mp3_decode_deinit(void)
 		osal_fclose(mp3_fp);
 		mp3_fp = NULL;
 	}
+	if(mp3_decode_s->clean_sema.hdl) 
+		os_sema_del(&mp3_decode_s->clean_sema);
 	next_status = MP3_STOP;
 	current_status = MP3_STOP;	
 }
@@ -374,6 +369,12 @@ static int opcode_func(stream *s,void *priv,int opcode)
 	return res;
 }
 
+void mp3_decode_clean_stream(void)
+{
+	if(mp3_decode_s->clean_sema.hdl)
+		os_sema_up(&(mp3_decode_s->clean_sema));
+}
+
 void mp3_decode_init(void *d, void *read_func)
 {
     uint8_t status = 0;
@@ -387,7 +388,7 @@ void mp3_decode_init(void *d, void *read_func)
     {
         set_mp3_decode_status(MP3_STOP);
     }
-    while((get_mp3_decode_status() != MP3_STOP) && count < 1000)        
+    while((get_mp3_decode_status() != MP3_STOP) && count < 1000)            
     {
         os_sleep_ms(1);
         count ++;
@@ -425,7 +426,15 @@ void mp3_decode_init(void *d, void *read_func)
 	}
 	mp3_decode_s->mp3_stream = mp3_stream;
 	mp3_decode_s->mp3_read = func;
-	os_task_create("mp3_decode_file_thread", mp3_decode_file_thread, (void*)mp3_decode_s, OS_TASK_PRIORITY_NORMAL, 0, NULL, 8192);
+	if(os_sema_init(&mp3_decode_s->clean_sema, 0) != RET_OK) {
+		os_printf("%s %d err!\n",__FUNCTION__,__LINE__);
+		goto mp3_decode_init_err;
+	}
+#if FORCE_MONO_CHANNEL
+	os_task_create("mp3_decode_file_thread", mp3_decode_file_thread, (void*)mp3_decode_s, OS_TASK_PRIORITY_NORMAL, 0, NULL, 6144);
+#else
+    os_task_create("mp3_decode_file_thread", mp3_decode_file_thread, (void*)mp3_decode_s, OS_TASK_PRIORITY_NORMAL, 0, NULL, 8192);
+#endif
 	return;
 	
 mp3_decode_init_err:

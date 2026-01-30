@@ -481,15 +481,15 @@ static void audio_dac_fade(void *d)
 		//fade out
 		if(fade_mode == 1) {
 			os_printf("\n*********fade mode:%d*********\n",fade_mode);
-			aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_STEP, AUFADE_STEP_4, 0);
-			aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_SAMPLE, AUFADE_SAMPLE_1, 0);
-			aufade_start(fade, AUFADE_OUT);
+			// aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_STEP, AUFADE_STEP_4, 0);
+			// aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_SAMPLE, AUFADE_SAMPLE_1, 0);
+			// aufade_start(fade, AUFADE_OUT);
 		}
 		else if(fade_mode == 0) {
 			os_printf("\n*********fade mode:%d*********\n",fade_mode);
-			aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_STEP, AUFADE_STEP_4, 0);
-			aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_SAMPLE, AUFADE_SAMPLE_1, 0);
-			aufade_start(fade, AUFADE_IN);			
+			// aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_STEP, AUFADE_STEP_4, 0);
+			// aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_SAMPLE, AUFADE_SAMPLE_1, 0);
+			// aufade_start(fade, AUFADE_IN);			
 		}
 	}
 }
@@ -743,8 +743,11 @@ void audio_da_init()
 	os_printf("audio_da_cfg:%X\n",audio_da_cfg);
     audac_request_irq(audio_da, AUDAC_IRQ_FLAG_HALF | AUDAC_IRQ_FLAG_FULL, (audac_irq_hdl)audio_dac_irq, (uint32_t)audio_da_cfg);
     audio_da_cfg->irq_func(audio_da_cfg , audio_da_cfg->play_empty_buf, audio_da_cfg->buf_size);
-	audac_ioctl(audio_da,AUDAC_IOCTL_CMD_SET_DIGITAL_GAIN,300,0); //300
+//	audac_ioctl(audio_da,AUDAC_IOCTL_CMD_SET_DIGITAL_GAIN,300,0); //300
 	global_audio_dac_s = dest;
+	
+	volume_adjust(5);
+	
     return;
 }
 

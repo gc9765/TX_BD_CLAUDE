@@ -1737,6 +1737,7 @@ lwip_socket(int domain, int type, int protocol)
   if (i == -1) {
     netconn_delete(conn);
     set_errno(ENFILE);
+    printf("NO FREE SOCKET! total:%d\r\n", NUM_SOCKETS);
     return -1;
   }
   conn->socket = i;

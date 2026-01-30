@@ -7,15 +7,15 @@ Project_Title:
 
 Project_PreBuild:
 	@echo Executing Pre Build commands ...
-	@export CDKPath="D:/taixin/tx" CDK_VERSION="V2.8.8" ProjectPath="D:/taixin/Camera/TXW81x_FPV-v2.5.3.7-33277_AIbaidu/project/" && D:/taixin/Camera/TXW81x_FPV-v2.5.3.7-33277_AIbaidu/project/prebuild.sh $<
+	@export CDKPath="D:/C-Sky/CDK" CDK_VERSION="V2.24.14" CPU="CK803S" ProjectName="fpv_app_umac4" ProjectPath="D:/Work/baidu/TXW81x_FPV-v2.5.3.7-37302_20250917120347/TXW81x_FPV-v2.5.3.7-37302/project/" && D:/Work/baidu/TXW81x_FPV-v2.5.3.7-37302_20250917120347/TXW81x_FPV-v2.5.3.7-37302/project/prebuild.sh $<
 	@echo Done
 
 Project_Build:
-	@make -r -f fpv_app_umac4.mk -j 4 -C  ./ 
+	@make -r -f fpv_app_umac4.mk -j 8 -C  ./ 
 
 Project_PostBuild:
 	@echo Executing Post Build commands ...
-	@export CDKPath="D:/taixin/tx" CDK_VERSION="V2.8.8" ProjectPath="D:/taixin/Camera/TXW81x_FPV-v2.5.3.7-33277_AIbaidu/project/" && D:/taixin/Camera/TXW81x_FPV-v2.5.3.7-33277_AIbaidu/project/BuildBIN.sh
+	@export CDKPath="D:/C-Sky/CDK" CDK_VERSION="V2.24.14" CPU="CK803S" ProjectName="fpv_app_umac4" ProjectPath="D:/Work/baidu/TXW81x_FPV-v2.5.3.7-37302_20250917120347/TXW81x_FPV-v2.5.3.7-37302/project/" && D:/Work/baidu/TXW81x_FPV-v2.5.3.7-37302_20250917120347/TXW81x_FPV-v2.5.3.7-37302/project/BuildBIN.sh
 	@echo Done
 
 

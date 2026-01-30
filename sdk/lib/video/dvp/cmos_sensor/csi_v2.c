@@ -1861,8 +1861,8 @@ bool csi_yuv_mode(){
 #endif
 	vpp_set_mode(vpp_test,IMAGE_FORMAT);
 
-	// vpp_set_watermark0_enable(vpp_test,1);
-	// vpp_set_watermark1_enable(vpp_test,1);
+	vpp_set_watermark0_enable(vpp_test,1);
+	vpp_set_watermark1_enable(vpp_test,1);
 	
 #if IPF_EN
 //	vpp_set_ifp_en(vpp_test,1);

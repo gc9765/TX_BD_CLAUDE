@@ -781,7 +781,7 @@ static rt_err_t _ep_in_handler(ufunction_t func, rt_size_t size)
         else
         {
             LOG_D("return to cbw status");
-            data->ep_out->request.buffer = data->ep_out->buffer;
+            data->ep_out->request.buffer = data->cbw;
             data->ep_out->request.size = SIZEOF_CBW;
             data->ep_out->request.req_type = UIO_REQUEST_READ_FULL;
             rt_usbd_io_request(func->device, data->ep_out, &data->ep_out->request);
@@ -1090,7 +1090,7 @@ static rt_err_t _ep_out_handler(ufunction_t func, rt_size_t size)
 
     if(data->status == STAT_CBW)
     {
-        memcpy(cbw, data->ep_out->buffer, sizeof(struct ustorage_cbw));
+        //memcpy(cbw, data->ep_out->buffer, sizeof(struct ustorage_cbw));
         /* dump cbw information */
         if(cbw->signature != CBW_SIGNATURE || size != SIZEOF_CBW)
         {
@@ -1386,7 +1386,7 @@ static rt_err_t _function_enable(ufunction_t func)
 #endif
 
     /* prepare to read CBW request */
-    data->ep_out->request.buffer = data->ep_out->buffer;
+    data->ep_out->request.buffer = data->cbw;
     data->ep_out->request.size = SIZEOF_CBW;
     data->ep_out->request.req_type = UIO_REQUEST_READ_FULL;
     rt_usbd_io_request(func->device, data->ep_out, &data->ep_out->request);

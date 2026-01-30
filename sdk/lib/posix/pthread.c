@@ -15,7 +15,8 @@
 #define PTHREAD_MAX (32)
 
 struct pthread_task {
-    char name[12];
+    char name[11];
+    uint8 inited;
     void *task_hdl;
     struct os_semaphore join_sema;
     pthread_attr_t attr;
@@ -81,6 +82,7 @@ static void pthread_task_entry(void *args)
 {
     struct pthread_task *thd = (struct pthread_task *)args;
     thd->start(thd->arg);
+    while(!thd->inited) os_sleep_ms(5);
     if (thd->attr.detachstate == PTHREAD_CREATE_JOINABLE) {
         pthread_dbg("pthread %s exit: JOINABLE!\r\n", thd->name);
         os_sema_up(&thd->join_sema);
@@ -137,6 +139,7 @@ int pthread_create(pthread_t *thread,      const pthread_attr_t *attr, void *(*s
     os_sprintf(thd->name, "p_%x", (uint32)start);
     thd->task_hdl = os_task_create(thd->name, pthread_task_entry, thd, pthread_priority(&thd->attr), 0, NULL, thd->attr.stacksize);
     *thread = (pthread_t)thd;
+    thd->inited = 1;
     return RET_OK;
 }
 

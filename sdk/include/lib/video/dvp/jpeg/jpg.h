@@ -5,8 +5,7 @@
 #define DQT_DEF				6
 #define DQT_MAX_INDEX       11
 
-// #define TARGET_JPG_LEN      15000   
-#define TARGET_JPG_LEN      40000   
+#define TARGET_JPG_LEN      15000   
 #define QUALITY_CTRL_P      131
 #define QUALITY_CTRL_I      8
 #define QUALITY_CTRL_D      0
