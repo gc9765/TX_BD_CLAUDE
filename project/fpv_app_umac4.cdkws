@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CDK_Workspace Name="fpv_app_umac4" Database="LanguageSever" DoubleClick="Yes">
+  <DefaultPackPath>$(CDKWS)\__workspace_pack__</DefaultPackPath>
+  <Project Name="fpv_app_umac4" Path="fpv_app_umac4.cdkproj" RootPath="" Active="Yes"/>
+  <BuildMatrix>
+    <WorkspaceConfiguration Name="Debug" Selected="yes">
+      <Environment/>
+      <Project Name="fpv_app_umac4" ConfigName="FLASH"/>
+    </WorkspaceConfiguration>
+  </BuildMatrix>
+</CDK_Workspace>
