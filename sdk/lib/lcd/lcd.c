@@ -22,6 +22,8 @@
 #include "hal/pwm.h"
 #include "hal/timer_device.h"
 
+#include "lib/heap/sysheap.h" 
+
 uint8_t osd_palette[512]__attribute__ ((aligned(4)));
 
 extern volatile vf_cblk g_vf_cblk;
@@ -923,6 +925,7 @@ void scale2_done(uint32 irq_flag,uint32 irq_data,uint32 param1){
 	struct jpg_device *jpg_dev;
 	struct scale_device *scale_dev = (struct scale_device *)irq_data;
 	jpg_dev = (struct jpg_device *)dev_get(HG_JPG1_DEVID);
+	os_printf("scale2 start\r\n");
 	if((decode_num%3) == 0){
 		scale_set_out_yaddr(scale_dev,(uint32)video_decode_mem);
 		scale_set_out_uaddr(scale_dev,(uint32)video_decode_mem+scale_p1_w*p1_h);
@@ -940,7 +943,7 @@ void scale2_done(uint32 irq_flag,uint32 irq_data,uint32 param1){
 		// scale_set_out_uaddr(scale_dev,(uint32)video_decode_mem3+scale_p1_w*p1_h);
 		// scale_set_out_vaddr(scale_dev,(uint32)video_decode_mem3+scale_p1_w*p1_h+scale_p1_w*p1_h/4);
 	}
-	// os_printf("scale2 done\r\n");
+	 os_printf("scale2 done\r\n");
 	scale2_finish = 1;
 	decode_num++;
 }
@@ -1383,13 +1386,16 @@ void jpg_dec_scale_del(){
 void jpg_decode_to_lcd(uint32 photo,uint32 jpg_w,uint32 jpg_h,uint32 video_w,uint32 video_h){
 	struct jpg_device *jpg_dev;
 	struct scale_device *scale_dev;
+
 	scale_dev = (struct scale_device *)dev_get(HG_SCALE2_DEVID);	
 	jpg_dev = (struct jpg_device *)dev_get(HG_JPG1_DEVID);		
 	scale_close(scale_dev);
 	scale_set_in_out_size(scale_dev,jpg_w,jpg_h,video_w,video_h);
 	scale_set_step(scale_dev,jpg_w,jpg_h,video_w,video_h);	
 	scale_open(scale_dev);	
-	jpg_decode_photo(jpg_dev,photo);
+
+	int8_t rt = jpg_decode_photo(jpg_dev,photo);
+	if(rt == RET_ERR) os_printf("jpg_decode_photo error!\r\n");
 }
 
 int32 jpg_decode_is_finish(){

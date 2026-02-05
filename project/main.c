@@ -1306,12 +1306,12 @@ static int32 main_loop(struct os_work *work)
         print_interval = 0;
     }
 
-    #ifdef PSRAM_HEAP
-        print_custom_psram();
-    #endif
-    print_custom_sram();
-
-	os_printf("freemem:%d\r\n", sysheap_freesize(&sram_heap));
+//    #ifdef PSRAM_HEAP
+//        print_custom_psram();
+//    #endif
+//    print_custom_sram();
+//
+//	os_printf("freemem:%d\r\n", sysheap_freesize(&sram_heap));
 #ifdef CONFIG_SLEEP
     extern void dsleep_ip_addr_set(uint32 ip_addr);
     dsleep_ip_addr_set(lwip_netif_get_ip2("w0").addr);
@@ -1429,7 +1429,7 @@ int main(void)
 		
         app_network_init();
 		
-		wechat_fs_init();
+//		wechat_fs_init();
 		
         mcu_watchdog_timeout(5);
         OS_WORK_INIT(&main_wk, main_loop, 0);

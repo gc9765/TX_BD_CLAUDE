@@ -7,7 +7,7 @@ Project_Title:
 
 Project_PreBuild:
 	@echo Executing Pre Build commands ...
-	@export CDKPath="D:/C-Sky/CDK" CDK_VERSION="V2.24.14" CPU="CK803S" ProjectName="fpv_app_umac4" ProjectPath="D:/Work/baidu/TXW81x_FPV-v2.5.3.7-37302_20250917120347/TXW81x_FPV-v2.5.3.7-37302/project/" && D:/Work/baidu/TXW81x_FPV-v2.5.3.7-37302_20250917120347/TXW81x_FPV-v2.5.3.7-37302/project/prebuild.sh $<
+	@export CDKPath="D:/C-Sky/CDK" CDK_VERSION="V2.24.14" CPU="CK803S" ProjectName="fpv_app_umac4" ProjectPath="D:/Work/baidu/TXW81x_FPV-v2.5.3.7-Brtc/TXW81x_FPV-v2.5.3.7-37302/project/" && D:/Work/baidu/TXW81x_FPV-v2.5.3.7-Brtc/TXW81x_FPV-v2.5.3.7-37302/project/prebuild.sh $<
 	@echo Done
 
 Project_Build:
@@ -15,7 +15,7 @@ Project_Build:
 
 Project_PostBuild:
 	@echo Executing Post Build commands ...
-	@export CDKPath="D:/C-Sky/CDK" CDK_VERSION="V2.24.14" CPU="CK803S" ProjectName="fpv_app_umac4" ProjectPath="D:/Work/baidu/TXW81x_FPV-v2.5.3.7-37302_20250917120347/TXW81x_FPV-v2.5.3.7-37302/project/" && D:/Work/baidu/TXW81x_FPV-v2.5.3.7-37302_20250917120347/TXW81x_FPV-v2.5.3.7-37302/project/BuildBIN.sh
+	@export CDKPath="D:/C-Sky/CDK" CDK_VERSION="V2.24.14" CPU="CK803S" ProjectName="fpv_app_umac4" ProjectPath="D:/Work/baidu/TXW81x_FPV-v2.5.3.7-Brtc/TXW81x_FPV-v2.5.3.7-37302/project/" && D:/Work/baidu/TXW81x_FPV-v2.5.3.7-Brtc/TXW81x_FPV-v2.5.3.7-37302/project/BuildBIN.sh
 	@echo Done
 
 

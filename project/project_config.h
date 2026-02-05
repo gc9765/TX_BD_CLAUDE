@@ -87,7 +87,7 @@
 #define FS_EN                           1
 #define SD_SAVE                         (1&&SDH_EN&&FS_EN&&JPG_EN)
 
-#define VCAM_EN                        (1 || DVP_EN)
+#define VCAM_EN                        (0 || DVP_EN)
 
 #define OPENDML_EN                      1
 #define UART_FLY_CTRL_EN                0

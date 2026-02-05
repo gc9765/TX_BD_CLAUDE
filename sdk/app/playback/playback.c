@@ -169,7 +169,7 @@ void jpeg_photo_renderer(const uint8_t *data, size_t len, uint32 scale_w, uint32
 		os_sleep_ms(1);
 		count++;
 	}
-	os_printf("%s count:%d\n",__FUNCTION__,count);
+//	os_printf("%s count:%d\n",__FUNCTION__,count);
 
 jpeg_photo_renderer_end:
 	if(data_buf)

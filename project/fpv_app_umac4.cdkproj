@@ -6518,127 +6518,10 @@ Board: txw81x
       </VirtualDirectory>
     </VirtualDirectory>
     <VirtualDirectory Name="app">
-      <VirtualDirectory Name="algorithm">
-        <VirtualDirectory Name="pdmFilter">
-          <File Name="../sdk/app/algorithm/pdmFilter/pdmFilter.c">
-            <FileOption/>
-          </File>
-          <File Name="../sdk/app/algorithm/pdmFilter/pdmFilter.h">
-            <FileOption/>
-          </File>
-        </VirtualDirectory>
-        <VirtualDirectory Name="stream_frame">
-          <File Name="../sdk/app/algorithm/stream_frame/stream_define.h">
-            <FileOption/>
-          </File>
-          <File Name="../sdk/app/algorithm/stream_frame/stream_frame.c">
-            <FileOption/>
-          </File>
-          <File Name="../sdk/app/algorithm/stream_frame/stream_frame.h">
-            <FileOption/>
-          </File>
-        </VirtualDirectory>
-        <VirtualDirectory Name="t_queue">
-          <File Name="../sdk/app/algorithm/t_queue/t_queue.c">
-            <FileOption/>
-          </File>
-          <File Name="../sdk/app/algorithm/t_queue/t_queue.h">
-            <FileOption/>
-          </File>
-        </VirtualDirectory>
-      </VirtualDirectory>
-      <VirtualDirectory Name="avi">
-        <File Name="../sdk/app/avi/play_avi.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/avi/play_avi.h">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/avi/newavi2_player.c">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="custom_mem">
-        <File Name="../sdk/app/custom_mem/custom_mem.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/custom_mem/custom_mem.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="dhcpd_eloop">
-        <File Name="../sdk/app/dhcpd_eloop/dhcpd_eloop.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/dhcpd_eloop/dhcpd_eloop.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="dns_eloop">
-        <File Name="../sdk/app/dns_eloop/dns_eloop.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/dns_eloop/dns_eloop.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="gsensor">
-        <File Name="../sdk/app/gsensor/g_sensor.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/gsensor/g_sensor.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
       <File Name="../sdk/app/jpgdef.h">
         <FileOption/>
       </File>
-      <VirtualDirectory Name="media">
-        <File Name="../sdk/app/media/media.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/media/media.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="newaudio">
-        <File Name="../sdk/app/newaudio/newaudio.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/newaudio/newaudio.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="record">
-        <File Name="../sdk/app/record/sd_save.c" ExcludeProjConfig="">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="remoteControl">
-        <File Name="../sdk/app/remoteControl/remote_control.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/remoteControl/remote_control.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="socketModule">
-        <File Name="../sdk/app/socketModule/socket_module.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/socketModule/socket_module.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="speedTest">
-        <File Name="../sdk/app/speedTest/speedTest.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/speedTest/speedTest.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="spook">
+      <VirtualDirectory Name="spook" ExcludeProjConfig="">
         <File Name="../sdk/app/spook/access_log.c">
           <FileOption/>
         </File>
@@ -6739,7 +6622,7 @@ Board: txw81x
           <FileOption/>
         </File>
       </VirtualDirectory>
-      <VirtualDirectory Name="sta_interface">
+      <VirtualDirectory Name="sta_interface" ExcludeProjConfig="">
         <File Name="../sdk/app/sta_interface/sta_interface.c">
           <FileOption/>
         </File>
@@ -6755,7 +6638,7 @@ Board: txw81x
           <FileOption/>
         </File>
       </VirtualDirectory>
-      <VirtualDirectory Name="video_app">
+      <VirtualDirectory Name="video_app" ExcludeProjConfig="">
         <File Name="../sdk/app/video_app/video_app.c">
           <FileOption/>
         </File>
@@ -6805,21 +6688,11 @@ Board: txw81x
           <FileOption/>
         </File>
       </VirtualDirectory>
-      <VirtualDirectory Name="uthash">
-        <File Name="../sdk/app/uthash/utlist.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
       <VirtualDirectory Name="playback">
         <File Name="../sdk/app/playback/playback.c">
           <FileOption/>
         </File>
         <File Name="../sdk/app/playback/playback.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="interface_management">
-        <File Name="../sdk/app/interface_management/interface_mgnt.c">
           <FileOption/>
         </File>
       </VirtualDirectory>
@@ -6861,7 +6734,7 @@ Board: txw81x
           <FileOption/>
         </File>
       </VirtualDirectory>
-      <VirtualDirectory Name="test_demo">
+      <VirtualDirectory Name="test_demo" ExcludeProjConfig="">
         <File Name="../sdk/app/test_demo/AT_save_audio.c">
           <FileOption/>
         </File>
@@ -6884,14 +6757,6 @@ Board: txw81x
           <FileOption/>
         </File>
       </VirtualDirectory>
-      <VirtualDirectory Name="flash">
-        <File Name="../sdk/app/flash/flash_read_demo.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/flash/flash_read_demo.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
       <VirtualDirectory Name="printer">
         <File Name="../sdk/app/printer/printer.c" ExcludeProjConfig="FLASH">
           <FileOption/>
@@ -6906,7 +6771,7 @@ Board: txw81x
           <FileOption/>
         </File>
       </VirtualDirectory>
-      <VirtualDirectory Name="zbar">
+      <VirtualDirectory Name="zbar" ExcludeProjConfig="">
         <File Name="../sdk/app/zbar/config.c">
           <FileOption/>
         </File>
@@ -7153,73 +7018,16 @@ Board: txw81x
           <FileOption/>
         </File>
       </VirtualDirectory>
-      <VirtualDirectory Name="mp3">
-        <File Name="../sdk/app/mp3/mp3_decode.c" ExcludeProjConfig="">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/mp3/mp3_decode.h">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/mp3/mp3_getInfo.c" ExcludeProjConfig="">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/mp3/mp3_getInfo.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="amr_app">
-        <File Name="../sdk/app/amr_app/amr_app.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/amr_app/amr_app.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
       <VirtualDirectory Name="lowPower_app">
         <File Name="../sdk/app/lowPower_app/lowPower_resume.c">
           <FileOption/>
         </File>
       </VirtualDirectory>
-      <VirtualDirectory Name="udpFPV">
+      <VirtualDirectory Name="udpFPV" ExcludeProjConfig="">
         <File Name="../sdk/app/udpFPV/udpFPV.c">
           <FileOption/>
         </File>
         <File Name="../sdk/app/udpFPV/udpFPV.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="intercom" ExcludeProjConfig="">
-        <File Name="../sdk/app/intercom/intercom_iLBC.c" ExcludeProjConfig="FLASH">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/intercom/intercom_opus.c" ExcludeProjConfig="FLASH">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/intercom/ringbuf.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/intercom/ringbuf.h">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/intercom/intercom.h">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/intercom/adpcm_code.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/intercom/adpcm_code.h">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/intercom/adpcm_dns.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/intercom/intercom_adpcm.c" ExcludeProjConfig="FLASH">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/intercom/lowcfe.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/intercom/lowcfe.h">
           <FileOption/>
         </File>
       </VirtualDirectory>
@@ -7829,96 +7637,6 @@ Board: txw81x
           </VirtualDirectory>
         </VirtualDirectory>
       </VirtualDirectory>
-      <VirtualDirectory Name="lvImg">
-        <File Name="../sdk/app/lvImg/lvImg.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/lvImg/lvImg.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="app_lcd">
-        <File Name="../sdk/app/app_lcd/app_lcd.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/app_lcd/app_lcd.h">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/app_lcd/jpg_to_rgb_stream.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/app_lcd/lcd_stream.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/app_lcd/lvgl_osd_stream.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/app_lcd/lvgl_osd_stream.h">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/app_lcd/lvgl_show_jpg.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/app_lcd/lvgl_show_jpg.h">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/app_lcd/osd_encode_stream.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/app_lcd/osd_encode_stream.h">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/app_lcd/osd_show_stream.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/app_lcd/osd_show_stream.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="decode">
-        <File Name="../sdk/app/decode/jpg_decode_stream.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/decode/jpg_decode_stream.h">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/decode/read_jpg_file_demo.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/decode/recv_jpg_yuv_demo.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/decode/recv_jpg_yuv_demo.h">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/decode/yuv_stream.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/decode/yuv_stream.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="other_jpg_show">
-        <File Name="../sdk/app/other_jpg_show/other_jpg_show_stream.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/other_jpg_show/other_jpg_show_stream.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="debug_stream">
-        <File Name="../sdk/app/debug_stream/debug_stream.c">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="scale3Stream">
-        <File Name="../sdk/app/scale3Stream/scale3_stream.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/scale3Stream/scale1Stream.c">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
       <VirtualDirectory Name="ui" ExcludeProjConfig="">
         <File Name="../sdk/app/ui/preview_ui.c">
           <FileOption/>
@@ -7993,21 +7711,7 @@ Board: txw81x
           <FileOption/>
         </File>
       </VirtualDirectory>
-      <VirtualDirectory Name="new_avi" ExcludeProjConfig="">
-        <File Name="../sdk/app/new_avi/avi.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/new_avi/avi.h">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/new_avi/newavi_player.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/new_avi/newavi_player.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="usbd_mass_speed_optimize">
+      <VirtualDirectory Name="usbd_mass_speed_optimize" ExcludeProjConfig="">
         <File Name="../sdk/app/usbd_mass_speed_optimize/usbd_mass_speed_optimize.c">
           <FileOption/>
         </File>
@@ -8084,52 +7788,8 @@ Board: txw81x
           <FileOption/>
         </File>
       </VirtualDirectory>
-      <VirtualDirectory Name="zbar_stream">
+      <VirtualDirectory Name="zbar_stream" ExcludeProjConfig="">
         <File Name="../sdk/app/zbar_stream/zbar_stream.c">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="avi_save_stream">
-        <File Name="../sdk/app/avi_save_stream/avi_save_stream.c">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="prc_stream">
-        <File Name="../sdk/app/prc_stream/prc_stream.c">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="magicSound" ExcludeProjConfig="">
-        <File Name="../sdk/app/magicSound/magic_sound.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/magicSound/magic_sound.h">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="llm_app">
-        <VirtualDirectory Name="voice_conversation_demo">
-          <File Name="../sdk/app/llm_app/voice_conversation_demo/voice_conversation_demo.c">
-            <FileOption/>
-          </File>
-          <File Name="../sdk/app/llm_app/voice_conversation_demo/voice_conversation_demo.h">
-            <FileOption/>
-          </File>
-        </VirtualDirectory>
-      </VirtualDirectory>
-      <VirtualDirectory Name="energy_spectrum">
-        <File Name="../sdk/app/energy_spectrum/energy_spectrum.c">
-          <FileOption/>
-        </File>
-      </VirtualDirectory>
-      <VirtualDirectory Name="ble_net">
-        <File Name="../sdk/app/ble_net/ble_pair.c">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/ble_net/ble_pair.h">
-          <FileOption/>
-        </File>
-        <File Name="../sdk/app/ble_net/wireless_net.c">
           <FileOption/>
         </File>
       </VirtualDirectory>
@@ -8164,9 +7824,15 @@ Board: txw81x
         </VirtualDirectory>
       </VirtualDirectory>
       <VirtualDirectory Name="application">
-        <File Name="../sdk/app/application/audio_processing.c"/>
-        <File Name="../sdk/app/application/audio_processing.h"/>
-        <File Name="../sdk/app/application/os_support.h"/>
+        <File Name="../sdk/app/application/audio_processing.c">
+          <FileOption/>
+        </File>
+        <File Name="../sdk/app/application/audio_processing.h">
+          <FileOption/>
+        </File>
+        <File Name="../sdk/app/application/os_support.h">
+          <FileOption/>
+        </File>
       </VirtualDirectory>
     </VirtualDirectory>
   </VirtualDirectory>
@@ -8223,17 +7889,6 @@ Board: txw81x
       <Version>latest</Version>
     </Compiler>
   </ToolsConfig>
-  <DebugSessions>
-    <watchExpressions>usbmic_free_list:1;usbmic_use_list:1;usbspk_free_list:1;usbspk_use_list:1;check_uac_online:1;g_s:1;ttt:1;g_ctrl_aueq:1;g_active_task:1;(struct hgjpg_hw*)jpg0.hw:1;(struct os_work*)0x20011dc8:1;work:1;main_wkq:1;g_work:1;(stream*)0x20039630:1;custom_sram_heap:1;stream_not_gc:1;(struct os_work *)0x200127d4:1;(struct other_jpg_s*)0x200127d4:1;main_wkq:1;g_work:1;(struct video_app_s *)0x20012778:1;g_work:1;(struct jpg_decode_s *)0x2001261c:1;(struct os_work*)0x20012620:1;g_work:1;(ktask_t*)g_lvgl_hdl:1;g_tick_count:0;g_work:1;(struct os_work*)0x2000831c:1;key_wk:1;main_wk:1;(ktask_t *)0x20037A00:1;(struct hglcdc_hw*)lcdc.hw:1;osd_menu565_buf:1;get_f:1;psram_pool:1;user_pool:1;(ktask_t*)0x3836d900:1;sdhost_wk:1;photo_msg:1;(struct hgscale1_hw*)scale1.hw:1;yuvbuf:1;(TYPE_SPI_BOOT*)0x20043de8:1;zbar_thread_hdl:1;(ktask_t *)zbar_thread_hdl.hdl:1;psram_pool:1;g_test_mem:1;g_test_mem2:1;(struct qr_code_data_list*)0:1;print_buf:1;psram_pool:1;g_zbar_flag:1;&amp;uart_buf:1;&amp;osd_menu565_buf:1</watchExpressions>
-    <memoryExpressions>0x38000590;0x3810DDC0;0x20005d0c;0x20043de8</memoryExpressions>
-    <statistics>;;MHZ;</statistics>
-    <peripheralTabs/>
-    <WatchDisplayFormat>1</WatchDisplayFormat>
-    <LocalDisplayFormat>1</LocalDisplayFormat>
-    <debugLayout>layout2|name=Project View;caption=Project View;state=31459324;dir=4;layer=1;row=0;pos=0;prop=66243;bestw=456;besth=277;minw=10;minh=5;maxw=-1;maxh=-1;floatx=-3;floaty=100;floatw=400;floath=250|name=Debugger;caption=Debugger;state=14698492;dir=3;layer=0;row=1;pos=0;prop=75977;bestw=341;besth=315;minw=10;minh=5;maxw=-1;maxh=-1;floatx=1302;floaty=649;floatw=663;floath=340|name=Frame Info;caption=Frame Info;state=14682108;dir=3;layer=0;row=1;pos=1;prop=116897;bestw=400;besth=300;minw=10;minh=5;maxw=-1;maxh=-1;floatx=551;floaty=566;floatw=981;floath=488|name=Peripherals;caption=Peripherals;state=1105201150;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=11;besth=43;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Serial Pane;caption=Serial Pane;state=1088423934;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=400;besth=300;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Editor;caption=;state=256;dir=5;layer=0;row=0;pos=0;prop=100000;bestw=20;besth=20;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Output View;caption=Output View;state=1105201150;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=958;besth=244;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Register;caption=Register;state=2099198;dir=4;layer=1;row=0;pos=1;prop=100000;bestw=200;besth=200;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=83;floaty=444;floatw=218;floath=240|name=Outline;caption=Outline;state=2099198;dir=2;layer=0;row=2;pos=0;prop=100000;bestw=200;besth=200;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=1823;floaty=285;floatw=216;floath=236|dock_size(4,1,0)=267|dock_size(5,0,0)=20|dock_size(3,0,1)=468|</debugLayout>
-    <memoryTabColSizeExpressions>72:4;72:4;100:4;100:8;</memoryTabColSizeExpressions>
-    <QuickWatchDisplayFormat/>
-  </DebugSessions>
   <DebugSessions>
     <watchExpressions>usbmic_free_list:1;usbmic_use_list:1;usbspk_free_list:1;usbspk_use_list:1;check_uac_online:1;g_s:1;ttt:1;g_ctrl_aueq:1;g_active_task:1;(struct hgjpg_hw*)jpg0.hw:1;(struct os_work*)0x20011dc8:1;work:1;main_wkq:1;g_work:1;(stream*)0x20039630:1;custom_sram_heap:1;stream_not_gc:1;(struct os_work *)0x200127d4:1;(struct other_jpg_s*)0x200127d4:1;main_wkq:1;g_work:1;(struct video_app_s *)0x20012778:1;g_work:1;(struct jpg_decode_s *)0x2001261c:1;(struct os_work*)0x20012620:1;g_work:1;(ktask_t*)g_lvgl_hdl:1;g_tick_count:0;g_work:1;(struct os_work*)0x2000831c:1;key_wk:1;main_wk:1;(ktask_t *)0x20037A00:1;(struct hglcdc_hw*)lcdc.hw:1;osd_menu565_buf:1;get_f:1;psram_pool:1;user_pool:1;(ktask_t*)0x3836d900:1;sdhost_wk:1;photo_msg:1;(struct hgscale1_hw*)scale1.hw:1;zbar_thread_hdl:1;(ktask_t *)zbar_thread_hdl.hdl:1;psram_pool:1;g_test_mem:1;g_test_mem2:1;(struct qr_code_data_list*)0:1;print_buf:1;psram_pool:1;g_zbar_flag:1;scale3_num:0;lcd_num:0;video_psram_mem2:1;video_psram_mem3:1;video_psram_mem:1;encrypt_info:1;(struct spiflash_header_encrypt_info *)data:1;g_s:1;g_stream_list:1;stream_frame_bitmap:1;gc_bitmap_flag:1;gc_bitmap:1;g_s:1</watchExpressions>
     <memoryExpressions>0x2002dcd4;0x40005040;0x40007000;0x08000000</memoryExpressions>
@@ -8492,4 +8147,15 @@ Board: txw81x
       </Flash>
     </BuildConfig>
   </BuildConfigs>
+  <DebugSessions>
+    <watchExpressions>usbmic_free_list:1;usbmic_use_list:1;usbspk_free_list:1;usbspk_use_list:1;check_uac_online:1;g_s:1;ttt:1;g_ctrl_aueq:1;g_active_task:1;(struct hgjpg_hw*)jpg0.hw:1;(struct os_work*)0x20011dc8:1;work:1;main_wkq:1;g_work:1;(stream*)0x20039630:1;custom_sram_heap:1;stream_not_gc:1;(struct os_work *)0x200127d4:1;(struct other_jpg_s*)0x200127d4:1;main_wkq:1;g_work:1;(struct video_app_s *)0x20012778:1;g_work:1;(struct jpg_decode_s *)0x2001261c:1;(struct os_work*)0x20012620:1;g_work:1;(ktask_t*)g_lvgl_hdl:1;g_tick_count:0;g_work:1;(struct os_work*)0x2000831c:1;key_wk:1;main_wk:1;(ktask_t *)0x20037A00:1;(struct hglcdc_hw*)lcdc.hw:1;osd_menu565_buf:1;get_f:1;psram_pool:1;user_pool:1;(ktask_t*)0x3836d900:1;sdhost_wk:1;photo_msg:1;(struct hgscale1_hw*)scale1.hw:1;yuvbuf:1;(TYPE_SPI_BOOT*)0x20043de8:1;zbar_thread_hdl:1;(ktask_t *)zbar_thread_hdl.hdl:1;psram_pool:1;g_test_mem:1;g_test_mem2:1;(struct qr_code_data_list*)0:1;print_buf:1;psram_pool:1;g_zbar_flag:1;&amp;uart_buf:1;&amp;osd_menu565_buf:1</watchExpressions>
+    <memoryExpressions>0x38000590;0x3810DDC0;0x20005d0c;0x20043de8</memoryExpressions>
+    <statistics>;;MHZ;</statistics>
+    <peripheralTabs/>
+    <WatchDisplayFormat>1</WatchDisplayFormat>
+    <LocalDisplayFormat>1</LocalDisplayFormat>
+    <debugLayout>layout2|name=Project View;caption=Project View;state=31459324;dir=4;layer=1;row=0;pos=0;prop=66243;bestw=456;besth=277;minw=10;minh=5;maxw=-1;maxh=-1;floatx=-3;floaty=100;floatw=400;floath=250|name=Debugger;caption=Debugger;state=14698492;dir=3;layer=0;row=1;pos=0;prop=75977;bestw=341;besth=315;minw=10;minh=5;maxw=-1;maxh=-1;floatx=1302;floaty=649;floatw=663;floath=340|name=Frame Info;caption=Frame Info;state=14682108;dir=3;layer=0;row=1;pos=1;prop=116897;bestw=400;besth=300;minw=10;minh=5;maxw=-1;maxh=-1;floatx=551;floaty=566;floatw=981;floath=488|name=Peripherals;caption=Peripherals;state=1105201150;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=11;besth=43;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Serial Pane;caption=Serial Pane;state=1088423934;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=400;besth=300;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Editor;caption=;state=256;dir=5;layer=0;row=0;pos=0;prop=100000;bestw=20;besth=20;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Output View;caption=Output View;state=1105201150;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=958;besth=244;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Register;caption=Register;state=2099198;dir=4;layer=1;row=0;pos=1;prop=100000;bestw=200;besth=200;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=83;floaty=444;floatw=218;floath=240|name=Outline;caption=Outline;state=2099198;dir=2;layer=0;row=2;pos=0;prop=100000;bestw=200;besth=200;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=1823;floaty=285;floatw=216;floath=236|dock_size(4,1,0)=267|dock_size(5,0,0)=20|dock_size(3,0,1)=468|</debugLayout>
+    <memoryTabColSizeExpressions>72:4;72:4;100:4;100:8;</memoryTabColSizeExpressions>
+    <QuickWatchDisplayFormat/>
+  </DebugSessions>
 </Project>
