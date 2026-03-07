@@ -4,7 +4,7 @@
 #include "osal/task.h"
 #include "osal_file.h"
 #include "custom_mem/custom_mem.h"
-//#include "lwip/sockets.h" 
+//#include "lwip/sockets.h"
 #include "curl/curl.h"
 #include "cJSON.h"
 
@@ -15,6 +15,7 @@
 #include "txw81x_video.h"
 #include "video_raw_data.h"
 #include "lib/lcd/lcd.h"
+
 
 // 客户对接环境 (仅接入验证,不可用于生产环境)
 #define SERVER_HOST_BD_DEV              "http://ai.agent.kaywang.cn:8988/api/v1/aiagent"
@@ -28,7 +29,6 @@
 // #define BDCloudRTCAppID          "appmdty71uuwx8u"       // REGION_AMERICA APPID
 
 // BRTC 客户对接环境访问地址
-
 #define JSON_CONFIG_TEMPLATE "{\"app_id\": \"%s\", \"config\" : \"{\\\"llm\\\" : \\\"%s\\\", \\\"llm_token\\\" : \\\"no\\\", \\\"rtc_ac\\\": \\\"pcmu\\\", \\\"lang\\\" : \\\"%s\\\"}\", \"quick_start\": true}"
 #define JSON_CONFIG_TEMPLATE_VISUAL "{\"app_id\": \"%s\", \"config\" : \"{\\\"llm\\\" : \\\"%s\\\", \\\"llm_token\\\" : \\\"no\\\", \\\"enable_visual\\\" : \\\"true\\\", \\\"rtc_ac\\\": \\\"pcmu\\\", \\\"lang\\\" : \\\"%s\\\"}\", \"quick_start\": true}"
 #define MAX_APPID_LEN 64
@@ -130,10 +130,12 @@ static const char* object_vision_prompt =
 // 儿童打印机 prompt
 static char* object_GeneraetImage_prompt =  
 	"# 你是一个资深的黑白简笔画创作者，生成图片时请按下面要求生成精致的黑白简笔画。\\\\n"
-	"1. 白底黑线，只用纯黑线（#000000）与纯白背景（#FFFFFF），无灰度、无填色、无阴影、无高光、无纹理、无噪点。\\\\n"
-	"2. 线条要求：统一且细的单一线宽（single consistent thin stroke），干净、连续、锐利；\\\\n"
-	"3. 允许在主体内部加入更多**同线宽的细节线条**（例如：发丝、衣褶、须眉、纹饰等）以增加精致感，但所有细节必须由与轮廓相同的单一线宽构成。\\\\n"
-	"4. 构图需简洁、留白充分、主体明确。";
+	"1. 背景要求：纯白背景（#FFFFFF）；\\\\n"
+    "2. 主体要求：黑色线条构成，简笔画风格，无其它颜色填充；\\\\n"
+	"3. 颜色要求：白底黑线，只用纯黑线（#000000）与纯白背景（#FFFFFF），无灰度、无填色、无阴影、无高光、无纹理、无噪点。\\\\n"
+	"4. 线条要求：统一且细的单一线宽（single consistent thin stroke），干净、连续、锐利；\\\\n"
+	"5. 细节要求：允许在主体内部加入更多**同线宽的细节线条**（例如：发丝、衣褶、须眉、纹饰等）以增加精致感，但所有细节必须由与轮廓相同的单一线宽构成。\\\\n"
+	"6. 总体要求：构图需简洁、留白充分、主体明确。";
 
 static char at_query_text[4096];
 typedef struct {
@@ -353,14 +355,10 @@ void setUserParameters(AgentEngineParams *params)
 {
 	strncpy(params->agent_platform_url, SERVER_HOST_ONLINE, sizeof(params->agent_platform_url) - 1);
     strncpy(params->appid, BDCloudDefaultRTCAppID, sizeof(params->appid) - 1); // //需要和服务端使用同一个appId
-    snprintf(params->userId, sizeof(params->userId), "%s", "12345678"); // 终端用户唯一的id号，例如手机号
-//    strncpy(params->agent_platform_url, g_platform_host, sizeof(params->agent_platform_url) - 1);
-//    strncpy(params->appid, g_appid, sizeof(params->appid) - 1); // //需要和服务端使用同一个appId
-//    snprintf(params->userId, sizeof(params->userId), "%s", "12345678");        // 终端用户唯一的id号，例如手机号/MAC地址
+    snprintf(params->userId, sizeof(params->userId), "%s", "12345678"); // 终端用户唯一的id号，例如手机号/MAC地址
     strncpy(params->cer, "./a.cer", sizeof(params->cer) - 1);
     strncpy(params->workflow, "VoiceChat", sizeof(params->workflow) - 1);
     snprintf(params->license_key, sizeof(params->license_key), "%s", "292fc11a00ca42daa1101c6987c14b76");  //"xxxx"为license_key字符串，需要购买获得
-//	snprintf(params->license_key, sizeof(params->license_key), "%s", "292fc1xxxx"); //"xxxx"为license_key字符串，需要购买获得
 
     params->instance_id = 10373;
     params->verbose = true;
@@ -577,6 +575,7 @@ void brtc_demo_init(void)
     }
     stop_video_send_flag = false;
     brtc_running = true;
+
     return;
 }
 
@@ -664,8 +663,9 @@ void brtc_demo_start(void *arg)
             brtc_demo_init();
         }
     }
+	
 	#ifdef BW_LINE_DRAWING
-//		os_sleep_ms(2000);
+		os_sleep_ms(500);
 		update_prompt("3");
 	#endif
 }
@@ -674,7 +674,7 @@ void brtc_demo_start(void *arg)
 struct os_task task_brtc_demo;
 void app_main(void)
 {
-    if (brtc_running){
+    if (brtc_running){  //作用是什么？
         os_task_create("brtc_ai_agent_task_close", baidu_chat_agent_demo_close, (void*)NULL, OS_TASK_PRIORITY_NORMAL, 0, NULL, 16 * 1024);
         os_sleep_ms(1000);
     }

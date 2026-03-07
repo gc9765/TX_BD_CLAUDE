@@ -779,7 +779,7 @@ static void sys_dhcpc_check(void)
 	// 新增：DHCP 完成后启动百度 AI 对话
     if(sys_status.dhcpc_done && !brtc_ai_chat_running) {
         brtc_ai_chat_running = 1;
-        os_sleep_ms(5000);
+        os_sleep_ms(1000);
 		
         extern void app_main(void);
         app_main();  // 调用百度 AI 主程序
@@ -1279,6 +1279,7 @@ void hardware_init(uint8 vcam)
 #if LCD_EN
 	void lvgl_init(uint16_t w,uint16_t h,uint8_t rotate);
 	lvgl_init(w,h,rotate);
+
 #endif
 
 
@@ -1352,6 +1353,7 @@ int main(void)
 {
     uint32 sysheap_freesize(struct sys_heap *heap);
     os_printf("freemem:%d\r\n",sysheap_freesize(&sram_heap));
+	os_printf("%s,%s",__FUNCTION__,__LINE__);
 	#ifdef PSRAM_HEAP
 		while(!get_psram_status())
 		{

@@ -484,10 +484,6 @@ static void audio_dac_fade(void *d)
 //			 aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_STEP, AUFADE_STEP_4, 0);
 //			 aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_SAMPLE, AUFADE_SAMPLE_1, 0);
 //			 aufade_start(fade, AUFADE_OUT);
-			 
-			 print_custom_psram();
-			 print_custom_sram();
-			os_printf("freemem:%d\r\n", sysheap_freesize(&sram_heap));
 		}
 		else if(fade_mode == 0) {
 			os_printf("\n*********fade mode:%d*********\n",fade_mode);
@@ -495,9 +491,6 @@ static void audio_dac_fade(void *d)
 //			 aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_SAMPLE, AUFADE_SAMPLE_1, 0);
 //			 aufade_start(fade, AUFADE_IN);		
 //			
-			print_custom_psram();
-			print_custom_sram();
-			os_printf("freemem:%d\r\n", sysheap_freesize(&sram_heap));
 		}
 	}
 }

@@ -362,7 +362,7 @@ void lvgl_init(uint16_t w,uint16_t h,uint8_t rotate){
 
 	lv_init();                  // lvgl初始化，如果这个没有初始化，那么下面的初始化会崩溃
     lv_port_disp_init(NULL,w,h,rotate);        // 显示器初始化
-    lv_port_indev_init();
+//    lv_port_indev_init();
 	
 #if BBM_DEMO
 	void lv_baby_display();

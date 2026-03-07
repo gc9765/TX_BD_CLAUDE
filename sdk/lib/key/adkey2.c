@@ -103,7 +103,7 @@ static const struct adkey_scan_code adkey_table[] =
 	{0,     AD_A},
 	{900,  AD_B},
 	{1800,  AD_C},
-	{2800,  AD_LEFT},
+	{2800,  AD_D},
     //{3900,  AD_PRESS},
     {3950,  KEY_NONE},
     {4096,  KEY_NONE},

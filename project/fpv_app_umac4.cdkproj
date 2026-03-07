@@ -7834,6 +7834,11 @@ Board: txw81x
           <FileOption/>
         </File>
       </VirtualDirectory>
+      <VirtualDirectory Name="interface_management">
+        <File Name="../sdk/app/interface_management/interface_mgnt.c">
+          <FileOption/>
+        </File>
+      </VirtualDirectory>
     </VirtualDirectory>
   </VirtualDirectory>
   <VirtualDirectory Name="project">
@@ -7921,6 +7926,17 @@ Board: txw81x
     <debugLayout>layout2|name=Project View;caption=Project View;state=31459324;dir=4;layer=1;row=0;pos=0;prop=66243;bestw=456;besth=277;minw=10;minh=5;maxw=-1;maxh=-1;floatx=-3;floaty=100;floatw=400;floath=250|name=Debugger;caption=Debugger;state=14698492;dir=3;layer=0;row=1;pos=0;prop=75977;bestw=341;besth=315;minw=10;minh=5;maxw=-1;maxh=-1;floatx=1302;floaty=649;floatw=663;floath=340|name=Frame Info;caption=Frame Info;state=14682108;dir=3;layer=0;row=1;pos=1;prop=116897;bestw=400;besth=300;minw=10;minh=5;maxw=-1;maxh=-1;floatx=551;floaty=566;floatw=981;floath=488|name=Peripherals;caption=Peripherals;state=1105201150;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=11;besth=43;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Serial Pane;caption=Serial Pane;state=1088423934;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=400;besth=300;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Editor;caption=;state=256;dir=5;layer=0;row=0;pos=0;prop=100000;bestw=20;besth=20;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Output View;caption=Output View;state=1105201150;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=958;besth=244;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Register;caption=Register;state=2099198;dir=4;layer=1;row=0;pos=1;prop=100000;bestw=200;besth=200;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=83;floaty=444;floatw=218;floath=240|name=Outline;caption=Outline;state=2099198;dir=2;layer=0;row=2;pos=0;prop=100000;bestw=200;besth=200;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=1823;floaty=285;floatw=216;floath=236|dock_size(4,1,0)=267|dock_size(5,0,0)=20|dock_size(3,0,1)=468|</debugLayout>
     <memoryTabColSizeExpressions>100:4;100:4;100:4;100:8;</memoryTabColSizeExpressions>
     <QuickWatchDisplayFormat>1</QuickWatchDisplayFormat>
+  </DebugSessions>
+  <DebugSessions>
+    <watchExpressions>usbmic_free_list:1;usbmic_use_list:1;usbspk_free_list:1;usbspk_use_list:1;check_uac_online:1;g_s:1;ttt:1;g_ctrl_aueq:1;g_active_task:1;(struct hgjpg_hw*)jpg0.hw:1;(struct os_work*)0x20011dc8:1;work:1;main_wkq:1;g_work:1;(stream*)0x20039630:1;custom_sram_heap:1;stream_not_gc:1;(struct os_work *)0x200127d4:1;(struct other_jpg_s*)0x200127d4:1;main_wkq:1;g_work:1;(struct video_app_s *)0x20012778:1;g_work:1;(struct jpg_decode_s *)0x2001261c:1;(struct os_work*)0x20012620:1;g_work:1;(ktask_t*)g_lvgl_hdl:1;g_tick_count:0;g_work:1;(struct os_work*)0x2000831c:1;key_wk:1;main_wk:1;(ktask_t *)0x20037A00:1;(struct hglcdc_hw*)lcdc.hw:1;osd_menu565_buf:1;get_f:1;psram_pool:1;user_pool:1;(ktask_t*)0x3836d900:1;sdhost_wk:1;photo_msg:1;(struct hgscale1_hw*)scale1.hw:1;yuvbuf:1;(TYPE_SPI_BOOT*)0x20043de8:1;zbar_thread_hdl:1;(ktask_t *)zbar_thread_hdl.hdl:1;psram_pool:1;g_test_mem:1;g_test_mem2:1;(struct qr_code_data_list*)0:1;print_buf:1;psram_pool:1;g_zbar_flag:1;&amp;uart_buf:1;&amp;osd_menu565_buf:1</watchExpressions>
+    <memoryExpressions>0x38000590;0x3810DDC0;0x20005d0c;0x20043de8</memoryExpressions>
+    <statistics>;;MHZ;</statistics>
+    <peripheralTabs/>
+    <WatchDisplayFormat>1</WatchDisplayFormat>
+    <LocalDisplayFormat>1</LocalDisplayFormat>
+    <debugLayout>layout2|name=Project View;caption=Project View;state=31459324;dir=4;layer=1;row=0;pos=0;prop=66243;bestw=456;besth=277;minw=10;minh=5;maxw=-1;maxh=-1;floatx=-3;floaty=100;floatw=400;floath=250|name=Debugger;caption=Debugger;state=14698492;dir=3;layer=0;row=1;pos=0;prop=75977;bestw=341;besth=315;minw=10;minh=5;maxw=-1;maxh=-1;floatx=1302;floaty=649;floatw=663;floath=340|name=Frame Info;caption=Frame Info;state=14682108;dir=3;layer=0;row=1;pos=1;prop=116897;bestw=400;besth=300;minw=10;minh=5;maxw=-1;maxh=-1;floatx=551;floaty=566;floatw=981;floath=488|name=Peripherals;caption=Peripherals;state=1105201150;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=11;besth=43;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Serial Pane;caption=Serial Pane;state=1088423934;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=400;besth=300;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Editor;caption=;state=256;dir=5;layer=0;row=0;pos=0;prop=100000;bestw=20;besth=20;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Output View;caption=Output View;state=1105201150;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=958;besth=244;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Register;caption=Register;state=2099198;dir=4;layer=1;row=0;pos=1;prop=100000;bestw=200;besth=200;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=83;floaty=444;floatw=218;floath=240|name=Outline;caption=Outline;state=2099198;dir=2;layer=0;row=2;pos=0;prop=100000;bestw=200;besth=200;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=1823;floaty=285;floatw=216;floath=236|dock_size(4,1,0)=267|dock_size(5,0,0)=20|dock_size(3,0,1)=468|</debugLayout>
+    <memoryTabColSizeExpressions>72:4;72:4;100:4;100:8;</memoryTabColSizeExpressions>
+    <QuickWatchDisplayFormat/>
   </DebugSessions>
   <BuildConfigs>
     <BuildConfig Name="FLASH">
@@ -8147,15 +8163,4 @@ Board: txw81x
       </Flash>
     </BuildConfig>
   </BuildConfigs>
-  <DebugSessions>
-    <watchExpressions>usbmic_free_list:1;usbmic_use_list:1;usbspk_free_list:1;usbspk_use_list:1;check_uac_online:1;g_s:1;ttt:1;g_ctrl_aueq:1;g_active_task:1;(struct hgjpg_hw*)jpg0.hw:1;(struct os_work*)0x20011dc8:1;work:1;main_wkq:1;g_work:1;(stream*)0x20039630:1;custom_sram_heap:1;stream_not_gc:1;(struct os_work *)0x200127d4:1;(struct other_jpg_s*)0x200127d4:1;main_wkq:1;g_work:1;(struct video_app_s *)0x20012778:1;g_work:1;(struct jpg_decode_s *)0x2001261c:1;(struct os_work*)0x20012620:1;g_work:1;(ktask_t*)g_lvgl_hdl:1;g_tick_count:0;g_work:1;(struct os_work*)0x2000831c:1;key_wk:1;main_wk:1;(ktask_t *)0x20037A00:1;(struct hglcdc_hw*)lcdc.hw:1;osd_menu565_buf:1;get_f:1;psram_pool:1;user_pool:1;(ktask_t*)0x3836d900:1;sdhost_wk:1;photo_msg:1;(struct hgscale1_hw*)scale1.hw:1;yuvbuf:1;(TYPE_SPI_BOOT*)0x20043de8:1;zbar_thread_hdl:1;(ktask_t *)zbar_thread_hdl.hdl:1;psram_pool:1;g_test_mem:1;g_test_mem2:1;(struct qr_code_data_list*)0:1;print_buf:1;psram_pool:1;g_zbar_flag:1;&amp;uart_buf:1;&amp;osd_menu565_buf:1</watchExpressions>
-    <memoryExpressions>0x38000590;0x3810DDC0;0x20005d0c;0x20043de8</memoryExpressions>
-    <statistics>;;MHZ;</statistics>
-    <peripheralTabs/>
-    <WatchDisplayFormat>1</WatchDisplayFormat>
-    <LocalDisplayFormat>1</LocalDisplayFormat>
-    <debugLayout>layout2|name=Project View;caption=Project View;state=31459324;dir=4;layer=1;row=0;pos=0;prop=66243;bestw=456;besth=277;minw=10;minh=5;maxw=-1;maxh=-1;floatx=-3;floaty=100;floatw=400;floath=250|name=Debugger;caption=Debugger;state=14698492;dir=3;layer=0;row=1;pos=0;prop=75977;bestw=341;besth=315;minw=10;minh=5;maxw=-1;maxh=-1;floatx=1302;floaty=649;floatw=663;floath=340|name=Frame Info;caption=Frame Info;state=14682108;dir=3;layer=0;row=1;pos=1;prop=116897;bestw=400;besth=300;minw=10;minh=5;maxw=-1;maxh=-1;floatx=551;floaty=566;floatw=981;floath=488|name=Peripherals;caption=Peripherals;state=1105201150;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=11;besth=43;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Serial Pane;caption=Serial Pane;state=1088423934;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=400;besth=300;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Editor;caption=;state=256;dir=5;layer=0;row=0;pos=0;prop=100000;bestw=20;besth=20;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Output View;caption=Output View;state=1105201150;dir=3;layer=1;row=0;pos=1;prop=100000;bestw=958;besth=244;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=Register;caption=Register;state=2099198;dir=4;layer=1;row=0;pos=1;prop=100000;bestw=200;besth=200;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=83;floaty=444;floatw=218;floath=240|name=Outline;caption=Outline;state=2099198;dir=2;layer=0;row=2;pos=0;prop=100000;bestw=200;besth=200;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=1823;floaty=285;floatw=216;floath=236|dock_size(4,1,0)=267|dock_size(5,0,0)=20|dock_size(3,0,1)=468|</debugLayout>
-    <memoryTabColSizeExpressions>72:4;72:4;100:4;100:8;</memoryTabColSizeExpressions>
-    <QuickWatchDisplayFormat/>
-  </DebugSessions>
 </Project>

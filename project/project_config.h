@@ -107,7 +107,7 @@
 #define MJPEG_VIDEO                     (1 &&OPENDML_EN&&FS_EN&&SDH_EN&&JPG_EN)          //基于框架的mjpeg录像    
 #define UVC_VIDEO                       (1 &&OPENDML_EN&&FS_EN&&SDH_EN&&USB_EN)          //基于框架的uvc录像
 
-#define DCDC_EN                         0           //板子是否使用DCDC电路
+#define DCDC_EN                         1           //板子是否使用DCDC电路
 //低功耗demo
 #define LOWPOWER_DEMO                   0
 
