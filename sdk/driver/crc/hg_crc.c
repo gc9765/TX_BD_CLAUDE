@@ -135,6 +135,8 @@ static int32 hg_crc_calc_continue(struct crc_dev *crc, struct crc_dev_req *req, 
     struct hg_crc *dev = (struct hg_crc *)crc;
     struct hg_crc_hw *hw = (struct hg_crc_hw *)dev->hw;
 
+    os_sema_eat(&dev->done);
+
     hw->CRC_INIT = hw->CRC_OUT ^ hw->CRC_INV;
     /* kick */
 #if defined(TXW80X)
@@ -199,11 +201,10 @@ static int32 hg_crc_calc(struct crc_dev *crc, struct crc_dev_req *req, uint32 *c
         return -EINVAL;
     }
 
-#if defined(TXW4002ACK803)
-    if (CRC_TYPE_TCPIP_CHKSUM == req->type) {
+    if ((CRC_TYPE_TCPIP_CHKSUM == req->type) && (req->len < 4)) {
         return -ENOTSUP;
     }
-#endif
+
     if ((dev->flags & BIT(HGCRC_FLAGS_SUSPEND))) {
         return -ENOTSUP;
     }
@@ -215,6 +216,8 @@ static int32 hg_crc_calc(struct crc_dev *crc, struct crc_dev_req *req, uint32 *c
     os_mutex_lock(&dev->lock, osWaitForever);
 
     sysctrl_crc_reset();
+    os_sema_eat(&dev->done);
+    
     if (0 == p_cfg->poly_bits) {
         cfg_reg = LL_CRC_CFG_INT_EN | LL_CRC_CFG_TCP_MODE_EN | LL_CRC_CFG_DMAWAIT_CLOCK(5);
     } else {
@@ -252,9 +255,11 @@ static int32 hg_crc_calc(struct crc_dev *crc, struct crc_dev_req *req, uint32 *c
 #endif
     hw->DMA_LEN  = req->len;
 
-    ret = os_sema_down(&dev->done, 100);
+    ret = os_sema_down(&dev->done, 2000);
+    if (!ret) {
+        sysctrl_crc_reset();
+    }
     *crc_value = hw->CRC_OUT;
-
     os_mutex_unlock(&dev->lock);
     
     return ret > 0 ? RET_OK : RET_ERR;

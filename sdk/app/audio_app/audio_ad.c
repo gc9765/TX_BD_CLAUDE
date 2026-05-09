@@ -1,18 +1,8 @@
-#include "sys_config.h"
-#include "typesdef.h"
-#include "list.h"
-#include "dev.h"
-#include "devid.h"
-#include "string.h"
+#include "basic_include.h"
 #include "osal/task.h"
-#include "osal/string.h"
 #include "hal/auadc.h"
-#include "utlist.h"
 #include "audio_adc.h"
-#include "osal_file.h"
 #include "stream_frame.h"
-#include "osal_file.h"
-#include "dev/spi/hgspi_xip.h"
 #include "t_queue.h"
 #include "csi_kernel.h"
 #include "sdk/app/application/audio_processing.h"
@@ -29,46 +19,36 @@
 	#define AUDIONUM	(4)
 #endif
 
-#define HIGHPASS_FILTER     0
-#define NSX_PROCESSING_AUDIO  0
+#define MEAN_FILTER        1
 
-#define ROUNDING_14(data) ( (short int)( ( ((int)( ( (int)data) + ((int)(1<<13)))) >> 14) & 0xFFFF))
-
-#if HIGHPASS_FILTER == 1
-//adc采集的前面75个sample点不能用,经过高通滤波后,才可以用
-#define AUDIOLEN	(960)
-#define FILTER_SAMPLE_LEN	76
-#define REAL_FILTER_SAMPLE_LEN 75
+#if MEAN_FILTER == 1
+	#define MEAN_FILTER_SAMPLE_LEN	2
 #else
-#define AUDIOLEN	(320)
-#define FILTER_SAMPLE_LEN	0
+	#define MEAN_FILTER_SAMPLE_LEN	0
 #endif
-
-#define SOFT_GAIN	(6)
 
 AUDIO_PROCESS_HDL *audio_hdl = NULL;
 
-typedef uint32_t (*highpass_filter_100hz_asm_func)(int16_t *p_cur);
+#define AUDIOLEN	(320)
 
+#define SOFT_GAIN	(8)
+
+static stream *global_audio_adc_s = NULL;
 struct audio_ad_config;
-//返回值是一个buf,录音的buf,priv_el则是应用层的一个结构,el_point则是一个指针地址,audio_set_buf在返回buf前同时要配置el_point的值(最后在audio_get_buf的时候会需要调用)
 typedef void *(*set_buf)(void *priv_el,void *el_point);
-//priv_el则是应用层的一个结构,el_point则是可以寻找到buf的一个结构体,el_point的值是audio_set_buf赋值的
 typedef void (*get_buf)(void *priv_el,void *el_point);
 
 typedef int32 (*audio_ad_read)(struct audio_ad_config *audio, void* buf, uint32 len);
 
 struct audio_ad_config
 {
-	//struct hgpdm_v0*   pdm_hdl;
+	int buf_size;
     struct auadc_device *adc;
 	void *current_node;
 	void *reg_node;
+	void *priv_el;
 	set_buf set_buf;
 	get_buf get_buf;
-    int buf_size;
-	//私有结构元素
-	void *priv_el;
     audio_ad_read irq_func;	
 };
 
@@ -152,10 +132,7 @@ static void *audio_set_buf(void *priv_el,void *el_point)
     if(queue_data)
     {
         buf = queue_data->data;
-		#if HIGHPASS_FILTER == 1 
-			//偏移75个sample点
-			buf = (uint16_t*)buf+FILTER_SAMPLE_LEN;
-		#endif
+		buf = (uint16_t*)buf+MEAN_FILTER_SAMPLE_LEN;
     }
     *point = queue_data;
 	return buf;	
@@ -209,10 +186,7 @@ static void *audio_set_buf(void *priv_el,void *el_point)
     if(data)
     {
         buf = get_stream_real_data(data);
-		#if HIGHPASS_FILTER == 1 
-			//偏移75个sample点
-			buf = (uint16_t*)buf+FILTER_SAMPLE_LEN;
-		#endif
+		buf = (uint16_t*)buf+MEAN_FILTER_SAMPLE_LEN;
     }
     *point = data;
 	return buf;	
@@ -243,21 +217,22 @@ static void audio_get_buf(void *priv_el,void *el_point)
 
 static void audio_deal_task(void *arg)
 {
-	stream *s = (stream *)arg;
-	#if HIGHPASS_FILTER == 1
-	int16_t filter_asm_buf[75] = {0};
-	#endif
+#if MEAN_FILTER == 1
+	int16_t mean_filter_prev_buf[MEAN_FILTER_SAMPLE_LEN] = {0};
+#endif
+	int16_t *p_buf;	
 	int res;
-	struct data_structure  *data ;
-	int16_t *p_buf;	 	 
+	int32_t temp32 = 0;
 	uint32_t sample_len;
-	uint32_t ret = 0;
-
+	struct data_structure *data;
+	stream *s = (stream *)arg;
 	struct audio_adc_s *self_priv = (struct audio_adc_s*)s->priv;
 	#ifdef PSRAM_HEAP
 	struct tqueue_s *queue_data;
 	#endif
-	 
+#if MEAN_FILTER == 1
+	os_memset(mean_filter_prev_buf, 0, MEAN_FILTER_SAMPLE_LEN*2);
+#endif	 
 	while(1)
 	{
 		res = csi_kernel_msgq_get(self_priv->adc_msgq,&data,-1);
@@ -273,72 +248,45 @@ static void audio_deal_task(void *arg)
 			sample_len = get_stream_real_data_len(data)/2;
 			#endif
 			
-		#if HIGHPASS_FILTER == 1
-			extern uint32_t highpass_filter_100hz_asm(int16_t *p_cur);
-			//进行高通滤波
-			uint32_t filter_sample_point;
-			uint32_t i,sample_len;
-			int16_t *deal_p_buf;
-			highpass_filter_100hz_asm_func func;
-			if(sysctrl_get_chip_dcn())
-			{
-				func = (highpass_filter_100hz_asm_func)get_msrom_func(MSROM_HIGHPASS_FILTER_100HZ_ASM);
-			}
-			else
-			{
-				func = highpass_filter_100hz_asm;
-			}
-			//实际数据的地址
-			int16_t *sample_buf = p_buf+FILTER_SAMPLE_LEN ;
+		#if MEAN_FILTER == 1
+			os_memcpy(p_buf, mean_filter_prev_buf, MEAN_FILTER_SAMPLE_LEN*2);
+        	for(uint32_t i=MEAN_FILTER_SAMPLE_LEN; i<(sample_len+MEAN_FILTER_SAMPLE_LEN); i++) {
+				int16_t mean_value = ((int32_t)p_buf[i-MEAN_FILTER_SAMPLE_LEN]+p_buf[i]) >> 1;
+				if( (p_buf[i-MEAN_FILTER_SAMPLE_LEN+1] > (p_buf[i-MEAN_FILTER_SAMPLE_LEN] + 3276)) &&
+					(p_buf[i-MEAN_FILTER_SAMPLE_LEN+1] > (p_buf[i] + 3276)) &&
+					(p_buf[i-MEAN_FILTER_SAMPLE_LEN+1] > (mean_value + 3276))) {
+					p_buf[i-MEAN_FILTER_SAMPLE_LEN] = mean_value;
+				}
+				else {
+					p_buf[i-MEAN_FILTER_SAMPLE_LEN] = p_buf[i-MEAN_FILTER_SAMPLE_LEN+1];
+				}
+			} 
+			os_memcpy(mean_filter_prev_buf, p_buf+sample_len, MEAN_FILTER_SAMPLE_LEN*2);	
+		#endif	
 
-			//处理要考虑原来buf数据长度是否对齐,因为滤波的函数需要连续的
-			deal_p_buf =  p_buf + FILTER_SAMPLE_LEN - REAL_FILTER_SAMPLE_LEN;
-			memcpy((void*)deal_p_buf,(void*)filter_asm_buf,sizeof(filter_asm_buf));
-			
-			for(i=0;i<sample_len;i++)
-			{
-				filter_sample_point = func(sample_buf);
-				//这里使用p_buf是为了数据在buf的头部,deal_p_buf可能头部会有有空位,所以这里要注意
-				*p_buf = ROUNDING_14(filter_sample_point)*SOFT_GAIN;
-				sample_buf++;
-				deal_p_buf++;
-				p_buf++;
-			}
-			
-			//保留最后75个sample点,正常p_buf已经偏移到正常地址了
-			memcpy(filter_asm_buf,deal_p_buf,sizeof(filter_asm_buf));
-		#else
-			uint32_t i;
-			for(i=0;i<sample_len;i++)
-			{
-				*p_buf = (*p_buf)*SOFT_GAIN;
+			for(uint32_t i=0;i<sample_len;i++) {
+				temp32 = (*p_buf)*SOFT_GAIN;
+				if(temp32>32767)
+					*p_buf = 32767;
+				else if(temp32<-32767)
+					*p_buf = -32767;
+				else
+					*p_buf = temp32;
 				p_buf++;
 			}
 			p_buf -= sample_len;
-		#endif
-			if(audio_hdl) {
-                ret = audio_process(audio_hdl, p_buf, sample_len);
-				#if NSX_PROCESSING_AUDIO
-					for(i=0;i<sample_len;i++)
-					{
-						*p_buf = (*p_buf)*2;
-						p_buf++;
-					}
-					p_buf -= sample_len;
-				#endif
-//				os_printf("vad:%d\n",ret);
-			}
+
 			data->type = SET_DATA_TYPE(SOUND,SOUND_MIC);
             send_data_to_stream(data);
 		}
 		else
 		{
-		 	_os_printf("%s:%d err @@@@@@@@@@@@\n",__FUNCTION__,__LINE__);
+		 	_os_printf("%s:%d err\n",__FUNCTION__,__LINE__);
 
 		}
 	}
 }
-static k_task_handle_t task_handle;
+
 static int opcode_func(stream *s,void *priv,int opcode)
 {
     static uint8_t *adc_audio_buf = NULL;
@@ -352,11 +300,9 @@ static int opcode_func(stream *s,void *priv,int opcode)
 			if(s->priv)
 			{				
 				self_priv->adc_msgq  = (void*)csi_kernel_msgq_new(1,sizeof(uint8_t*));
-				uint8_t *stack = (uint8_t*)custom_malloc_psram(8192+128);
-				csi_kernel_task_new((k_task_entry_t)audio_deal_task, "audio_deal_task", s, 30, 0, stack, 8192, &task_handle);
-//				OS_TASK_INIT("adc_audio_deal", &self_priv->thread_hdl, audio_deal_task, s, OS_TASK_PRIORITY_ABOVE_NORMAL, 8192);
+				OS_TASK_INIT("adc_audio_deal", &self_priv->thread_hdl, audio_deal_task, s, OS_TASK_PRIORITY_ABOVE_NORMAL, 1024);
 			}
-			uint32_t one_buf_size = (AUDIOLEN + FILTER_SAMPLE_LEN*2);
+			uint32_t one_buf_size = (AUDIOLEN + MEAN_FILTER_SAMPLE_LEN*2);
             adc_audio_buf = ADUIO_MALLOC(AUDIONUM * one_buf_size);
 			if(adc_audio_buf)
             {
@@ -378,11 +324,11 @@ static int opcode_func(stream *s,void *priv,int opcode)
             streamSrc_bind_streamDest(s,R_RECORD_AUDIO);
             streamSrc_bind_streamDest(s,R_RTP_AUDIO);
             streamSrc_bind_streamDest(s,R_AUDIO_TEST);
-           	// streamSrc_bind_streamDest(s,R_SPEAKER);
+           	streamSrc_bind_streamDest(s,R_SPEAKER);
 			streamSrc_bind_streamDest(s,R_AT_SAVE_AUDIO);
-			// streamSrc_bind_streamDest(s,R_AT_AVI_AUDIO);
+			streamSrc_bind_streamDest(s,R_AT_AVI_AUDIO);
 			streamSrc_bind_streamDest(s,R_SPEECH_RECOGNITION);
-			// streamSrc_bind_streamDest(s,R_USB_AUDIO_MIC);
+			streamSrc_bind_streamDest(s,R_USB_AUDIO_MIC);
 		}
 		break;
 		case STREAM_DATA_DIS:
@@ -394,7 +340,7 @@ static int opcode_func(stream *s,void *priv,int opcode)
 			set_stream_real_data_len(data,AUDIOLEN);
 			//注册对应函数
 			//data->ops = &stream_sound_ops;
-			uint32_t one_buf_size = (AUDIOLEN + FILTER_SAMPLE_LEN*2);
+			uint32_t one_buf_size = (AUDIOLEN + MEAN_FILTER_SAMPLE_LEN*2);
 			data->data = adc_audio_buf + (data_num)*one_buf_size;
 		}
 		break;
@@ -422,66 +368,6 @@ static int opcode_func(stream *s,void *priv,int opcode)
 	return res;
 }
 
-uint8_t backVol=0;
-const uint32 dacgain_table[]=
-#if 1 // 0~0x7fff
-{
-	0,
-	0x80,
-	0x100,
-	0x180,
-	0x200,
-	0x300,
-	0x400,
-	0x500,
-	0x600,
-	0x700,
-	0x800
-};
-#else
-{
-	0,
-	2,
-	6,
-	8,
-	10,
-	12,
-	14,
-	16,
-	18,
-	20,
-	40//22
-};
-#endif
-
-void volume_adjust(uint8_t vol)
-{
-	struct audac_device *test = (struct audac_device *)dev_get(HG_AUDAC_DEVID);
-
-
-	if(vol>10)
-		vol =10;
-
-	if(backVol!=vol)
-	{
-		backVol = vol;	
-		audac_ioctl(test,AUDAC_IOCTL_CMD_SET_DIGITAL_GAIN,dacgain_table[vol],0);
-//		void user_volume_save(void);
-//		user_volume_save();
-	}
-	
-}
-
-void volume_init(void)
-{
-	void btn_open_volime(void);
-	btn_open_volime();
-
-	volume_flash_init();
-}
-
-
-
 int audio_adc_start(void *audio_hdl)
 {
 	int ret = 0;
@@ -505,7 +391,6 @@ static int32 global_audio_ad_read(struct audio_ad_config *audio, void* buf, uint
 	return 0;
 }
 
-static stream *global_audio_adc_s = NULL;
 //优先创建音频的流
 stream *audio_adc_stream_init(const char *name)
 {
@@ -543,7 +428,7 @@ int audio_adc_init()
         res = -1;
 		goto audio_adc_init_err;
 	}
-	audio_hdl = audio_process_init(8000, 1); 
+ 
     struct audio_adc_s *audio_priv = (struct audio_adc_s*)s->priv;
 	if(audio_priv)
 	{
@@ -557,8 +442,10 @@ int audio_adc_init()
         auadc_open(adc, AUADC_SAMPLE_RATE_8K);
         auadc_request_irq(adc, AUADC_IRQ_FLAG_HALF | AUADC_IRQ_FLAG_FULL, (auadc_irq_hdl)audio_adc_irq, (uint32)ad_config);
         audio_adc_start(ad_config);
-	}
+	}	
 	audio_adc_init_err:
+	
+	
 	return res;
 }
 
@@ -645,3 +532,5 @@ int audio_adc_reinit()
 	audio_adc_stream_deinit();
 	return 0;
 }
+
+

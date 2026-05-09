@@ -4,7 +4,7 @@
 #include "typesdef.h"
 #include "osal/string.h"
 #include "lib/heap/sysheap.h"
-#include "lib/heap/sysheap_psram.h"
+//#include "lib/heap/sysheap_psram.h"
 #include "lib/heap/mtrace.h"
 void custom_mem_init(void *buf,int custom_heap_size);
 void custom_mem_deinit();

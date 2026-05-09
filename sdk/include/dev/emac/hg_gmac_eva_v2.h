@@ -56,7 +56,7 @@ struct hg_gmac_eva_v2 {
     uint32                          mdio_pin;
     uint32                          mdc_pin;
     uint32                          irq_num;
-    uint32                          opened;
+    uint32                          opened:1, tx_nonblock:1, rev:30;
 	uint32 							rgmii_en;
     struct hg_gmac_data_v2          ctrl_data;
     uint8                           mac_addr[6];

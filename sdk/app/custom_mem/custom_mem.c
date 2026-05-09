@@ -3,45 +3,51 @@
 */
 
 #include "custom_mem.h"
-#include "typesdef.h"
+static struct sys_csram_heap custom_sram_heap = { .name = "c_sram", .ops = &mmpool1_ops};
+static void *g_custom_buf = NULL;
 
-#if 1
-extern __init int32 uheap_init(void *heap_start, uint32 heap_size, uint32 flags);
-extern uint32 uheap_time();
-extern void *uheap_alloc(int size, const char *func, int line);
-extern void uheap_free(void *ptr);
-extern uint32 uheap_freesize();
-
-void custom_mem_init(void *buf, int custom_heap_size)
+void custom_mem_init(void *buf,int custom_heap_size)
 {
-    uheap_init(buf, custom_heap_size, SYSHEAP_FLAGS_MEM_LEAK_TRACE | 
-                                      SYSHEAP_FLAGS_MEM_OVERFLOW_CHECK);
+    if(!buf || g_custom_buf)
+    {
+        os_printf("%s:%d err,g_custom_buf:%X\n",__FUNCTION__,__LINE__,g_custom_buf);
+        return;
+    }
+    g_custom_buf = buf;
+    uint32_t flags = 0;
+    #ifdef MEM_TRACE
+        flags |= SYSHEAP_FLAGS_MEM_LEAK_TRACE | SYSHEAP_FLAGS_MEM_OVERFLOW_CHECK;
+    #endif
+        os_printf("custom_mem_init:%x\n",buf);
+        sysheap_init(&custom_sram_heap, (void *)buf, custom_heap_size, flags);
 }
 
 void custom_mem_deinit()
 {
+    g_custom_buf = NULL;
 }
 
 void print_custom_sram()
 {
-    os_printf("custom mem sram:%d\n", uheap_freesize());
+    os_printf("custom mem sram:%d\n",sysheap_freesize(&custom_sram_heap));
 }
 
 void *custom_malloc(int size)
 {
-    return uheap_alloc(size, RETURN_ADDR(), 0);
+    //os_printf("custom mem:%d\n",sysheap_freesize(&custom_sram_heap));
+    return sysheap_alloc(&custom_sram_heap, size, RETURN_ADDR(), 0);
 }
 
 void custom_free(void *ptr)
 {
     if (ptr) {
-        uheap_free(ptr);
+        sysheap_free(&custom_sram_heap, ptr);
     }
 }
 
 void *custom_zalloc(int size)
 {
-    void *ptr = uheap_alloc(size, RETURN_ADDR(), 0);
+    void *ptr = sysheap_alloc(&custom_sram_heap, size, RETURN_ADDR(), 0);
     if (ptr) {
         os_memset(ptr, 0, size);
     }
@@ -50,7 +56,7 @@ void *custom_zalloc(int size)
 
 void *custom_calloc(int nmemb, int size)
 {
-    void *ptr = uheap_alloc(nmemb * size, RETURN_ADDR(), 0);
+    void *ptr = sysheap_alloc(&custom_sram_heap, nmemb * size, RETURN_ADDR(), 0);
     if (ptr) {
         os_memset(ptr, 0, nmemb * size);
     }
@@ -59,384 +65,86 @@ void *custom_calloc(int nmemb, int size)
 
 void *custom_realloc(void *ptr, int size)
 {
-    void *nptr = uheap_alloc(size, RETURN_ADDR(), 0);
+    void *nptr = sysheap_alloc(&custom_sram_heap, size, RETURN_ADDR(), 0);
     if (nptr) {
         os_memcpy(nptr, ptr, size);
-        uheap_free(ptr);
-    }
-    return nptr;
-}
-
-int ml_byte_alignment(uint32 size, uint32 align_len) {
-    uint32 new_length = size / align_len * align_len;
-	if(new_length < size) new_length += align_len;
-	return new_length;
-}
-
-void *_custom_malloc(int size, void *call_addr) {
-    return uheap_alloc(size, call_addr, 0);
-}
-
-void _custom_free(void *ptr, void *call_addr) {
-    if (ptr) {
-        uheap_free(ptr);
-    }
-}
-
-void *_custom_zalloc(int size, void *call_addr) {
-    void *ptr = uheap_alloc(size, call_addr, 0);
-    if (ptr) {
-        os_memset(ptr, 0, size);
-    }
-    return ptr;
-}
-
-void *_custom_calloc(size_t nmemb, size_t size, void *call_addr) {
-    void *ptr = uheap_alloc(nmemb * size, call_addr, 0);
-    if (ptr) {
-        os_memset(ptr, 0, nmemb * size);
-    }
-    return ptr;
-}
-
-void *_custom_realloc(void *ptr, int size, void *call_addr) {
-    void *nptr = uheap_alloc(size, call_addr, 0);
-    if (nptr) {
-        os_memcpy(nptr, ptr, size);
-        uheap_free(ptr);
+        sysheap_free(&custom_sram_heap, ptr);
     }
     return nptr;
 }
 
 #ifdef PSRAM_HEAP
 
-    extern __init int32 psram_heap_init(void *heap_start, uint32 heap_size, uint32 flags);
-    extern void *psram_heap_alloc(int size, const char *func, int line);
-    extern void psram_heap_free(void *ptr);
-    extern uint32 psram_heap_freesize();
-    void custom_mem_psram_init(void *buf,int custom_heap_size) {
-        psram_heap_init(buf, custom_heap_size, SYSHEAP_FLAGS_MEM_ALIGN_16|SYSHEAP_FLAGS_MEM_LEAK_TRACE | 
-                                      SYSHEAP_FLAGS_MEM_OVERFLOW_CHECK);
+static struct sys_cpsram_heap custom_psram_heap = { .name = "c_psram", .ops = &mmpool1_ops};
+static void *g_custom_psram_buf = NULL;
+void custom_mem_psram_init(void *buf,int custom_heap_size)
+{
+    if(!buf || g_custom_psram_buf)
+    {
+        os_printf("%s:%d err,g_custom__psram_buf:%X\n",__FUNCTION__,__LINE__,g_custom_psram_buf);
+        return;
     }
+    g_custom_psram_buf = buf;
+    uint32_t flags = 0;
+    #ifdef MEM_TRACE
+        flags |= SYSHEAP_FLAGS_MEM_LEAK_TRACE | SYSHEAP_FLAGS_MEM_OVERFLOW_CHECK;
+    #endif
+    flags |= SYSHEAP_FLAGS_MEM_ALIGN_16;
+    os_printf("%s :%x\n",__FUNCTION__,buf);
+    sysheap_init(&custom_psram_heap, (void *)buf, custom_heap_size, flags);
+}
 
-    void custom_mem_psram_deinit() {
-        
-    }
+void custom_mem_psram_deinit()
+{
+    g_custom_psram_buf = NULL;
+}
 
-    void print_custom_psram() {
-        os_printf("custom mem psram:%d\n", psram_heap_freesize());
-    }
+void print_custom_psram()
+{
+    os_printf("custom mem psram:%d\n",sysheap_freesize(&custom_psram_heap));
+}
 
-    void *_custom_malloc_psram(int size, void *call_addr) {
-        return psram_heap_alloc(size, call_addr, 0);
-    }
-    
-    void _custom_free_psram(void *ptr, void *call_addr) {
-        if (ptr) {
-            psram_heap_free(ptr);
-        }
-    }
-    
-    void *_custom_zalloc_psram(int size, void *call_addr) {
-        void *ptr = psram_heap_alloc(size, call_addr, 0);
-        if (ptr) {
-            os_memset(ptr, 0, size);
-        }
-        return ptr;    
-    }
-    
-    void *_custom_calloc_psram(size_t nmemb, size_t size, void *call_addr) {
-        void *ptr = psram_heap_alloc(nmemb * size, call_addr, 0);
-        if (ptr) {
-            os_memset(ptr, 0, nmemb * size);
-        }
-        return ptr;
-    }
-    
-    void *_custom_realloc_psram(void *ptr, int size, void *call_addr) {
-        void *nptr = psram_heap_alloc(size, call_addr, 0);
-        if (nptr) {
-            os_memcpy(nptr, ptr, size);
-            psram_heap_free(ptr);
-        }
-        return nptr;    
-    }
+void *custom_malloc_psram(int size)
+{
+	void *pt;
+    //os_printf("custom mem:%d\n",sysheap_freesize(&custom_psram_heap));
+    pt = sysheap_alloc(&custom_psram_heap, size, RETURN_ADDR(), 0);
+	sys_dcache_clean_invalid_range(pt, size);
+    return pt;
+}
 
-    void *custom_malloc_psram(int size) {
-        return _custom_malloc_psram(size, RETURN_ADDR());
+void custom_free_psram(void *ptr)
+{
+    if (ptr) {
+        sysheap_free(&custom_psram_heap, ptr);
     }
+}
 
-    void custom_free_psram(void *ptr) {
-        _custom_free_psram(ptr, RETURN_ADDR());
+void *custom_zalloc_psram(int size)
+{
+    void *ptr = sysheap_alloc(&custom_psram_heap, size, RETURN_ADDR(), 0);
+    if (ptr) {
+        os_memset(ptr, 0, size);
     }
+    return ptr;
+}
 
-    void *custom_zalloc_psram(int size) {
-        return _custom_zalloc_psram(size, RETURN_ADDR());
+void *custom_calloc_psram(int nmemb, int size)
+{
+    void *ptr = sysheap_alloc(&custom_psram_heap, nmemb * size, RETURN_ADDR(), 0);
+    if (ptr) {
+        os_memset(ptr, 0, nmemb * size);
     }
+    return ptr;
+}
 
-    void *custom_calloc_psram(int nmemb, int size) {
-        return _custom_calloc_psram(nmemb, size, RETURN_ADDR());
+void *custom_realloc_psram(void *ptr, int size)
+{
+    void *nptr = sysheap_alloc(&custom_psram_heap, size, RETURN_ADDR(), 0);
+    if (nptr) {
+        os_memcpy(nptr, ptr, size);
+        sysheap_free(&custom_psram_heap, ptr);
     }
-
-    void *custom_realloc_psram(void *ptr, int size) {
-        return _custom_realloc_psram(ptr, size, RETURN_ADDR());
-    }
-
-    void psram_check_cache(void *ptr) {
-        
-    }
+    return nptr;
+}
 #endif
-
-#ifdef LV_PSRAM_HEAP
-    void lv_psram_init(void *buf, uint32_t custom_heap_size) {
-        lvgl_heap_init(buf, custom_heap_size, SYSHEAP_FLAGS_MEM_LEAK_TRACE | 
-                                      SYSHEAP_FLAGS_MEM_OVERFLOW_CHECK);
-    }
-
-    void lv_psram_deinit() {
-        
-    }
-
-    void print_lv_psram() {
-        os_printf("lvgl mem psram:%d\n", lvgl_heap_freesize());
-    }
-
-    void *lv_malloc_psram(int size) {
-        return lvgl_heap_alloc(size, RETURN_ADDR(), 0);
-    }
-
-    void lv_free_psram(void *ptr) {
-        if (ptr) {
-            lvgl_heap_free(ptr);
-        }
-    }
-
-    void _lv_free_psram(void *ptr, void *call_addr) {
-         if (ptr) {
-            lvgl_heap_free(ptr);
-        }
-    }
-
-    void *lv_zalloc_psram(int size) {
-        void *ptr = lvgl_heap_alloc(size, RETURN_ADDR(), 0);
-        if (ptr) {
-            os_memset(ptr, 0, size);
-        }
-        return ptr;    
-    }
-
-    void *lv_calloc_psram(size_t nmemb, size_t size) {
-        void *ptr = lvgl_heap_alloc(nmemb * size, RETURN_ADDR(), 0);
-        if (ptr) {
-            os_memset(ptr, 0, nmemb * size);
-        }
-        return ptr;
-    }
-
-    void *lv_realloc_psram(void *ptr, int size) {
-        void *nptr = lvgl_heap_alloc(size, RETURN_ADDR(), 0);
-        if (nptr) {
-            os_memcpy(nptr, ptr, size);
-            lvgl_heap_free(ptr);
-        }
-        return nptr;      
-    }
-#endif
-
-#ifdef LWIP_PSRAM_HEAP
-    void lwip_psram_init(void *buf, uint32_t custom_heap_size) {
-        lwip_heap_init(buf, custom_heap_size, SYSHEAP_FLAGS_MEM_LEAK_TRACE | 
-                                      SYSHEAP_FLAGS_MEM_OVERFLOW_CHECK);
-    }
-
-    void lwip_psram_deinit() {
-        
-    }
-
-    void print_lwip_psram() {
-        os_printf("lwip mem psram:%d\n", lwip_heap_freesize());
-    }
-
-    void *lwip_malloc_psram(int size) {
-        return lwip_heap_alloc(size, RETURN_ADDR(), 0);
-    }
-
-    void lwip_free_psram(void *ptr) {
-        if (ptr) {
-            lwip_heap_free(ptr);
-        }
-    }
-
-    void _lwip_free_psram(void *ptr, void *call_addr) {
-         if (ptr) {
-            lwip_heap_free(ptr);
-        }
-    }
-
-    void *lwip_zalloc_psram(int size) {
-        void *ptr = lwip_heap_alloc(size, RETURN_ADDR(), 0);
-        if (ptr) {
-            os_memset(ptr, 0, size);
-        }
-        return ptr;    
-    }
-
-    void *lwip_calloc_psram(size_t nmemb, size_t size) {
-        void *ptr = lwip_heap_alloc(nmemb * size, RETURN_ADDR(), 0);
-        if (ptr) {
-            os_memset(ptr, 0, nmemb * size);
-        }
-        return ptr;
-    }
-
-    void *lwip_realloc_psram(void *ptr, int size) {
-        void *nptr = lwip_heap_alloc(size, RETURN_ADDR(), 0);
-        if (nptr) {
-            os_memcpy(nptr, ptr, size);
-            lwip_heap_free(ptr);
-        }
-        return nptr;      
-    }
-    
-    void *_lwip_malloc_psram(int size, void *call_addr) {
-        return lwip_heap_alloc(size, call_addr, 0);
-    }
-    
-    
-    void *_lwip_calloc_psram(size_t nmemb, size_t size, void *call_addr) {
-        void *ptr = lwip_heap_alloc(nmemb * size, call_addr, 0);
-        if (ptr) {
-            os_memset(ptr, 0, nmemb * size);
-        }
-        return ptr;
-    }
-#endif
-
-#ifdef SYS_TASK_PSRAM_HEAP
-    void ml_sys_psram_init(void *buf, uint32_t custom_heap_size) {
-        mlsys_heap_init(buf, custom_heap_size, SYSHEAP_FLAGS_MEM_LEAK_TRACE | 
-                                      SYSHEAP_FLAGS_MEM_OVERFLOW_CHECK);
-    }
-
-    void ml_sys_psram_deinit() {
-        
-    }
-
-    void print_mlsys_psram() {
-        os_printf("mlsys mem psram:%d\n", mlsys_heap_freesize());
-    }
-
-    void *ml_sys_malloc_psram(int size) {
-        return mlsys_heap_alloc(size, RETURN_ADDR(), 0);
-    }
-
-    void ml_sys_free_psram(void *ptr) {
-        if (ptr) {
-            mlsys_heap_free(ptr);
-        }
-    }
-
-    void _ml_sys_free_psram(void *ptr, void *call_addr) {
-         if (ptr) {
-            mlsys_heap_free(ptr);
-        }
-    }
-
-    void *ml_sys_zalloc_psram(int size) {
-        void *ptr = mlsys_heap_alloc(size, RETURN_ADDR(), 0);
-        if (ptr) {
-            os_memset(ptr, 0, size);
-        }
-        return ptr;    
-    }
-
-    void *ml_sys_calloc_psram(size_t nmemb, size_t size) {
-        void *ptr = mlsys_heap_alloc(nmemb * size, RETURN_ADDR(), 0);
-        if (ptr) {
-            os_memset(ptr, 0, nmemb * size);
-        }
-        return ptr;
-    }
-
-    void *ml_sys_realloc_psram(void *ptr, int size) {
-        void *nptr = mlsys_heap_alloc(size, RETURN_ADDR(), 0);
-        if (nptr) {
-            os_memcpy(nptr, ptr, size);
-            mlsys_heap_free(ptr);
-        }
-        return nptr;      
-    }
-#endif 
-
-#ifdef FREE_TYPE_PSRAM_HEAP
-    void free_type_psram_init(void *buf, uint32_t custom_heap_size) {
-        ft_heap_init(buf, custom_heap_size, SYSHEAP_FLAGS_MEM_LEAK_TRACE | 
-                                      SYSHEAP_FLAGS_MEM_OVERFLOW_CHECK);
-    }
-
-    void free_type_psram_deinit() {
-        
-    }
-
-    void print_free_type_psram() {
-        os_printf("free type mem psram:%d\n", ft_heap_freesize());
-    }
-
-    void *free_type_malloc_psram(int size) {
-        return ft_heap_alloc(size, RETURN_ADDR(), 0);
-    }
-
-    void free_type_free_psram(void *ptr) {
-        if (ptr) {
-            ft_heap_free(ptr);
-        }
-    }
-
-    void *free_type_zalloc_psram(int size) {
-        void *ptr = ft_heap_alloc(size, RETURN_ADDR(), 0);
-        if (ptr) {
-            os_memset(ptr, 0, size);
-        }
-        return ptr;    
-    }
-
-    void *free_type_calloc_psram(size_t nmemb, size_t size) {
-        void *ptr = ft_heap_alloc(nmemb * size, RETURN_ADDR(), 0);
-        if (ptr) {
-            os_memset(ptr, 0, nmemb * size);
-        }
-        return ptr;
-    }
-
-    void *free_type_realloc_psram(void *ptr, int size) {
-        void *nptr = ft_heap_alloc(size, RETURN_ADDR(), 0);
-        if (nptr) {
-            os_memcpy(nptr, ptr, size);
-            ft_heap_free(ptr);
-        }
-        return nptr;      
-    }
-#endif 
-
-/**打印custom psram heap 使用情况 */
-void ml_print_psram_heap_list() {
-    
-}
-
-/**打印lvgl psram heap 使用情况 */
-void ml_print_lvgl_heap_list() {
-    
-}
-
-/**打印lwip psram heap 使用情况 */
-void ml_print_lwip_heap_list() {
-    
-}
-
-/**打印sys psram heap 使用情况 */
-void ml_print_sys_heap_list() {
-    
-}
-
-#endif 
-

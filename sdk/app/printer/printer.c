@@ -22,7 +22,7 @@
 #define  PRINTER_CLK_PIN	 PB_11
 #define  PRINTER_LATCH_PIN	 PB_8
 #define  PRINTER_TM_PIN	 	 PC_5
-#define  PRINTER_PSENSOR_PIN PA_0
+#define  PRINTER_PSENSOR_PIN PC_6
 #define  PRINTER_STB_PIN	 PB_10
 #define  PRINTER_EN_PIN	     PA_7
 
@@ -102,7 +102,7 @@
 #elif PRINTER_PWM_3_EN
 
 #define SPI_SEND_EN 		 1				//使用SPI时序发送数据，可控发送速率
-#define STB_PIN_PWM_EN 		 0              //STB 使用PWM波形，使能置1否则置0
+#define STB_PIN_PWM_EN 		 1              //STB 使用PWM波形，使能置1否则置0
 #define HEAT_MOTO_SEPARATION (1 && SPI_SEND_EN)
 
 #define TOTAL_TICK           256            //打印每行调用timer7_noisr_func函数的次数

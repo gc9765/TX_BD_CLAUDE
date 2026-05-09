@@ -3,10 +3,11 @@
 #include "project_config.h"
 #include "lvgl_ui.h"
 
-#define MINI_DV_UI 	0
-#define IPC_UI		1
-#define BBM_UI 		2
-#define CHILDREN_UI 3
+#define MINI_DV_UI 	    0
+#define IPC_UI		    1
+#define BBM_UI 		    2
+#define CHILDREN_UI     3
+#define LLM_VISION_UI   4
 
 #define DEFINE_UI    MINI_DV_UI
 
@@ -75,7 +76,25 @@ lv_obj_t *main_children_ui(lv_obj_t *base_ui,lv_group_t *group)
     return base_ui;
 }
 
+lv_obj_t *main_LLM_vision_ui(lv_obj_t *base_ui,lv_group_t *group)
+{
+    lv_obj_t *ui = lv_obj_create(lv_scr_act());  
+    lv_obj_add_style(ui, &g_style, 0);
+    lv_obj_set_size(ui, LV_PCT(100), LV_PCT(100));
+    stream *decode_s = jpg_decode_stream_not_bind(S_JPG_DECODE);
+    //将解码的数据推送到Video P0和Video P1显示
+    streamSrc_bind_streamDest(decode_s,R_VIDEO_P0);
+    streamSrc_bind_streamDest(decode_s,R_VIDEO_P1);
+    enable_stream(decode_s,1);
 
+    //接收LLM的jpg数据,配置需要解码的参数(320x240),然后给到S_JPG_DECODE进行解码,最后给到P0去显示(设置时P0的类型)
+    stream *P0_jpg_s = other_jpg_stream_not_bind(SR_OTHER_JPG_USB1,320,240,320,240,YUV_P0);
+    //将other_jpg的数据给到S_JPG_DECODE进行编码
+    streamSrc_bind_streamDest(P0_jpg_s,S_JPG_DECODE);
+    enable_stream(P0_jpg_s,1);
+
+    return base_ui;
+}
 
 lv_obj_t *main_ui(lv_obj_t *base_ui)
 {
@@ -94,6 +113,8 @@ lv_obj_t *main_ui(lv_obj_t *base_ui)
 		main_BBM_ui(ui,group);
     #elif DEFINE_UI == CHILDREN_UI
         main_children_ui(ui,group);
+    #elif DEFINE_UI == LLM_VISION_UI
+        main_LLM_vision_ui(ui,group);
     #endif
     return ui;
 }

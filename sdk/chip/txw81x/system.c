@@ -15,22 +15,29 @@
 #include "osal/semaphore.h"
 #include "osal/task.h"
 #include "osal/work.h"
+#include "dev.h"
 #include "devid.h"
 #include "lib/heap/sysheap.h"
 #include "lib/lmac/lmac.h"
 #include "lib/common/sysevt.h"
 #include "lib/common/common.h"
 #include "dev/xspi/hg_xspi_psram.h"
+#include "chip/txw81x/pmu.h"
 #include "psram_cfg.h"
+#include "hal/gpio.h"
 #ifdef CONFIG_SLEEP
 #include "lib/common/dsleepdata.h"
 #endif
+
+
+
 
 extern int  main(void);
 extern int  dev_init(void);
 extern void device_init(void);
 extern void set_psram_status(uint8_t res);
 extern uint8_t get_psram_status();
+extern void pmu_watchdog_init(void);
 
 extern int32_t g_top_irqstack;
 extern uint32_t __heap_start;
@@ -41,11 +48,12 @@ extern struct os_workqueue main_wkq;
 extern uint32 *sysvar_mgr;
 extern uint8_t assert_holdup;
 
+const uint32 g_OS_SYSTICK_HZ   = OS_SYSTICK_HZ;
 const uint32 g_DEFAULT_SYS_CLK = DEFAULT_SYS_CLK;
 const uint32 g_SYS_CACHE_ENABLE = SYS_CACHE_ENABLE;
 
-uint32 srampool_start = 0;
-uint32 srampool_end   = 0;
+uint32 srampool_start  = 0;
+uint32 srampool_end    = 0;
 uint32 psrampool_start = 0;
 uint32 psrampool_end   = 0;
 uint32 __sp_save[3];
@@ -133,6 +141,8 @@ __SYS_INIT void SystemInit(void)
     __set_VBR((uint32_t) & (__Vectors));
 
     SYSCTRL_REG_OPT_INIT();
+    PMU_REG_CLR_BITS(PMU->PMUCON7, BIT(PMU_WDT_LOCK_SIGN));
+    PMU_REG_CLR_BITS(PMU->PMUCON7, BIT(PMU_LPWDT_LOCK_SIGN));
 
 #if  SYS_CACHE_ENABLE
     cache_open();
@@ -158,6 +168,7 @@ __SYS_INIT void SystemInit(void)
     mcu_watchdog_feed();
     mcu_watchdog_timeout_level(4);
 
+    ll_xip_clock_init(0);
 //    sysctrl_err_resp_disable();
     sysctrl_cmu_init();
 
@@ -198,6 +209,11 @@ __SYS_INIT void SystemInit(void)
     csi_vic_enable_irq(CORET_IRQn);
 #endif
 
+//    sysctrl_lvd_dbg_clk_sel(LVD_DEBUNCE_CLK_XOSC);
+//    pmu_vcc_oc_lv_hdetect_filter_set(0); //25ns
+//    pmu_vcc_oc_lv_ldetect_filter_set(0); //25ns
+//    pmu_vcc_lv_detect_filter_en();
+
     request_irq(LVD_IRQn, lvd_irq_handler, 0);
     irq_enable(LVD_IRQn);
 
@@ -208,7 +224,7 @@ __SYS_INIT void SystemInit(void)
         if(!is_dsleep_wakeup()) sysctrl_gpio_funcmap_default(); 
     #endif
     
-//    pmu_set_deadcode_pending();
+    pmu_set_deadcode_pending();
     mcu_watchdog_feed();
     mcu_watchdog_timeout_level(8);
 }
@@ -221,6 +237,7 @@ __init void malloc_init(void)
     flags |= SYSHEAP_FLAGS_MEM_LEAK_TRACE | SYSHEAP_FLAGS_MEM_OVERFLOW_CHECK;
 #endif
     sram_heap.name = "sram";
+    sram_heap.ops = &mmpool1_ops;
     sysheap_init(&sram_heap, (void *)SYS_HEAP_START, SYS_HEAP_SIZE, flags);
 }
 
@@ -232,6 +249,7 @@ __init void malloc_psram_init(void)
     flags |= SYSHEAP_FLAGS_MEM_LEAK_TRACE | SYSHEAP_FLAGS_MEM_OVERFLOW_CHECK;
 #endif
     psram_heap.name = "psram";
+    psram_heap.ops = &mmpool1_ops;
 	sysheap_init(&psram_heap, (void *)psrampool_start, psrampool_end - psrampool_start, flags);
 #endif
 }
@@ -239,8 +257,40 @@ void ota_msg_show()
 {
     os_printf("[OTA_MSG] OTA_NUM:%d\tota_version:%d\trun_addr:%X\n",pmu_get_boot_code_pos(),get_boot_svn_version(),get_boot_loader_addr());
 }
-
 #endif
+
+
+__weak void vcc_audio_poweron()
+{
+extern uint8 audio_ana_detect_dwa(void);
+    if (audio_ana_detect_dwa()) {
+        return;
+    }
+    //gpio cfg
+	//ex: {PA_11, DIR, DATA, MODE}, 0XFF means ignore
+	struct gpio_cfg_info audio_pwrio[] = {
+		{0XFF,  GPIO_DIR_OUTPUT, 1, GPIO_OPENDRAIN_PULL_NONE},           	
+	};
+	
+    gpio_cfg((void *)audio_pwrio, sizeof(audio_pwrio));
+	pmu_vcam_dis();
+	delay_us(1000);
+    pmu_set_vcam_vol(VCAM_VOL_2V80);
+    pmu_vcam_lc_en();
+    pmu_vcam_oc_detect_dis();
+    pmu_vcam_oc_int_dis();
+    pmu_vcam_discharge_dis();
+    pmu_vcam_pg_dis();
+    pmu_vcam_en();
+    delay_us(1000);
+    pmu_vcam_lc_dis();
+    pmu_lvd_oe_en();
+    delay_us(1000);
+    
+    return;
+}
+
+
 
 __init void pre_main(void)
 {
@@ -250,20 +300,24 @@ __init void pre_main(void)
     assert_holdup = ASSERT_HOLDUP;
     save_boot_loader_addr();
 
+    vcc_audio_poweron();
+
 	uint8_t res;
     if(NOW_PSRAM > PSRAM_DEF(E_PSRAM)) {
         //printf("now_psram:%d\t%d\n",NOW_PSRAM,PSRAM_DEF(E_PSRAM));
-		res = psram_init(APS1604M_3SQR, (60*1000000),512);
+		res = psram_init(APS1604M_3SQR, (60*1000000), 512);
         //外部psram初始化,所以需要配置对应的状态
         set_psram_status(res);
     } else {
         //is not ready?
         if(!get_psram_status()) {
-            res = psram_auto_init();
+            res = psram_auto_init(0);
             set_psram_status(res);
         }
     }
-
+	
+	
+	
 #if MPOOL_ALLOC
     malloc_init();
 	malloc_psram_init();
@@ -279,15 +333,15 @@ __init void pre_main(void)
 
     dev_init();
     device_init();
+	
 
-    
+
 #ifdef CONFIG_SLEEP
     sys_sleepcb_init();
-#endif
-#ifdef CONFIG_SLEEP
     sys_sleepdata_init();
 #endif
-    
+    pmu_watchdog_init();
+
     sysctrl_rst_lmac_phy();
     sysctrl_efuse_validity_handle();
     ota_msg_show();

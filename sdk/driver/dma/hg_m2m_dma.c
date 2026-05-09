@@ -327,7 +327,7 @@ __init int32 hg_m2m_dma_dev_attach(uint32 dev_id, struct mem_dma_dev *p_dma)
 {
     p_dma->dev.dev.ops = (const struct devobj_ops *)&m2m_ops;
     p_dma->busy_flag = 0;
-	p_dma->suspend = 0;
+    p_dma->suspend = 0;
 
     os_sema_init(&p_dma->done[0], 0);
     os_sema_init(&p_dma->done[1], 0); 

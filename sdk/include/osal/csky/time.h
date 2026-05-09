@@ -90,6 +90,8 @@ struct itimerspec {
 
 
 extern int32 settimeofday(const struct timeval *tv, const struct timezone *tz);
+extern uint64 os_jiffies_to_msecs(uint64 jiff);
+extern uint64 os_msecs_to_jiffies(uint64 msec);
 
 #endif
 

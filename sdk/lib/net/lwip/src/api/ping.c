@@ -44,8 +44,9 @@ static int ping_recv(int sockfd, void *buf, int len, int flags, struct sockaddr 
 void lwip_ping(char *ip_domain, int pktsize, unsigned int send_times)
 {
     int isdomain = 0;
-    int seqno = 0;
     int sock = -1;
+    uint16 seqno = 0;
+    uint16 echo_id;
     uint32 send_cnt = 0;
     uint32 recv_cnt = 0;
     uint32 timeout_ms = 3000;
@@ -101,29 +102,34 @@ void lwip_ping(char *ip_domain, int pktsize, unsigned int send_times)
         os_printf("\n\nPinging %s with %d bytes of data:\n", ip_domain, pktsize);
     }
 
+    os_random_bytes((uint8 *)&seqno, 2);
+    os_random_bytes((uint8 *)&echo_id, 2);
     while (send_cnt++ < send_times || send_times == 0) {
         ICMPH_TYPE_SET(echo, ICMP_ECHO);
         ICMPH_CODE_SET(echo, 0);
         echo->chksum = 0;
-        echo->id     = 0xAFAF;
+        echo->id     = echo_id;
         echo->seqno  = htons(++seqno);
         echo->chksum = inet_chksum(echo, buff_len);
         ping_tick = os_jiffies();
 
         if (lwip_sendto(sock, (char *)echo, buff_len, 0, (const struct sockaddr *)&to, addr_len) > 0) {
-            if (ping_recv(sock, recvbuf, buff_len + sizeof(struct ip_hdr), 0, (struct sockaddr *)&from, &addr_len, timeout_ms) >
+            while (ping_recv(sock, recvbuf, buff_len + sizeof(struct ip_hdr), 0, (struct sockaddr *)&from, &addr_len, timeout_ms) >
                 (int)(sizeof(struct ip_hdr) + sizeof(struct icmp_echo_hdr))) {
                 recv_tick = os_jiffies();
                 struct ip_hdr *iphdr = (struct ip_hdr *)recvbuf;
                 struct icmp_echo_hdr *iecho = (struct icmp_echo_hdr *)(recvbuf + (IPH_HL(iphdr) * 4));
-
-                if ((iecho->id == 0xAFAF) && (iecho->seqno == echo->seqno)) {
+                // 以防一直收到其他icmp包导致不能超时
+                if (TIME_AFTER(recv_tick, ping_tick + os_msecs_to_jiffies(timeout_ms))) {
+                    os_printf("Request timed out.\n");
+                    break;
+                }
+                if ((iecho->id == echo_id) && (iecho->seqno == echo->seqno)) {
                     recv_cnt++;
                     os_printf("Reply from %s: bytes=%d time:%dms TTL=255\n",
                               inet_ntoa(from.sin_addr.s_addr), pktsize, recv_tick - ping_tick);
+                    break;
                 }
-            } else {
-                os_printf("Request timed out.\n");
             }
         } else {
             os_printf("Ping %s error!!\n", inet_ntoa(ipaddr));

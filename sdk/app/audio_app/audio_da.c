@@ -1,20 +1,11 @@
-#include "sys_config.h"
-#include "typesdef.h"
-#include "list.h"
-#include "dev.h"
-#include "devid.h"
-#include "string.h"
-
-#include "osal/task.h"
-#include "osal/semaphore.h"
-#include "osal/msgqueue.h"
-#include "osal/string.h"
+#include "basic_include.h"
 #include "hal/audac.h"
 #include "stream_frame.h"
 #include "osal_file.h"
 #include "stream_frame.h"
 #include "dev/audio/components/fade/aufade.h"
 #include "sonic_process.h"
+
 #include "sdk/app/application/audio_processing.h"
 
 #ifdef PSRAM_HEAP
@@ -32,10 +23,10 @@
 #define SONIC_PROCESS   0
 #define FADE_PROCESS    1
 
+extern AUDIO_PROCESS_HDL *audio_hdl;
+
 #define AUDIOLEN	320
 #define CACHE_BUF_LEN   320
-
-extern AUDIO_PROCESS_HDL *audio_hdl;
 
 static int prev_filter_type = 0;
 static stream *global_audio_dac_s = NULL;
@@ -43,6 +34,13 @@ struct audio_da_config;
 typedef int32 (*audio_da_write)(struct audio_da_config *audio, void* buf, uint32 len);
 
 static uint32_t empty_buf[AUDIOLEN/4];
+
+static uint8_t audac_soft_mute_ret = 0;
+
+enum {
+    clear_event = BIT(0),
+    clear_finish_event = BIT(1),
+};
 
 #if SONIC_PROCESS   
 struct sonic_process_priv {
@@ -62,6 +60,8 @@ static struct sonic_process_priv *sonic_priv = NULL;
 struct audio_dac_priv {
 	struct os_semaphore cache_sema;
 	struct os_task cache_task_hdl;
+	struct os_event clear_event;
+	uint8_t clear_flag;
 	uint32_t s_offset;
 	uint32_t d_offset;
 	uint32_t res_len;
@@ -170,13 +170,19 @@ void audio_dac_irq(uint32 irq, uint32 irq_data)
 			audac_priv->status--;
 			audio_da_cfg->reg_node = audac_priv->buf[audac_priv->buf_index%4];
 			audac_priv->buf_index++;
-			audio_da_cfg->irq_func(audio_da_cfg , audio_da_cfg->reg_node, audac_priv->buf_len);
+			if(audac_soft_mute_ret)
+				audio_da_cfg->irq_func(audio_da_cfg , empty_buf, AUDIOLEN);
+			else
+				audio_da_cfg->irq_func(audio_da_cfg , audio_da_cfg->reg_node, audac_priv->buf_len);
 			audio_da_cfg->is_empty = 0;
 		}
 	#else		
 		buf = audio_dac_get_buf(global_audio_dac_s, &audio_da_cfg->reg_node, &buf_size);
 		if(buf) {
-			audio_da_cfg->irq_func(audio_da_cfg, buf, buf_size);
+			if(audac_soft_mute_ret)
+				audio_da_cfg->irq_func(audio_da_cfg , empty_buf, AUDIOLEN);
+			else
+				audio_da_cfg->irq_func(audio_da_cfg, buf, buf_size);
 			audio_da_cfg->is_empty = 0;
 		}
 	#endif
@@ -210,8 +216,6 @@ static int opcode_func_sonic_r(stream *s,void *priv,int opcode)
 	int res = 0;
 	switch(opcode)
 	{
-		case STREAM_OPEN_ENTER:
-		break;
 		case STREAM_OPEN_EXIT:
 		{
             enable_stream(s,1);
@@ -310,19 +314,12 @@ static int opcode_func_sonic_s(stream *s,void *priv,int opcode)
 	int res = 0;
 	switch(opcode)
 	{
-		case STREAM_OPEN_ENTER:
-		break;
 		case STREAM_OPEN_EXIT:
 		{			
             stream_data_dis_mem_custom(s);
 			streamSrc_bind_streamDest(s,R_AUDIO_TEST);	
 			streamSrc_bind_streamDest(s,R_SPEAKER);			
 		}
-		break;
-		case STREAM_OPEN_FAIL:
-		break;
-
-		case STREAM_FILTER_DATA:
 		break;
 
 		case STREAM_DATA_DIS:
@@ -342,14 +339,6 @@ static int opcode_func_sonic_s(stream *s,void *priv,int opcode)
 				}
             }
         break;
-
-		case STREAM_DATA_FREE:
-			//_os_printf("%s:%d\n",__FUNCTION__,__LINE__);
-		break;
-
-		//数据发送完成,可以选择唤醒对应的任务
-		case STREAM_RECV_DATA_FINISH:
-		break;
 
 		default:
 			//默认都返回成功
@@ -481,16 +470,15 @@ static void audio_dac_fade(void *d)
 		//fade out
 		if(fade_mode == 1) {
 			os_printf("\n*********fade mode:%d*********\n",fade_mode);
-//			 aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_STEP, AUFADE_STEP_4, 0);
-//			 aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_SAMPLE, AUFADE_SAMPLE_1, 0);
-//			 aufade_start(fade, AUFADE_OUT);
+			aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_STEP, AUFADE_STEP_4, 0);
+			aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_SAMPLE, AUFADE_SAMPLE_1, 0);
+			aufade_start(fade, AUFADE_OUT);
 		}
 		else if(fade_mode == 0) {
 			os_printf("\n*********fade mode:%d*********\n",fade_mode);
-//			 aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_STEP, AUFADE_STEP_4, 0);
-//			 aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_SAMPLE, AUFADE_SAMPLE_1, 0);
-//			 aufade_start(fade, AUFADE_IN);		
-//			
+			aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_STEP, AUFADE_STEP_4, 0);
+			aufade_ioctl(fade, AUFADE_IOCTL_CMD_SET_SAMPLE, AUFADE_SAMPLE_1, 0);
+			aufade_start(fade, AUFADE_IN);			
 		}
 	}
 }
@@ -503,6 +491,35 @@ void audac_priv_clear()
 	audac_priv->s_offset = 0;
 }
 
+void audac_enable_play(void)
+{
+	audac_soft_mute_ret = 0;
+}
+
+void audac_disable_play(void)
+{
+	audac_soft_mute_ret = 1;
+}
+
+uint8_t audac_get_play_state(void)
+{
+	return (audac_soft_mute_ret^0);
+}
+
+uint8_t audac_wait_empty(void)
+{
+	audio_da_config *audio_da_cfg = &global_audio_da;
+	return audio_da_cfg->is_empty;
+}
+
+void audac_clean_stream(void)
+{
+	if(audac_priv->clear_event.hdl) {
+        os_event_set(&audac_priv->clear_event, clear_event, NULL);
+        os_event_wait(&audac_priv->clear_event, clear_finish_event, NULL, OS_EVENT_WMODE_CLEAR|OS_EVENT_WMODE_OR, osWaitForever);
+    }	
+}
+
 void audio_dac_cache(void *d)
 {
 	stream *s = (stream *)d;
@@ -510,42 +527,53 @@ void audio_dac_cache(void *d)
 	int16_t *s_buf = NULL;
 	uint32_t get_buf_len = 0;
 	uint8_t buf_index = 0;
+	uint32_t audac_cache_clear = 0;
 
 	audac_priv_clear();
 	audac_priv->status = 0;
 	audac_priv->buf_index = 0;
 
 	while(1) {
+		os_event_wait(&audac_priv->clear_event, clear_event, &audac_cache_clear, OS_EVENT_WMODE_CLEAR|OS_EVENT_WMODE_OR, 0);
+		if(audac_cache_clear & clear_event) {
+			audac_cache_clear = 0;
+			audac_priv->clear_flag = 1;
+			audac_priv_clear();
+		}	
 		data = recv_real_data(s);
 		if(data)
-		{
-			audac_priv->current_data = data;
-			s_buf = get_stream_real_data(data);
-			get_buf_len = get_stream_real_data_len(data);
-			audac_priv->s_offset = 0;		
-			while(get_buf_len >= audac_priv->res_len) {
-				hw_memcpy(audac_priv->buf[buf_index%4]+(audac_priv->d_offset/2), s_buf+(audac_priv->s_offset/2), audac_priv->res_len);
-				get_buf_len -= audac_priv->res_len;
-				audac_priv->buf_len = CACHE_BUF_LEN;
-				audac_priv->s_offset += audac_priv->res_len;
-				audac_priv->status++;		
-				os_sema_down(&audac_priv->cache_sema, -1);
-				audac_priv->res_len = CACHE_BUF_LEN;
-				audac_priv->d_offset = 0;
-				buf_index++;
-			}
-			if(get_buf_len) {
-				hw_memcpy(audac_priv->buf[buf_index%4]+(audac_priv->d_offset/2), s_buf+(audac_priv->s_offset/2), get_buf_len);
-				audac_priv->res_len = CACHE_BUF_LEN - get_buf_len;
-				audac_priv->d_offset = get_buf_len;
-				audac_priv->s_offset = 0;
-				get_buf_len = 0;
+		{	
+			if(audac_priv->clear_flag == 0) {
+				audac_priv->current_data = data;
+				s_buf = get_stream_real_data(data);
+				get_buf_len = get_stream_real_data_len(data);
+				audac_priv->s_offset = 0;	
+				while(get_buf_len >= audac_priv->res_len) {
+					hw_memcpy(audac_priv->buf[buf_index%4]+(audac_priv->d_offset/2), s_buf+(audac_priv->s_offset/2), audac_priv->res_len);
+					get_buf_len -= audac_priv->res_len;
+					audac_priv->buf_len = CACHE_BUF_LEN;
+					audac_priv->s_offset += audac_priv->res_len;
+					audac_priv->status++;		
+					os_sema_down(&audac_priv->cache_sema, -1);
+					audac_priv->res_len = CACHE_BUF_LEN;
+					audac_priv->d_offset = 0;
+					buf_index++;
+				}
+				if(get_buf_len) {
+					hw_memcpy(audac_priv->buf[buf_index%4]+(audac_priv->d_offset/2), s_buf+(audac_priv->s_offset/2), get_buf_len);
+					audac_priv->res_len = CACHE_BUF_LEN - get_buf_len;
+					audac_priv->d_offset = get_buf_len;
+					audac_priv->s_offset = 0;
+					get_buf_len = 0;
+				}
 			}
 			free_data(data);
 			audac_priv->current_data = NULL;
 		}
 		else {
 			if(audac_priv->status == 0) {
+				audac_priv->clear_flag = 0;
+				os_event_set(&audac_priv->clear_event, clear_finish_event, NULL);
 				if(audac_priv->d_offset > 0) {
 					hw_memset(audac_priv->buf[buf_index%4]+(audac_priv->d_offset/2), 0, (CACHE_BUF_LEN-audac_priv->d_offset));
 					audac_priv->buf_len = CACHE_BUF_LEN;
@@ -569,14 +597,13 @@ static int opcode_func(stream *s,void *priv,int opcode)
 	int res = 0;
 	switch(opcode)
 	{
-		case STREAM_OPEN_ENTER:
-		break;
 		case STREAM_OPEN_EXIT:
 		{
 			enable_stream(s,1);
 			s->priv = (void*)SOUND_ALL;
 			audac_priv = (struct audio_dac_priv*)ADUIO_ZALLOC(sizeof(struct audio_dac_priv));
 			if(audac_priv) {
+				os_event_init(&audac_priv->clear_event);
 			#ifdef PSRAM_HEAP
 				audac_priv->buf[0] = (int16_t *)custom_malloc(CACHE_BUF_LEN);
 				audac_priv->buf[1] = (int16_t *)custom_malloc(CACHE_BUF_LEN);
@@ -605,10 +632,7 @@ static int opcode_func(stream *s,void *priv,int opcode)
 		#endif
 		}
 		break;
-		case STREAM_OPEN_FAIL:
-		break;
-		case STREAM_RECV_DATA_FINISH:
-		break;
+
 		//在发送到这个流的时候,进行数据包过滤
 		case STREAM_FILTER_DATA:
 			{
@@ -681,18 +705,15 @@ static int opcode_func(stream *s,void *priv,int opcode)
 			{
 				extern void audio_da_recfg(uint32_t hz);
 				audio_da_recfg(GET_CMD_TYPE2(cmd));
-			}
-			
+			}			
 		}
 		break;
-
 
 		default:
 		break;
 	}
 	return res;
 }
-
 
 //优先创建音频的流
 stream *audio_dac_stream_init(const char *name)
@@ -721,10 +742,8 @@ void audio_dac_stream_deinit()
 
 void audio_da_init()
 {
-#if FADE_PROCESS
 	struct aufade_device *fade = (struct aufade_device *)dev_get(HG_AUFADE_DEVID);
 	aufade_open(fade);
-#endif
 	os_printf("%s:%d\n",__FUNCTION__,__LINE__);
 
     struct audac_device *audio_da = (struct audac_device *)dev_get(HG_AUDAC_DEVID);
@@ -736,19 +755,18 @@ void audio_da_init()
 	audio_da_cfg->buf_size = AUDIOLEN;
 	audio_da_cfg->play_empty_buf = empty_buf;
     audio_da_cfg->irq_func = global_audio_da_write;
-	audio_da_cfg->audio_hz = AUDAC_SAMPLE_RATE_8K;
-	
+	audio_da_cfg->audio_hz = AUDAC_SAMPLE_RATE_8K;	
 	stream *dest = audio_dac_stream_init(R_SPEAKER);
 	*((uint32_t*)0x4000802c) |= 0x690000;
     audac_open(audio_da, audio_da_cfg->audio_hz );
-	os_printf("audio_da_cfg:%X\n",audio_da_cfg);
     audac_request_irq(audio_da, AUDAC_IRQ_FLAG_HALF | AUDAC_IRQ_FLAG_FULL, (audac_irq_hdl)audio_dac_irq, (uint32_t)audio_da_cfg);
     audio_da_cfg->irq_func(audio_da_cfg , audio_da_cfg->play_empty_buf, audio_da_cfg->buf_size);
-//	audac_ioctl(audio_da,AUDAC_IOCTL_CMD_SET_DIGITAL_GAIN,300,0); //300
 	global_audio_dac_s = dest;
 	
-	volume_adjust(3);
-	
+	gpio_set_mode(PC_4, GPIO_PULL_NONE, GPIO_PULL_LEVEL_NONE);
+	gpio_set_dir(PC_4, GPIO_DIR_OUTPUT);
+	gpio_set_val(PC_4, 1);
+	audio_dac_set_filter_type(SOUND_ALL);
     return;
 }
 
@@ -756,10 +774,8 @@ void audio_da_deinit()
 {
 	struct audac_device *audio_da = (struct audac_device *)dev_get(HG_AUDAC_DEVID);
 	audio_da_config *audio_da_cfg = &global_audio_da;
-#if FADE_PROCESS
 	struct aufade_device *fade = (struct aufade_device *)dev_get(HG_AUFADE_DEVID);
 	aufade_close(fade);
-#endif
 	audac_close(audio_da);
 	prev_filter_type = get_audio_dac_set_filter_type();
 	audio_dac_set_filter_type(SOUND_NONE);
@@ -803,10 +819,8 @@ void audio_da_deinit()
 void audio_da_reinit()
 {
 	struct audac_device *audio_da = (struct audac_device *)dev_get(HG_AUDAC_DEVID);
-#if FADE_PROCESS
 	struct aufade_device *fade = (struct aufade_device *)dev_get(HG_AUFADE_DEVID);
 	aufade_open(fade);
-#endif
 	//这里成立的前提是原来stream已经创建过,否则可能有问题
 	stream *dest = audio_dac_stream_init(R_SPEAKER);
     memset(&global_audio_da,0,sizeof(global_audio_da));
@@ -817,7 +831,7 @@ void audio_da_reinit()
 	audio_da_cfg->play_empty_buf = empty_buf;
     audio_da_cfg->irq_func = global_audio_da_write;
 	audio_da_cfg->audio_hz = AUDAC_SAMPLE_RATE_8K;
-
+	*((uint32_t*)0x4000802c) |= 0x690000;
     audac_open(audio_da, audio_da_cfg->audio_hz);
 	os_printf("!!!!audio_da_cfg:%X\n",audio_da_cfg);
     audac_request_irq(audio_da, AUDAC_IRQ_FLAG_HALF | AUDAC_IRQ_FLAG_FULL, (audac_irq_hdl)audio_dac_irq, (uint32_t)audio_da_cfg);
@@ -898,7 +912,6 @@ void audio_da_recfg(uint32_t hz)
 	audac_ioctl(audac_dev,AUDAC_IOCTL_CMD_CHANGE_SAMPLE_RATE,now_hz_enum,0);
 	audio_dac_set_filter_type(last_type);
 
-
 	audio_da_cfg->audio_hz = now_hz_enum;
 	os_printf("audio_da_cfg:%X\tnow_hz_enum:%d\n",audio_da_cfg,now_hz_enum);
     audio_da_cfg->irq_func(audio_da_cfg , audio_da_cfg->play_empty_buf, audio_da_cfg->buf_size);
@@ -917,7 +930,6 @@ void audio_dac_set_filter_type(int filter_type)
 		global_audio_dac_s->priv = (void*)filter_type;
 	}
 }
-
 
 void print_audio_dac_set_filter_type()
 {

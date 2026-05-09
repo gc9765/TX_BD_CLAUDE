@@ -302,6 +302,10 @@ void vpp_put_psram(uint32 yuvbuf_addr,uint32 s_w,uint32 s_h);
 #define DEV_SENSOR_BF30A2           (0||CMOS_AUTO_LOAD)
 #endif
 
+#ifndef DEV_SENSOR_BF20A6
+#define DEV_SENSOR_BF20A6           (0||CMOS_AUTO_LOAD)
+#endif
+
 
 #ifndef DEV_SENSOR_IOT101
 #define DEV_SENSOR_IOT101           0
@@ -423,6 +427,11 @@ extern SENSOR_OP_SECTION const _Sensor_Adpt_ gc032a_cmd;
 #if DEV_SENSOR_BF30A2
 extern const _Sensor_Ident_ bf30a2_init;
 extern SENSOR_OP_SECTION const _Sensor_Adpt_ bf30a2_cmd;
+#endif
+
+#if DEV_SENSOR_BF20A6
+extern const _Sensor_Ident_ bf20a6_init;
+extern SENSOR_OP_SECTION const _Sensor_Adpt_ bf20a6_cmd;
 #endif
 
 #if DEV_SENSOR_NT99230

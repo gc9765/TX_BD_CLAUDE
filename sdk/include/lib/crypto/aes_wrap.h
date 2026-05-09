@@ -18,6 +18,8 @@
 #ifndef AES_WRAP_H
 #define AES_WRAP_H
 
+#include "crypto.h"
+
 int __must_check aes_wrap(const u8 *kek, size_t kek_len, int n, const u8 *plain,
 			  u8 *cipher);
 int __must_check aes_unwrap(const u8 *kek, size_t kek_len, int n,
@@ -45,10 +47,10 @@ int __must_check aes_128_eax_decrypt(const u8 *key,
 				     const u8 *nonce, size_t nonce_len,
 				     const u8 *hdr, size_t hdr_len,
 				     u8 *data, size_t data_len, const u8 *tag);
-int __must_check aes_128_cbc_encrypt(const u8 *key, const u8 *iv, u8 *data,
-				     size_t data_len);
-int __must_check aes_128_cbc_decrypt(const u8 *key, const u8 *iv, u8 *data,
-				     size_t data_len);
+//int __must_check aes_128_cbc_encrypt(const u8 *key, const u8 *iv, u8 *data,
+//				     size_t data_len);
+//int __must_check aes_128_cbc_decrypt(const u8 *key, const u8 *iv, u8 *data,
+//				     size_t data_len);
 int __must_check aes_gcm_ae(const u8 *key, size_t key_len,
 			    const u8 *iv, size_t iv_len,
 			    const u8 *plain, size_t plain_len,

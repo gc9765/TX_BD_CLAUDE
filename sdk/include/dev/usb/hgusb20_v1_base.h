@@ -108,7 +108,7 @@ struct hgusb20_dev_ctrl {
     
     uint8_t bus_high_speed      : 1,
             auto_tx_null_pkt    : 1,   //ep1 tx null packet for non-potocol xfer
-            reserved_bit0       : 1,
+            hdr_req       : 1,
             error               : 1,
             reserved_bit : 4;
     

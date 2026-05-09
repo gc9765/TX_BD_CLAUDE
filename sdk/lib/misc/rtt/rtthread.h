@@ -87,7 +87,7 @@ typedef struct os_timer    *rt_timer_t;
 #define LOG_D(fmt, ...)            //os_printf(fmt"\r\n", ##__VA_ARGS__)
 #define LOG_E(fmt, ...)            os_printf(fmt"\r\n", ##__VA_ARGS__)
 #define LOG_W(fmt, ...)            os_printf(fmt"\r\n", ##__VA_ARGS__)
-#define LOG_I(fmt, ...)            //os_printf(fmt"\r\n", ##__VA_ARGS__)
+#define LOG_I(fmt, ...)            os_printf(fmt"\r\n", ##__VA_ARGS__)
 
 #define rt_device_init(dev)
 #define rt_device_find()

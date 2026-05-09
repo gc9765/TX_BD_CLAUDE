@@ -135,6 +135,17 @@ void spi_nor_custom_erase(struct spi_nor_flash *flash, uint32_t param)
     return flash->bus->custom_erase(flash, param);
 }
 
+void spi_nor_custom_encry_disable_range(struct spi_nor_flash *flash, uint32_t index, uint32_t st_addr_1k, uint32_t end_addr_1k)
+{
+    ASSERT(flash->bus);
+    if(index == 0) {
+        spi_ioctl(flash->spidev, SPI_XIP_CUSTOM_DIS_ENCRY_RANGE0, st_addr_1k, end_addr_1k);
+    } 
+    if(index == 1) {
+        spi_ioctl(flash->spidev, SPI_XIP_CUSTOM_DIS_ENCRY_RANGE1, st_addr_1k, end_addr_1k);
+    }
+}
+
 __init int32 spi_nor_attach(struct spi_nor_flash *flash, uint32 dev_id)
 {
     int32 ret = 0;

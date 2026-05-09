@@ -8,4 +8,5 @@ int32 demo_atcmd_sd_ota(const char *cmd, char *argv[], uint32 argc);
 int32 demo_atcmd_save_h264(const char *cmd, char *argv[], uint32 argc);
 int32 demo_atcmd_save_osd(const char *cmd, char *argv[], uint32 argc);
 int32 demon_atcmd_play_mp3(const char *cmd, char *argv[], uint32 argc);
+int32 coze_atcmd_upload_photo(const char * cmd, char * argv [ ], uint32 argc);
 #endif

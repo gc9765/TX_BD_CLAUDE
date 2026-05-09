@@ -5,12 +5,14 @@
 #include "lib/umac/ieee80211.h"
 #include "lib/bus/xmodem/xmodem.h"
 #include "lib/lmac/lmac_def.h"
+#include "lwip/sockets.h"
 #if BLE_SUPPORT
 #include "lib/ble/ble_demo.h"
 #include "lib/ble/ble_def.h"
 #endif
 
 #ifdef CONFIG_UMAC4
+#include "lwip/netif.h"
 #include "lwip/ip_addr.h"
 #include "lwip/icmp.h"
 #include "lwip/apps/lwiperf.h"
@@ -40,7 +42,7 @@ int32 sys_atcmd_reset(const char *cmd, char *argv[], uint32 argc)
     atcmd_ok;
 
     if (argc >= 1) {
-        uint32 run_addr, reset_usb=0, param = 0;
+        uint32 run_addr = 0, reset_usb = 0, param = 0;
         sys_errlog_flush(0xffffffff, 0, 0);
         disable_irq();
         mcu_watchdog_feed();
@@ -82,14 +84,16 @@ int32 sys_heap_dump_hdl(const char *cmd, char *argv[], uint32 argc)
         sysheap_dump(&sram_heap);
     }else{
         if(os_strcmp(argv[1], "psram") == 0){
+            #ifdef PSRAM_HEAP
             sysheap_dump(&psram_heap);
+            #endif
+        }else if(os_strcmp(argv[1], "avheap") == 0){
         }else{
             sysheap_dump(&sram_heap);
         }
     }
-    return 0;
+    return ATCMD_RESULT_OK;
 }
-
 
 #ifdef CONFIG_UMAC4
 int32 sys_atcmd_ping(const char *cmd, char *argv[], uint32 argc) //need: #define LWIP_RAW 1
@@ -193,6 +197,12 @@ int32 sys_atcmd_iperf2(const char *cmd, char *argv[], uint32 argc)
     return ret;
 }
 
+int32 sys_atcmd_dump_sockets(const char *cmd, char *argv[], uint32 argc)
+{    
+    lwip_dump_sockets();
+    return 0;
+}
+
 int32 sys_wifi_atcmd_set_channel(const char *cmd, char *argv[], uint32 argc)
 {
     int32 chan = 0, chan_max;
@@ -219,6 +229,36 @@ int32 sys_wifi_atcmd_set_channel(const char *cmd, char *argv[], uint32 argc)
             sys_cfgs.channel = ieee80211_conf_get_channel(WIFI_MODE_STA);
         }
         syscfg_save();
+    }
+    return 0;
+}
+
+int32 sys_wifi_atcmd_set_bssid(const char *cmd, char *argv[], uint32 argc)
+{
+    int32 i = 0;
+    uint8 mac[6];
+    uint8 ifidx = (sys_cfgs.wifi_mode == WIFI_MODE_APSTA ? WIFI_MODE_STA : sys_cfgs.wifi_mode);
+    
+    if (argc == 1 && argv[0][0] == '?') {
+        for (i = 0; i < 6; i++) {
+            atcmd_printf("%02x", sys_cfgs.bssid[i]);
+        }
+    } else if (argc == 1) {
+        if (ifidx == WIFI_MODE_STA) {
+            STR2MAC(argv[0], mac);
+            os_printf("set bssid:"MACSTR"\r\n", MAC2STR(mac));
+            if (IS_ZERO_ADDR(mac)) {
+                os_memset(sys_cfgs.bssid, 0, 6);
+                ieee80211_conf_set_bssid(WIFI_MODE_STA, NULL);
+                syscfg_save();
+            } else if (os_memcmp(sys_cfgs.bssid, mac, 6)) {
+                os_memcpy(sys_cfgs.bssid, mac, 6);
+                ieee80211_conf_set_bssid(WIFI_MODE_STA, sys_cfgs.bssid);
+                syscfg_save();
+            } else {
+                atcmd_error;
+            }
+        }
     }
     return 0;
 }
@@ -264,17 +304,19 @@ int32 sys_wifi_atcmd_set_encrypt(const char *cmd, char *argv[], uint32 argc)
 
 int32 sys_wifi_atcmd_set_ssid(const char *cmd, char *argv[], uint32 argc)
 {
+    uint8 ifidx = (sys_cfgs.wifi_mode == WIFI_MODE_APSTA ? WIFI_MODE_STA : sys_cfgs.wifi_mode);
+    
     if (argc == 1 && argv[0][0] == '?') {
         atcmd_resp("%s", sys_cfgs.ssid);
     } else if (argc == 1) {
         os_memset(sys_cfgs.bssid, 0, 6);
         os_strncpy(sys_cfgs.ssid, argv[0], SSID_MAX_LEN);
-        ieee80211_conf_set_bssid(sys_cfgs.wifi_mode, NULL);
+        ieee80211_conf_set_bssid(ifidx, NULL);
         if (os_strlen(sys_cfgs.passwd) > 0) {
             wpa_passphrase(sys_cfgs.ssid, sys_cfgs.passwd, sys_cfgs.psk);
         }
-		ieee80211_conf_set_ssid(sys_cfgs.wifi_mode, sys_cfgs.ssid);
-        ieee80211_conf_set_psk(sys_cfgs.wifi_mode, sys_cfgs.psk);
+		ieee80211_conf_set_ssid(ifidx, sys_cfgs.ssid);
+        ieee80211_conf_set_psk(ifidx, sys_cfgs.psk);
         os_printf("set new ssid:%s\r\n", sys_cfgs.ssid);
         syscfg_save();
     }
@@ -283,6 +325,8 @@ int32 sys_wifi_atcmd_set_ssid(const char *cmd, char *argv[], uint32 argc)
 
 int32 sys_wifi_atcmd_set_key(const char *cmd, char *argv[], uint32 argc)
 {
+    uint8 ifidx = (sys_cfgs.wifi_mode == WIFI_MODE_APSTA ? WIFI_MODE_STA : sys_cfgs.wifi_mode);
+    
     if (argc == 1 && argv[0][0] == '?') {
         atcmd_resp("%s", sys_cfgs.passwd);
     } else if (argc == 1) {
@@ -293,9 +337,9 @@ int32 sys_wifi_atcmd_set_key(const char *cmd, char *argv[], uint32 argc)
         } else {
             os_strncpy(sys_cfgs.passwd, argv[0], PASSWD_MAX_LEN);
             wpa_passphrase(sys_cfgs.ssid, sys_cfgs.passwd, sys_cfgs.psk);
-            ieee80211_conf_set_psk(sys_cfgs.wifi_mode, sys_cfgs.psk);
+            ieee80211_conf_set_psk(ifidx, sys_cfgs.psk);
 #ifdef CONFIG_SAE
-            ieee80211_conf_set_passwd(sys_cfgs.wifi_mode, sys_cfgs.passwd);
+            ieee80211_conf_set_passwd(ifidx, sys_cfgs.passwd);
 #endif
             os_printf("set new key:%s\r\n", sys_cfgs.passwd);
             syscfg_save();
@@ -311,6 +355,7 @@ int32 sys_wifi_atcmd_set_wifimode(const char *cmd, char *argv[], uint32 argc)
     } else if (argc == 1) {
         if (os_strcasecmp(argv[0], "ap") == 0 && sys_cfgs.wifi_mode != WIFI_MODE_AP) {
             sys_cfgs.wifi_mode = WIFI_MODE_AP;
+            ieee80211_iface_stop(WIFI_MODE_AP);
             ieee80211_iface_stop(WIFI_MODE_STA);
             wificfg_flush(WIFI_MODE_AP);
             netdev_set_wifi_mode((struct netdev *)dev_get(HG_WIFI0_DEVID), WIFI_MODE_AP);
@@ -318,11 +363,14 @@ int32 sys_wifi_atcmd_set_wifimode(const char *cmd, char *argv[], uint32 argc)
         } else if (os_strcasecmp(argv[0], "sta") == 0 && sys_cfgs.wifi_mode != WIFI_MODE_STA) {
             sys_cfgs.wifi_mode = WIFI_MODE_STA;
             ieee80211_iface_stop(WIFI_MODE_AP);
+            ieee80211_iface_stop(WIFI_MODE_STA);
             wificfg_flush(WIFI_MODE_STA);
             netdev_set_wifi_mode((struct netdev *)dev_get(HG_WIFI0_DEVID), WIFI_MODE_STA);
             ieee80211_iface_start(WIFI_MODE_STA);
         } else if (os_strcasecmp(argv[0], "apsta") == 0 && sys_cfgs.wifi_mode != WIFI_MODE_APSTA) {
             sys_cfgs.wifi_mode = WIFI_MODE_APSTA;
+            ieee80211_iface_stop(WIFI_MODE_AP);
+            ieee80211_iface_stop(WIFI_MODE_STA);
             wificfg_flush(WIFI_MODE_AP);
             ieee80211_iface_start(WIFI_MODE_AP);
             wificfg_flush(WIFI_MODE_STA);
@@ -481,10 +529,20 @@ int32 sys_wifi_atcmd_set_rssid(const char *cmd, char *argv[], uint32 argc)
     if (argc == 1 && argv[0][0] == '?') {
         atcmd_resp("%s", sys_cfgs.r_ssid);
     } else if (argc == 1) {
-        sys_cfgs.cfg_init = 1;
-        os_strncpy(sys_cfgs.r_ssid, argv[0], SSID_MAX_LEN);
-        wpa_passphrase(sys_cfgs.r_ssid, sys_cfgs.r_passwd, sys_cfgs.r_psk);
-        syscfg_save();
+        if (sys_cfgs.wifi_mode == WIFI_MODE_APSTA) {
+            sys_cfgs.cfg_init = 1;
+            sys_cfgs.r_key_mgmt = sys_cfgs.key_mgmt;
+            os_strncpy(sys_cfgs.r_ssid, argv[0], SSID_MAX_LEN);
+            if (os_strlen(sys_cfgs.r_passwd) > 0) {
+                wpa_passphrase(sys_cfgs.r_ssid, sys_cfgs.r_passwd, sys_cfgs.r_psk);
+            }
+            ieee80211_conf_set_ssid(WIFI_MODE_AP, sys_cfgs.r_ssid);
+            ieee80211_conf_set_psk(WIFI_MODE_AP, sys_cfgs.r_psk);
+            atcmd_ok;
+            syscfg_save();
+        } else {
+            atcmd_error;
+        }
     }
     return 0;
 }
@@ -494,16 +552,49 @@ int32 sys_wifi_atcmd_set_rkey(const char *cmd, char *argv[], uint32 argc)
     if (argc == 1 && argv[0][0] == '?') {
         atcmd_resp("%s", sys_cfgs.r_passwd);
     } else if (argc == 1) {
-        // psk need 8 bytes at less
         if (os_strlen(argv[0]) < 8) {
-            atcmd_printf("need 8 bytes at less\r\n");
-            return ATCMD_RESULT_ERR;
+            atcmd_error;
+            atcmd_printf("rkey needs 8 bytes at least\r\n");
         } else {
-            sys_cfgs.cfg_init = 1;
-            sys_cfgs.r_key_mgmt = sys_cfgs.key_mgmt;
-            os_strncpy(sys_cfgs.r_passwd, argv[0], PASSWD_MAX_LEN);
-            wpa_passphrase(sys_cfgs.r_ssid, sys_cfgs.r_passwd, sys_cfgs.r_psk);
+            if (sys_cfgs.wifi_mode == WIFI_MODE_APSTA) {
+                sys_cfgs.cfg_init = 1;
+                sys_cfgs.r_key_mgmt = sys_cfgs.key_mgmt;
+                os_strncpy(sys_cfgs.r_passwd, argv[0], PASSWD_MAX_LEN);
+                wpa_passphrase(sys_cfgs.r_ssid, sys_cfgs.r_passwd, sys_cfgs.r_psk);
+                ieee80211_conf_set_psk(WIFI_MODE_AP, sys_cfgs.r_psk);
+                atcmd_ok;
+                syscfg_save();
+            } else {
+                atcmd_error;
+            }
+        }
+    }
+    return 0;
+}
+
+int32 sys_wifi_atcmd_set_rmode(const char *cmd, char *argv[], uint32 argc)
+{
+    if (argc == 1 && argv[0][0] == '?') {
+        if (sys_cfgs.wifi_mode == WIFI_MODE_APSTA) {
+            atcmd_resp("EN:%d LEVEL:%d MCAST:%d", sys_cfgs.relay_en, ieee80211_conf_get_relay_level(WIFI_MODE_AP), sys_cfgs.relay_mcast);
+        }
+    } else if (argc == 3) {
+        if (sys_cfgs.wifi_mode == WIFI_MODE_APSTA) {
+            if (sys_cfgs.relay_en != os_atoi(argv[0]) || sys_cfgs.relay_level != os_atoi(argv[1])) {
+                ieee80211_iface_stop(WIFI_MODE_AP);
+                ieee80211_iface_start(WIFI_MODE_AP);
+                ieee80211_iface_stop(WIFI_MODE_STA);
+                ieee80211_iface_start(WIFI_MODE_STA);
+            }
+            sys_cfgs.relay_en = os_atoi(argv[0]);
+            sys_cfgs.relay_level = os_atoi(argv[1]);
+            sys_cfgs.relay_mcast = os_atoi(argv[2]);
+            ieee80211_conf_set_relay_mode(WIFI_MODE_AP, sys_cfgs.relay_en, sys_cfgs.relay_level, sys_cfgs.relay_mcast);
+            ieee80211_conf_set_relay_mode(WIFI_MODE_STA, sys_cfgs.relay_en, sys_cfgs.relay_level, sys_cfgs.relay_mcast);
+            atcmd_ok;
             syscfg_save();
+        } else {
+            atcmd_error;
         }
     }
     return 0;
@@ -522,6 +613,23 @@ int32 sys_wifi_atcmd_reboot_test_mode(const char *cmd, char *argv[], uint32 argc
         mcu_reset();
     }
     return 0;
+}
+
+int32 sys_wifi_atcmd_pcap(const char *cmd, char *argv[], uint32 argc)
+{
+#if SYS_NETWORK_SUPPORT
+    char *file = NULL;
+    if (argc == 2) {
+        file = pcap_start(netif_find(argv[0]), argv[1]);
+        return file ? ATCMD_RESULT_OK : -1;
+    }else{
+        pcap_stop(netif_find(argv[0]));
+        return ATCMD_RESULT_OK;
+    }
+#else
+    os_printf("SYS_NETWORK_SUPPORT 0\r\n");
+    return -1;
+#endif
 }
 
 int32 sys_wifi_atcmd_dhcpd_lease_time(const char *cmd, char *argv[], uint32 argc)

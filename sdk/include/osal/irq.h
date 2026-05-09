@@ -22,8 +22,7 @@ __dsleep_text uint32 disable_irq(void);
 __dsleep_text void enable_irq(uint32 flag);
 int32 request_irq(uint32 irq_num, irq_handle handle, void *data);
 int32 release_irq(uint32 irq_num);
-uint32 irq_status(void);
-uint32 cpu_runtime_calc(uint8 start, uint32 val);
+uint32 sysirq_time(void);
 
 #ifdef __cplusplus
 }

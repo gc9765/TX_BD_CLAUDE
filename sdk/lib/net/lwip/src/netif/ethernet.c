@@ -118,7 +118,9 @@ ethernet_input(struct pbuf *p, struct netif *netif)
   if (p->if_idx == NETIF_NO_INDEX) {
     p->if_idx = netif_get_index(netif);
   }
-
+#if LWIP_PCAP
+  pcap(netif, p->payload, p->tot_len);
+#endif
   /* points to packet payload, which starts with an Ethernet header */
   ethhdr = (struct eth_hdr *)p->payload;
   LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,

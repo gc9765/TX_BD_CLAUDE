@@ -112,6 +112,7 @@ struct stig_req {
 };
 
 enum psram_type {
+//    PSRAM_NONE, 
     APS1604M_3SQR,
     APS1604M_DQRA,
     APS3208K_OKUD,
@@ -119,6 +120,7 @@ enum psram_type {
     APS1604M_3SQR_TXW817_812,
     SCKW18X128800,
     SCKM18X032800,
+    APS6408P_OBMx,
     PSRAM_TYPE_END,
 };
 
@@ -134,7 +136,7 @@ enum psram_type {
 /***** LL API AND DRIVER API *****/
 
 uint8_t psram_init(enum psram_type pt, uint32 clk_hz,uint32 check_size);
-int psram_auto_init();
+int psram_auto_init(int packetID);
 void psram_deinit(enum psram_type pt) ;
 
 

@@ -319,7 +319,7 @@ extern void hw_memcpy(void *dest, const void *src, unsigned int size);
 #endif
 
 #ifndef DNS_MAX_NAME_LENGTH
-#define DNS_MAX_NAME_LENGTH 32
+#define DNS_MAX_NAME_LENGTH 		256
 #endif
 
 #ifndef DNS_TABLE_SIZE
@@ -348,8 +348,6 @@ extern void hw_memcpy(void *dest, const void *src, unsigned int size);
 
 // Fragmentation on, as per IPv4 default
 #define LWIP_IPV6_FRAG              LWIP_IPV6
-
-
 
 // Queuing "disabled", as per IPv4 default (so actually queues 1)
 #ifndef LWIP_ND6_QUEUEING

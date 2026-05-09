@@ -99,6 +99,7 @@ int no_frame_record_video_psram(void *fp,void *d,int flen)
 #include "hal/vpp.h"
 #include "hal/dma.h"
 #include "lib/lcd/lcd.h"
+#include "custom_mem/custom_mem.h"
 
 
 
@@ -107,7 +108,7 @@ int no_frame_record_video_psram(void *fp,void *d,int flen)
 ********************************************************/
 
 
-#define RECORD_DIR "0:/DCIM"
+#define RECORD_DIR "0:/video"
 
 /***************************************************
  * 音频写入的注册函数
@@ -371,9 +372,9 @@ int new_sd_save_avi2(int *exit_flag,stream *s,stream *audio_s,int fps,int audiof
 
 	_os_printf("fps:%d\tfrq:%d\tsettime:%d\tpic_w:%d\tpic_h:%d\n",fps,audiofrq,settime,pic_w,pic_h);
 
-	odml_buff = malloc(sizeof(ODMLBUFF));
-	odmlmsg = malloc(sizeof(AVI_INFO));
-	headerbuf = malloc(_ODML_AVI_HEAD_SIZE__);
+	odml_buff = custom_malloc_psram(sizeof(ODMLBUFF));
+	odmlmsg = custom_malloc_psram(sizeof(AVI_INFO));
+	headerbuf = custom_malloc_psram(_ODML_AVI_HEAD_SIZE__);
 
 	if(!odml_buff || !odmlmsg || !headerbuf)
 	{
@@ -523,19 +524,19 @@ int new_sd_save_avi2(int *exit_flag,stream *s,stream *audio_s,int fps,int audiof
 	os_printf("%s end\n",__FUNCTION__);
 	if(odml_buff)
 	{
-		free(odml_buff);
+		custom_free_psram(odml_buff);
 		odml_buff = NULL;
 	}
 
 	if(odmlmsg)
 	{
-		free(odmlmsg);
+		custom_free_psram(odmlmsg);
 		odmlmsg = NULL;
 	}
 
 	if(headerbuf)
 	{
-		free(headerbuf);
+		custom_free_psram(headerbuf);
 		headerbuf = NULL;
 	}
 
@@ -609,9 +610,9 @@ int bbm_sd_save_avi(int *exit_flag,stream *s,stream *audio_s,int fps,int audiofr
 
 	_os_printf("fps:%d\tfrq:%d\tsettime:%d\tpic_w:%d\tpic_h:%d\n",fps,audiofrq,settime,pic_w,pic_h);
 
-	odml_buff = malloc(sizeof(ODMLBUFF));
-	odmlmsg = malloc(sizeof(AVI_INFO));
-	headerbuf = malloc(_ODML_AVI_HEAD_SIZE__);
+	odml_buff = custom_malloc_psram(sizeof(ODMLBUFF));
+	odmlmsg = custom_malloc_psram(sizeof(AVI_INFO));
+	headerbuf = custom_malloc_psram(_ODML_AVI_HEAD_SIZE__);
 
 	if(!odml_buff || !odmlmsg || !headerbuf)
 	{
@@ -875,19 +876,19 @@ int bbm_sd_save_avi(int *exit_flag,stream *s,stream *audio_s,int fps,int audiofr
 	os_printf("=====%s end video_count:%d audio_count:%d\n",__FUNCTION__,count,count2);
 	if(odml_buff)
 	{
-		free(odml_buff);
+		custom_free_psram(odml_buff);
 		odml_buff = NULL;
 	}
 
 	if(odmlmsg)
 	{
-		free(odmlmsg);
+		custom_free_psram(odmlmsg);
 		odmlmsg = NULL;
 	}
 
 	if(headerbuf)
 	{
-		free(headerbuf);
+		custom_free_psram(headerbuf);
 		headerbuf = NULL;
 	}
 

@@ -56,8 +56,7 @@
 
 #ifndef LWIP_CHKSUM
 //# define LWIP_CHKSUM lwip_standard_chksum
-//CRC_TYPE_TCPIP_CHKSUM
-# define LWIP_CHKSUM(dataptr, len) hw_crc(8, (uint8 *)(dataptr), len)
+# define LWIP_CHKSUM lwip_standard_chksum_customer
 # ifndef LWIP_CHKSUM_ALGORITHM
 #  define LWIP_CHKSUM_ALGORITHM 2
 # endif
@@ -67,6 +66,20 @@ u16_t lwip_standard_chksum(const void *dataptr, int len);
 #ifndef LWIP_CHKSUM_ALGORITHM
 # define LWIP_CHKSUM_ALGORITHM 0
 #endif
+
+/** use for cache improve miss rate: ? %% --> ? %%
+ * sram : ?   lwip_standard_chksum = hw_crc
+ *psram : ?   lwip_standard_chksum = hw_crc
+ */
+u16_t lwip_standard_chksum_customer(const void *dataptr, int len)
+{
+    if (len < 200) {
+        return lwip_standard_chksum(dataptr, len); 
+    } else {
+        return hw_crc(8, (uint8 *)(dataptr), len); 
+    }
+}
+
 
 #if (LWIP_CHKSUM_ALGORITHM == 1) /* Version #1 */
 /**

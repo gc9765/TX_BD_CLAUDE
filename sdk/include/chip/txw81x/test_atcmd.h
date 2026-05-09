@@ -46,7 +46,7 @@ int32 atcmd_pcf_chn_hdl(const char *cmd, char *argv[], uint32 argc);
 
 #ifdef CONFIG_SLEEP
 int32 atcmd_sleep_dbg_hdl(const char *cmd, char *argv[], uint32 argc);
-int32 atcmd_sleep_alg_hdl(const char *cmd, char *argv[], uint32 argc);
+//int32 atcmd_sleep_alg_hdl(const char *cmd, char *argv[], uint32 argc);
 int32 atcmd_sleep_hdl(const char *cmd, char *argv[], uint32 argc);
 int32 atcmd_dtim_hdl(const char *cmd, char *argv[], uint32 argc);
 #endif    

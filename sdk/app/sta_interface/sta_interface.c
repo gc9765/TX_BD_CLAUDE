@@ -47,7 +47,7 @@ void sta_interface_read()
 	strpt = buf;
 	memset(sys_cfgs.ssid,0,32);
 	//memcpy(sys_cfgs.ssid,strpt,strlen(strpt));
-	os_sprintf(sys_cfgs.ssid,"%s%02x%02x%02x",strpt,sys_cfgs.mac[5],sys_cfgs.mac[4],sys_cfgs.mac[3]);
+	os_sprintf((char*)sys_cfgs.ssid,"%s%02x%02x%02x",strpt,sys_cfgs.mac[5],sys_cfgs.mac[4],sys_cfgs.mac[3]);
 
 	strpt = &buf[100];
 	if(strlen(strpt)){

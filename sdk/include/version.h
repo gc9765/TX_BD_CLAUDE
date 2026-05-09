@@ -5,7 +5,7 @@
 
 #define SDK_MVER 2  /*sdk main version*/
 #define SDK_BVER 5  /*sdk branch version*/
-#define SDK_PVER 3  /*sdk patch version*/
+#define SDK_PVER 4  /*sdk patch version*/
 
 #define SDK_VERSION (SDK_MVER<<24|SDK_BVER<<16|SDK_PVER<<8|PROJECT_TYPE)
 

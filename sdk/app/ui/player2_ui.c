@@ -62,7 +62,7 @@ struct player_ui_s
     stream *avi_s;
     lv_timer_t *timer;
     lv_obj_t * label_time;
-    uint8_t *play_name;
+    char *play_name;
 
 };
 
@@ -139,12 +139,12 @@ static void enter_playback(lv_event_t * e)
     lv_label_set_text(ui_s->label_time, "00:00");
 
     //重新打开一个视频文件
-    uint8_t path[64];
+    char path[64];
     const char *filename = lv_list_get_btn_text(list,list_item);
     os_printf("play filename:%s\n",filename);
     os_sprintf(path,"0:%s/%s",PLAY_UI_DIR,filename);
 
-    ui_s->play_name = (uint8_t*)STREAM_MALLOC(PLAY_AVI_STREAM_NAME);
+    ui_s->play_name = (char*)STREAM_MALLOC(PLAY_AVI_STREAM_NAME);
     os_sprintf(ui_s->play_name,"%s_%04d",filename,(uint32_t)os_jiffies());
     os_printf("stream play_name:%s\n",ui_s->play_name);
     ui_s->avi_s = newavi_player2_init((const char *)ui_s->play_name,(const char *)path);

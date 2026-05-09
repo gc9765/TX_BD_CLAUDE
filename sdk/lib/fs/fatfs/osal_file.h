@@ -2,7 +2,11 @@
 #define __OSAL_FILE_H
 #include "typesdef.h"
 
-#ifdef WIN32
+
+#define WIN32 0
+
+
+#if WIN32
 	#include <stdio.h>
 	#include <stdlib.h>
 	typedef FILE	F_FILE;

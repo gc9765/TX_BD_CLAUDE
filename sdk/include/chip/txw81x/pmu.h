@@ -388,6 +388,36 @@ enum vdd15_vol_level {
 
 
 /* CORE_PMUCON7 */
+enum pmu_con7_bits_funcs {
+    PMU_BOOT_DIRECT_RUN,            //0
+    PMU_APP_DEADCODE_PENDING,
+    PMU_CP_FAIL_PENDING,
+    PMU_BOOT_CODE_POS,
+    
+    PMU_DIRECT_RUN_DISABLE_SIGN,    //4
+    PMU_SKIP_MASTER_BOOT_SIGN,
+    PMU_SKIP_TEST_MODE_SIGN,
+    PMU_SKIP_PSRAM_SIGN,
+    
+    PMU_RSV8,                       //8
+    PMU_RSV9,
+    PMU_RSV10,
+    PMU_RSV11,
+    PMU_RSV12,
+    PMU_RSV13,
+    PMU_RSV14,
+    PMU_RSV15,
+    
+    PMU_DSLEEP_INIT_SIGN,           //16
+    PMU_RSV17,
+    PMU_LPWDT_LOCK_SIGN,
+    PMU_WDT_LOCK_SIGN,
+    
+    PMU_APP_SOFTRESET_SIGN,         //20
+    PMU_WIFI_TEST_MODE_SIGN,
+    PMU_RSV22,
+    PMU_BOOT_DIRECT_RUN_PENDING2, 
+};
 #define pmu_boot_direct_run_en()                    PMU_REG_SET_BITS(PMU->PMUCON7, BIT(0))
 #define pmu_boot_direct_run_dis()                   PMU_REG_CLR_BITS(PMU->PMUCON7, BIT(0))
 #define pmu_get_boot_direct_run_pending()           ((PMU->PMUCON7 & BIT(0)))
@@ -429,6 +459,21 @@ enum vdd15_vol_level {
     do {\
         if (n)  PMU_REG_SET_BITS(PMU->PMUCON7, BIT(7));\
         else    PMU_REG_CLR_BITS(PMU->PMUCON7, BIT(7));\
+    } while(0)
+
+/* PMU->PMUCON7[22] */
+#define GET_WIFI_TEST_MODE_SIGN()     ((PMU->PMUCON7 & BIT(21)))
+#define SET_WIFI_TEST_MODE_SIGN(n)\
+    do {\
+        if (n)  PMU_REG_SET_BITS(PMU->PMUCON7, BIT(21));\
+        else    PMU_REG_CLR_BITS(PMU->PMUCON7, BIT(21));\
+    } while(0)
+    
+#define GET_APP_SOFTRESET_SIGN()     ((PMU->PMUCON7 & BIT(20)))
+#define SET_APP_SOFTRESET_SIGN(n)\
+    do {\
+        if (n)  PMU_REG_SET_BITS(PMU->PMUCON7, BIT(20));\
+        else    PMU_REG_CLR_BITS(PMU->PMUCON7, BIT(20));\
     } while(0)
 
 

@@ -58,7 +58,6 @@ int32 sdio_slave_ioctl(struct sdio_slave *slave, uint32 cmd, uint32 param)
     return RET_ERR;
 }
 
-
 int32 sdio_slave_request_irq(struct sdio_slave *slave, sdio_slave_irq_hdl handle, uint32 data)
 {
     if (slave && ((const struct sdios_hal_ops *)slave->dev.ops)->request_irq) {

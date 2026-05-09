@@ -554,7 +554,7 @@ int32 hgscale1_suspend(struct dev_obj *obj){
 	struct hgscale *scale_hw = (struct hgscale*)obj;
 	struct hgscale1_hw *hw;
 	struct hgscale1_hw *hw_cfg;
-	//ç¡®ä¿å·²ç»è¢«æ‰“å¼€å¹¶ä¸”ä¼‘çœ è¿‡,ç›´æŽ¥è¿”å›ž
+	//È·±£ÒÑ¾­±»´ò¿ª²¢ÇÒÐÝÃß¹ý,Ö±½Ó·µ»Ø
 	if(!scale_hw->opened || scale_hw->dsleep)
 	{
 		return RET_OK;
@@ -583,7 +583,7 @@ int32 hgscale1_resume(struct dev_obj *obj){
 	struct hgscale *scale_hw = (struct hgscale*)obj;
 	struct hgscale1_hw *hw;
 	struct hgscale1_hw *hw_cfg;
-	//å¦‚æžœå·²ç»è¢«æ‰“å¼€å¹¶ä¸”æ²¡æœ‰ä¼‘çœ è¿‡,ç›´æŽ¥è¿”å›ž
+	//Èç¹ûÒÑ¾­±»´ò¿ª²¢ÇÒÃ»ÓÐÐÝÃß¹ý,Ö±½Ó·µ»Ø
 	if(!scale_hw->opened || !scale_hw->dsleep)
 	{
 		return RET_OK;
@@ -612,7 +612,7 @@ int32 hgscale2_suspend(struct dev_obj *obj){
 	struct hgscale *scale_hw = (struct hgscale*)obj;
 	struct hgscale2_hw *hw;
 	struct hgscale2_hw *hw_cfg;
-	//ç¡®ä¿å·²ç»è¢«æ‰“å¼€å¹¶ä¸”ä¼‘çœ è¿‡,ç›´æŽ¥è¿”å›ž
+	//È·±£ÒÑ¾­±»´ò¿ª²¢ÇÒÐÝÃß¹ý,Ö±½Ó·µ»Ø
 	if(!scale_hw->opened || scale_hw->dsleep)
 	{
 		return RET_OK;
@@ -641,7 +641,7 @@ int32 hgscale2_resume(struct dev_obj *obj){
 	struct hgscale *scale_hw = (struct hgscale*)obj;
 	struct hgscale2_hw *hw;
 	struct hgscale2_hw *hw_cfg;
-	//å¦‚æžœå·²ç»è¢«æ‰“å¼€å¹¶ä¸”æ²¡æœ‰ä¼‘çœ è¿‡,ç›´æŽ¥è¿”å›ž
+	//Èç¹ûÒÑ¾­±»´ò¿ª²¢ÇÒÃ»ÓÐÐÝÃß¹ý,Ö±½Ó·µ»Ø
 	if(!scale_hw->opened || !scale_hw->dsleep)
 	{
 		return RET_OK;
@@ -671,7 +671,7 @@ int32 hgscale3_suspend(struct dev_obj *obj){
 	struct hgscale *scale_hw = (struct hgscale*)obj;
 	struct hgscale3_hw *hw;
 	struct hgscale3_hw *hw_cfg;
-	//ç¡®ä¿å·²ç»è¢«æ‰“å¼€å¹¶ä¸”ä¼‘çœ è¿‡,ç›´æŽ¥è¿”å›ž
+	//È·±£ÒÑ¾­±»´ò¿ª²¢ÇÒÐÝÃß¹ý,Ö±½Ó·µ»Ø
 	if(!scale_hw->opened || scale_hw->dsleep)
 	{
 		return RET_OK;
@@ -705,7 +705,7 @@ int32 hgscale3_resume(struct dev_obj *obj){
 	struct hgscale *scale_hw = (struct hgscale*)obj;
 	struct hgscale3_hw *hw;
 	struct hgscale3_hw *hw_cfg;
-	//å¦‚æžœå·²ç»è¢«æ‰“å¼€å¹¶ä¸”æ²¡æœ‰ä¼‘çœ è¿‡,ç›´æŽ¥è¿”å›ž
+	//Èç¹ûÒÑ¾­±»´ò¿ª²¢ÇÒÃ»ÓÐÐÝÃß¹ý,Ö±½Ó·µ»Ø
 	if(!scale_hw->opened || !scale_hw->dsleep)
 	{
 		return RET_OK;

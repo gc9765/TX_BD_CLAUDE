@@ -235,6 +235,7 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
     struct ethernetif  *ethernetif = netif->state;
     struct netdev *dev        = ethernetif->ndev;
     scatter_data   scat_data[MAX_NETWORK_LAYER];
+    int scat_cnt = 0;
     s32_t ret = 0;
 
     if (p->tot_len < MIN_PACKET_LEN) {
@@ -246,8 +247,15 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
 #endif
 
     if (((struct netdev_hal_ops *)dev->dev.ops)->send_scatter_data != NULL) {
-        ret = netdev_send_scatter_data(dev, scat_data, ethernetif_get_scatter_data(p, scat_data, MAX_NETWORK_LAYER));
+        scat_cnt = ethernetif_get_scatter_data(p, scat_data, MAX_NETWORK_LAYER);
+#if LWIP_PCAP
+        pcap_scatter(netif, scat_data, scat_cnt);
+#endif
+        ret = netdev_send_scatter_data(dev, scat_data, scat_cnt);
     } else {
+#if LWIP_PCAP
+        pcap(netif, p->payload, p->tot_len);
+#endif
         if (p->next == NULL) {
             ret = netdev_send_data(dev, p->payload, p->len);
         } else {
@@ -634,6 +642,16 @@ int32 lwip_netif_set_mac2(const char *name, uint8 *mac)
     }
     return -EINVAL;
 }
+uint32 lwip_netif_get_dhcp_lease_time(struct netdev *ndev)
+{
+    struct netif *nif = (struct netif *)ndev->stack_data;
+    return nif ? nif->dhcp_lease_time : 7200;
+}
+uint32 lwip_netif_get_dhcp_lease_time2(const char *name)
+{
+    struct netif *nif = netif_find(name);
+    return nif ? nif->dhcp_lease_time : 7200;
+}
 
 int32 lwip_netif_hook_inputdata(struct netif *nif, uint8 *data, uint32 len)
 {
@@ -659,5 +677,33 @@ void lwip_netif_updown2(char *ifname, uint8 up)
     } else   {
         netif_set_down(netif_find(ifname));
     }
+}
+
+uint8 *lwip_netif_hwaddr(struct netif* netif)
+{
+    return netif->hwaddr;
+}
+
+uint32 lwip_netif_ipaddr4(struct netif* netif)
+{
+#if LWIP_IPV4
+    return netif->ip_addr.addr;
+#else
+    return 0;
+#endif
+}
+
+uint8 *lwip_netif_ipaddr6(struct netif* netif)
+{
+#if LWIP_IPV6
+    return NULL;
+#else
+    return NULL;
+#endif
+}
+
+err_t lwip_netif_linkoutput(struct netif* netif, struct pbuf *buf)
+{
+    return netif->linkoutput(netif, buf);
 }
 

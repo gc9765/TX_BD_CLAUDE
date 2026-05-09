@@ -287,6 +287,16 @@ sys_mbox_trypost_fromisr(sys_mbox_t *q, void *msg)
 }
 
 u32_t
+sys_mbox_get_num(sys_mbox_t *q) 
+{
+    if(q && q->mbox_vaild == TRUE) {
+        return os_msgq_cnt(&q->msgq);        
+    } else {
+        return 0;
+    }
+}
+
+u32_t
 sys_arch_mbox_fetch(sys_mbox_t *q, void **msg, u32_t timeout)
 {
     u32_t start     = sys_now();

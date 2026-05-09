@@ -28,7 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef SILK_MACROS_H
 #define SILK_MACROS_H
 
-#ifdef HAVE_CONFIG_H
+#ifdef HAVE_OPUS_CONFIG_H
 #include "opus_config.h"
 #endif
 

@@ -22,17 +22,20 @@
 #include "usbd_mass_speed_optimize.h"
 //通过宏PINGPANG_BUF_EN决定是否打开usbd mass读写速度优化的线程使能(sram使用空间增加),默认打开
 #if USBDISK == 1
-#define RT_USE_UDISK_DEVICE (&sd_udisk)        /* sd u盘：sd_udisk / flash u盘：flash_udisk */
+#define RT_USE_UDISK_DEVICE (&sd_udisk)        /* sd u盘：sd_udisk       */
 #elif USBDISK == 2
-#define RT_USE_UDISK_DEVICE (&flash_udisk)     /* sd u盘：sd_udisk / flash u盘：flash_udisk */
+#define RT_USE_UDISK_DEVICE (&flash_udisk)     /* flash u盘：flash_udisk */
+#elif USBDISK == 3
+#define RT_USE_UDISK_DEVICE  (&sram_udisk)     /* sram u盘：sram_udisk   */
 #else
-#define RT_USE_UDISK_DEVICE  NULL
+#define RT_USE_UDISK_DEVICE  RT_NULL   
 #endif
 #else
 #define PINGPANG_BUF_EN 	0
-#define RT_USE_UDISK_DEVICE (&sd_udisk)        /* sd u盘：sd_udisk / flash u盘：flash_udisk */
+#define RT_USE_UDISK_DEVICE (&sram_udisk)      /* sram u盘：sram_udisk   */
 #endif
 
+#define SRAM_UDISK_EN       0
 #define UDISK_READONLY      0               // 0:读写，1：只读
 
 //自定义
@@ -51,6 +54,7 @@ struct udisk_priv_func_s
 };
 //如果有sd卡,注册sd函数接口
 #if SDH_EN == 1
+#include "lib/sdhost/sdhost.h"
 int usb_sd_scsi_write(uint32 lba, uint32 count, uint8* buf);
 int usb_sd_scsi_read(uint32 lba, uint32 count, uint8* buf);
 uint8_t get_sd_status2(void);
@@ -86,7 +90,48 @@ const struct udisk_priv_func_s flash_udisk =
 };
 #endif
 
-#include "lib/sdhost/sdhost.h"
+#if SRAM_UDISK_EN == 1
+#define USB_SRAM_MASS_CAPCITY (100*1024)
+static rt_uint8_t usb_sram_filesystem[USB_SRAM_MASS_CAPCITY];
+
+int sram_usb_write(uint32_t sector,uint32_t count,uint8* buf)
+{
+    hw_memcpy(usb_sram_filesystem + sector * 512, buf, count * 512);
+    return 0;
+}
+
+int sram_usb_read(uint32_t sector,uint32_t count,uint8* buf)
+{
+    hw_memcpy(buf, usb_sram_filesystem + sector * 512, count * 512);
+    return 0;
+}
+
+uint8_t sram_get_status(void)
+{
+    return 0;
+}
+
+uint32 sram_get_sec_count()
+{
+    return USB_SRAM_MASS_CAPCITY / 512;
+}
+
+uint32_t sram_get_sec_size()
+{
+    return 512;
+}
+
+const struct udisk_priv_func_s sram_udisk = 
+{
+    .u_get_sector_size = sram_get_sec_size,
+    .u_read = sram_usb_read,
+    .u_write = sram_usb_write,
+    .u_get_status = sram_get_status,
+    .u_get_cap = sram_get_sec_count,
+};
+
+#endif
+
 
 #ifdef RT_USING_DFS_MNTTABLE
 #include "dfs_fs.h"
@@ -149,6 +194,7 @@ struct mstorage
     uep_t ep_in;
     uep_t ep_out;
     int status;
+    int test_unit;
     rt_uint32_t cb_data_size;
     void *disk;
     rt_uint32_t block;
@@ -159,6 +205,8 @@ struct mstorage
     const struct udisk_priv_func_s *udisk_func;
     #if PINGPANG_BUF_EN
     rt_uint32_t multi_sector_en;
+    rt_uint32_t read_calc_optimize_sec;
+    rt_uint32_t write_calc_optimize_sec;
     struct usbd_mass_speed_info udisk_speed_info;
     #endif
 };
@@ -169,13 +217,13 @@ static struct udevice_descriptor dev_desc =
     USB_DESC_LENGTH_DEVICE,     //bLength;
     USB_DESC_TYPE_DEVICE,       //type;
     USB_BCD_VERSION,            //bcdUSB;
-    USB_CLASS_MASS_STORAGE,     //bDeviceClass;
-    0x06,                       //bDeviceSubClass;
-    0x50,                       //bDeviceProtocol;
+    0,                          //bDeviceClass;
+    0,                          //bDeviceSubClass;
+    0,                          //bDeviceProtocol;
     0x40,                       //bMaxPacketSize0;
     _VENDOR_ID,                 //idVendor;
     _PRODUCT_ID,                //idProduct;
-    USB_BCD_DEVICE,             //bcdDevice;
+    0x110,                      //bcdDevice;
     USB_STRING_MANU_INDEX,      //iManufacturer;
     USB_STRING_PRODUCT_INDEX,   //iProduct;
     USB_STRING_SERIAL_INDEX,    //iSerialNumber;
@@ -271,6 +319,7 @@ static rt_ssize_t _read_capacity(ufunction_t func, ustorage_cbw_t cbw);
 static rt_ssize_t _read_10(ufunction_t func, ustorage_cbw_t cbw);
 static rt_ssize_t _write_10(ufunction_t func, ustorage_cbw_t cbw);
 static rt_ssize_t _verify_10(ufunction_t func, ustorage_cbw_t cbw);
+static rt_ssize_t _mode_sense_10(ufunction_t func, ustorage_cbw_t cbw);
 
 rt_align(4)
 static struct scsi_cmd cmd_data[] =
@@ -286,6 +335,7 @@ static struct scsi_cmd cmd_data[] =
     {SCSI_READ_10,         _read_10,         10, BLOCK_COUNT, 0, DIR_IN},
     {SCSI_WRITE_10,        _write_10,        10, BLOCK_COUNT, 0, DIR_OUT},
     {SCSI_VERIFY_10,       _verify_10,       10, FIXED,       0, DIR_NONE},
+    {SCSI_MODE_SENSE_10,   _mode_sense_10,   10, COUNT,       0, DIR_IN},
 };
 
 static void _send_status(ufunction_t func)
@@ -315,6 +365,11 @@ static rt_ssize_t _test_unit_ready(ufunction_t func, ustorage_cbw_t cbw)
 
     data = (struct mstorage*)func->user_data;
     data->csw_response.status = 0;
+
+    if(data->test_unit || data->udisk_func->u_get_status())
+    {
+        data->csw_response.status = 1;
+    }
 
     return 0;
 }
@@ -357,7 +412,8 @@ static rt_ssize_t _inquiry_cmd(ufunction_t func, ustorage_cbw_t cbw)
     data = (struct mstorage*)func->user_data;
     buf = data->ep_in->buffer;
 
-    *(rt_uint32_t*)&buf[0] = 0x0 | (0x80 << 8);
+    // RMB:Yes  ANSI Version:4   ECMA Version:0   ISO Version:0   Response Data Format:SCSI-2
+    *(rt_uint32_t*)&buf[0] = 0x0 | (0x80 << 8) | (0x04 << 16) | (0x02 << 24); 
     *(rt_uint32_t*)&buf[4] = 31;
 
     rt_memset(&buf[8], 0x20, 28);
@@ -458,6 +514,35 @@ static rt_ssize_t _mode_sense_6(ufunction_t func, ustorage_cbw_t cbw)
     return data->cb_data_size;
 }
 
+static rt_ssize_t _mode_sense_10(ufunction_t func, ustorage_cbw_t cbw)
+{
+    struct mstorage *data;
+    rt_uint8_t *buf;
+
+    RT_ASSERT(func != RT_NULL);
+    RT_ASSERT(func->device != RT_NULL);
+    RT_ASSERT(cbw != RT_NULL);
+
+    LOG_D("_mode_sense_10");
+
+    data = (struct mstorage*)func->user_data;
+    buf = data->ep_in->buffer;
+    buf[0] = 0x43;
+    buf[1] = 0;
+    buf[2] = 0;
+    buf[3] = 0;
+    
+
+    data->cb_data_size = MIN(data->cb_data_size, SIZEOF_MODE_SENSE_10);
+    data->ep_in->request.buffer = buf;
+    data->ep_in->request.size = data->cb_data_size;
+    data->ep_in->request.req_type = UIO_REQUEST_WRITE;
+    rt_usbd_io_request(func->device, data->ep_in, &data->ep_in->request);
+    data->status = STAT_CMD;
+
+    return data->cb_data_size;
+}
+
 /**
  * This function will handle read_capacities request.
  *
@@ -479,6 +564,14 @@ static rt_ssize_t _read_capacities(ufunction_t func, ustorage_cbw_t cbw)
     LOG_D("_read_capacities");
 
     data = (struct mstorage*)func->user_data;
+
+    if(data->test_unit || data->udisk_func->u_get_status()){
+        data->csw_response.status = 1;
+        rt_usbd_ep_set_stall(func->device, data->ep_in);
+        return 0;
+    }
+    data->geometry.sector_count = data->udisk_func->u_get_cap();
+
     buf = data->ep_in->buffer;
     sector_count = data->geometry.sector_count;
     sector_size = data->geometry.bytes_per_sector;
@@ -525,6 +618,14 @@ static rt_ssize_t _read_capacity(ufunction_t func, ustorage_cbw_t cbw)
     LOG_D("_read_capacity");
 
     data = (struct mstorage*)func->user_data;
+
+    if(data->test_unit || data->udisk_func->u_get_status()){
+        data->csw_response.status = 1;
+        rt_usbd_ep_set_stall(func->device, data->ep_in);
+        return 0;
+    }
+    data->geometry.sector_count = data->udisk_func->u_get_cap();
+
     buf = data->ep_in->buffer;
     sector_count = data->geometry.sector_count - 1; /* Last Logical Block Address */
     sector_size = data->geometry.bytes_per_sector;
@@ -565,6 +666,13 @@ static rt_ssize_t _read_10(ufunction_t func, ustorage_cbw_t cbw)
     RT_ASSERT(cbw != RT_NULL);
 
     data = (struct mstorage*)func->user_data;
+
+    if(data->test_unit || data->udisk_func->u_get_status()){
+        data->csw_response.status = 1;
+        rt_usbd_ep_set_stall(func->device, data->ep_in);
+        return 0;
+    }
+
     data->block = cbw->cb[2]<<24 | cbw->cb[3]<<16 | cbw->cb[4]<<8  |
              cbw->cb[5]<<0;
     data->count = cbw->cb[7]<<8 | cbw->cb[8]<<0;
@@ -574,12 +682,11 @@ static rt_ssize_t _read_10(ufunction_t func, ustorage_cbw_t cbw)
     data->csw_response.data_reside = data->cb_data_size;
 
 #if PINGPANG_BUF_EN
-    if((data->count >= MULTI_SECTOR_COUNT) && (data->count % MULTI_SECTOR_COUNT == 0))
-    {
-        data->multi_sector_en = 1;
-    }
-    else
-    {
+    data->read_calc_optimize_sec = usbd_mass_speed_sec_calc(data->count);
+    if (data->read_calc_optimize_sec) {
+        data->read_calc_optimize_sec =  data->count / data->read_calc_optimize_sec;
+        data->multi_sector_en = 1;             
+    } else {
         data->multi_sector_en = 0;
     }
 
@@ -595,7 +702,7 @@ static rt_ssize_t _read_10(ufunction_t func, ustorage_cbw_t cbw)
 		return 0;
     }
     
-    if(pingpang_flag)
+    if(g_dev->pingpang_flag)
     {
         os_sema_up(g_dev->usb_sem_write);
         data->ep_in->buffer = data->udisk_speed_info.buf_2;
@@ -609,7 +716,7 @@ static rt_ssize_t _read_10(ufunction_t func, ustorage_cbw_t cbw)
     if(data->multi_sector_en)
     {
         data->ep_in->request.buffer = data->ep_in->buffer;
-        data->ep_in->request.size = data->geometry.bytes_per_sector * MULTI_SECTOR_COUNT;
+        data->ep_in->request.size = data->geometry.bytes_per_sector * data->read_calc_optimize_sec;
         data->ep_in->request.req_type = UIO_REQUEST_WRITE;
         rt_usbd_io_request(func->device, data->ep_in, &data->ep_in->request);
         data->status = STAT_SEND;
@@ -676,16 +783,15 @@ static rt_ssize_t _write_10(ufunction_t func, ustorage_cbw_t cbw)
     data->csw_response.data_reside = data->cb_data_size;
 
 #if PINGPANG_BUF_EN
-    if((data->count >= MULTI_SECTOR_COUNT) && (data->count % MULTI_SECTOR_COUNT == 0))
-    {
-        data->multi_sector_en = 1;
-    }
-    else
-    {
+    data->write_calc_optimize_sec = usbd_mass_speed_sec_calc(data->count);
+    if (data->write_calc_optimize_sec) {
+        data->write_calc_optimize_sec = data->count / data->write_calc_optimize_sec;
+        data->multi_sector_en = 1;             
+    } else {
         data->multi_sector_en = 0;
     }    
 
-    if(pingpang_flag)
+    if(g_dev->pingpang_flag)
     {
         data->ep_out->buffer = data->udisk_speed_info.buf_1;
     }
@@ -697,7 +803,7 @@ static rt_ssize_t _write_10(ufunction_t func, ustorage_cbw_t cbw)
     if(data->multi_sector_en)
     {
         data->ep_out->request.buffer = data->ep_out->buffer;
-        data->ep_out->request.size = data->geometry.bytes_per_sector * MULTI_SECTOR_COUNT;
+        data->ep_out->request.size = data->geometry.bytes_per_sector * data->write_calc_optimize_sec;
         data->ep_out->request.req_type = UIO_REQUEST_READ_FULL;
         rt_usbd_io_request(func->device, data->ep_out, &data->ep_out->request);
         data->status = STAT_RECEIVE;
@@ -756,6 +862,8 @@ static rt_ssize_t _start_stop(ufunction_t func,
     data = (struct mstorage*)func->user_data;
     data->csw_response.status = 0;
 
+    data->test_unit = 1;
+
     return 0;
 }
 
@@ -781,7 +889,7 @@ static rt_err_t _ep_in_handler(ufunction_t func, rt_size_t size)
         else
         {
             LOG_D("return to cbw status");
-            data->ep_out->request.buffer = data->cbw;
+            data->ep_out->request.buffer = (rt_uint8_t*)data->cbw;
             data->ep_out->request.size = SIZEOF_CBW;
             data->ep_out->request.req_type = UIO_REQUEST_READ_FULL;
             rt_usbd_io_request(func->device, data->ep_out, &data->ep_out->request);
@@ -823,8 +931,8 @@ static rt_err_t _ep_in_handler(ufunction_t func, rt_size_t size)
         if(data->multi_sector_en)
         {
             data->csw_response.data_reside -= data->ep_in->request.size;
-            data->count -= MULTI_SECTOR_COUNT;
-            data->block += MULTI_SECTOR_COUNT;
+            data->count -= data->read_calc_optimize_sec;
+            data->block += data->read_calc_optimize_sec;
 
         }
         else
@@ -846,7 +954,7 @@ static rt_err_t _ep_in_handler(ufunction_t func, rt_size_t size)
                 return -RT_ERROR;                 
             }
 
-            if(pingpang_flag)
+            if(g_dev->pingpang_flag)
             {
                 os_sema_up(g_dev->usb_sem_write);
                 data->ep_in->buffer = data->udisk_speed_info.buf_2;
@@ -860,7 +968,7 @@ static rt_err_t _ep_in_handler(ufunction_t func, rt_size_t size)
             if(data->multi_sector_en)
             {
                 data->ep_in->request.buffer = data->ep_in->buffer;
-                data->ep_in->request.size = data->geometry.bytes_per_sector * MULTI_SECTOR_COUNT;
+                data->ep_in->request.size = data->geometry.bytes_per_sector * data->read_calc_optimize_sec;
                 data->ep_in->request.req_type = UIO_REQUEST_WRITE;
                 rt_usbd_io_request(func->device, data->ep_in, &data->ep_in->request);
             }
@@ -907,20 +1015,22 @@ static rt_err_t _ep_in_handler(ufunction_t func, rt_size_t size)
      return RT_EOK;
 }
 
-#ifdef  MASS_CBW_DUMP
+
 static void cbw_dump(struct ustorage_cbw* cbw)
 {
     RT_ASSERT(cbw != RT_NULL);
 
-    LOG_D("signature 0x%x", cbw->signature);
-    LOG_D("tag 0x%x", cbw->tag);
-    LOG_D("xfer_len 0x%x", cbw->xfer_len);
-    LOG_D("dflags 0x%x", cbw->dflags);
-    LOG_D("lun 0x%x", cbw->lun);
-    LOG_D("cb_len 0x%x", cbw->cb_len);
-    LOG_D("cb[0] 0x%x", cbw->cb[0]);
+    os_printf("signature 0x%x\n", cbw->signature);
+    os_printf("tag 0x%x\n", cbw->tag);
+    os_printf("xfer_len 0x%x\n", cbw->xfer_len);
+    os_printf("dflags 0x%x\n", cbw->dflags);
+    os_printf("lun 0x%x\n", cbw->lun);
+    os_printf("cb_len 0x%x\n", cbw->cb_len);
+    os_printf("cb[0] 0x%x\n", cbw->cb[0]);
+    for(int i = 0;i < 16; i++){
+        os_printf("cbw->cb[%d]:%d\n",i,cbw->cb[i]);
+    }
 }
-#endif
 
 static struct scsi_cmd* _find_cbw_command(rt_uint16_t cmd)
 {
@@ -1108,6 +1218,7 @@ static rt_err_t _ep_out_handler(ufunction_t func, rt_size_t size)
         if(cmd == RT_NULL)
         {
             rt_kprintf("can't find cbw command\n");
+            cbw_dump(cbw);
             goto exit;
         }
 
@@ -1147,7 +1258,7 @@ static rt_err_t _ep_out_handler(ufunction_t func, rt_size_t size)
         if(data->csw_response.data_reside != 0)
         {
             os_sema_down(g_dev->sem, osWaitForever);
-            if(pingpang_flag)
+            if(g_dev->pingpang_flag)
             {
                 data->ep_out->buffer = data->udisk_speed_info.buf_1;
             }
@@ -1159,11 +1270,11 @@ static rt_err_t _ep_out_handler(ufunction_t func, rt_size_t size)
             if(data->multi_sector_en)
             {
                 data->ep_out->request.buffer = data->ep_out->buffer;
-                data->ep_out->request.size = data->geometry.bytes_per_sector * MULTI_SECTOR_COUNT;
+                data->ep_out->request.size = data->geometry.bytes_per_sector * data->write_calc_optimize_sec;
                 data->ep_out->request.req_type = UIO_REQUEST_READ_FULL;
                 rt_usbd_io_request(func->device, data->ep_out, &data->ep_out->request);
-                data->block += MULTI_SECTOR_COUNT;
-                data->count -= MULTI_SECTOR_COUNT;
+                data->block += data->write_calc_optimize_sec;
+                data->count -= data->write_calc_optimize_sec;
             }
             else
             {
@@ -1234,6 +1345,7 @@ exit:
     return -RT_ERROR;
 }
 
+rt_uint32_t lun __attribute__((aligned(4)));
 /**
  * This function will handle mass storage interface request.
  *
@@ -1244,7 +1356,7 @@ exit:
  */
 static rt_err_t _interface_handler(ufunction_t func, ureq_t setup)
 {
-    rt_uint8_t lun = 0;
+    lun = 0; 
 
     RT_ASSERT(func != RT_NULL);
     RT_ASSERT(func->device != RT_NULL);
@@ -1324,7 +1436,6 @@ static rt_err_t _function_enable(ufunction_t func)
     {
         data->geometry.sector_count = 0;
         os_printf("get sd cap failed\n");
-        return -RT_ERROR;
     }
 
     data->cbw = (struct ustorage_cbw *)rt_malloc(sizeof(struct ustorage_cbw));
@@ -1355,7 +1466,7 @@ static rt_err_t _function_enable(ufunction_t func)
     }
 
     //默认ep in和ep out使用同一个buffer空间，正常情况in和out不会同时进行
-    if(pingpang_flag)
+    if(g_dev->pingpang_flag)
     {
         data->ep_in->buffer = data->udisk_speed_info.buf_2;
         data->ep_out->buffer = data->udisk_speed_info.buf_2;
@@ -1366,7 +1477,7 @@ static rt_err_t _function_enable(ufunction_t func)
         data->ep_out->buffer = data->udisk_speed_info.buf_1;
     }
 
-    usbd_mass_speed_optimize_thread_init(&data->udisk_speed_info);
+    usbd_mass_speed_optimize_thread_init(&data->udisk_speed_info, data->udisk_func->u_read, data->udisk_func->u_write);
 
 #else
     data->ep_in->buffer = (rt_uint8_t*)rt_malloc(data->geometry.bytes_per_sector);
@@ -1385,8 +1496,10 @@ static rt_err_t _function_enable(ufunction_t func)
     }
 #endif
 
+    data->test_unit = 0;
+
     /* prepare to read CBW request */
-    data->ep_out->request.buffer = data->cbw;
+    data->ep_out->request.buffer = (rt_uint8_t*)data->cbw;
     data->ep_out->request.size = SIZEOF_CBW;
     data->ep_out->request.req_type = UIO_REQUEST_READ_FULL;
     rt_usbd_io_request(func->device, data->ep_out, &data->ep_out->request);
@@ -1428,13 +1541,6 @@ static rt_err_t _function_disable(ufunction_t func)
         data->udisk_speed_info.buf_2 = RT_NULL;
     }
 
-#if 0
-    if(data->ep_out->buffer != RT_NULL)
-    {
-        rt_free(data->ep_out->buffer);
-        data->ep_out->buffer = RT_NULL;
-    }
-#endif    
     usbd_mass_speed_optimize_thread_deinit();
 #else
     if(data->ep_in->buffer != RT_NULL)
@@ -1615,6 +1721,5 @@ int rt_usbd_msc_class_unregister(void)
     return 0;
 }
 
-INIT_PREV_EXPORT(rt_usbd_msc_class_register);
 
 #endif

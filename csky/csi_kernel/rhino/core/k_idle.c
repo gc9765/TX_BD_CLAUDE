@@ -4,8 +4,6 @@
 
 #include <k_api.h>
 
-void mcu_watchdog_feed(void);
-
 #if (RHINO_CONFIG_CPU_USAGE_STATS > 0)
 void idle_count_set(idle_count_t value)
 {
@@ -57,6 +55,7 @@ void idle_task(void *arg)
         RHINO_CPU_INTRPT_ENABLE();
 
         user_idle_hook();
+        void mcu_watchdog_feed(void);
         mcu_watchdog_feed();
 
     /* RHINO_CONFIG_CPU_PWR_MGMT */

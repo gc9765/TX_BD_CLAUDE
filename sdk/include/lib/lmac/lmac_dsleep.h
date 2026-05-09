@@ -18,6 +18,7 @@ extern "C" {
 #include "osal/sleep.h"
 #include "osal/timer.h"
 #include "osal/msgqueue.h"
+#include "osal/mutex.h"
 
 #ifndef BIT
 #define BIT(nr)			(1UL << (nr))
@@ -222,7 +223,13 @@ struct dsleep_cfg{
     uint32                      gpioc_regs[GPIOC_REG_LEN];
     uint32                      sys_wdt_ms;
     uint32                      lp_wdt_ms;
+    uint32                      soft_debounce_us;
     uint8                       wkio_pupd_dis;
+
+    //控制外部audio的LDO
+    uint8                       vam_wkup_on   :   1,
+                                ext_ldo_wkup_on :   1;
+    int32(*ext_ldo_ctrl_cb)(int32 enable);
 };
 
 enum DSLEEP_MODE {
@@ -709,6 +716,10 @@ void dsleep_rtc_calendar_read(RTC_TIMER_TYPEDEF *rtc_time);
 void dsleep_bssid_set(void *ops, uint8 *bssid);
 void dsleep_tim_tx_hdl(uint8 *element);
 int32 dsleep_crc_valid(void);
+void dsleep_beacon_rx_hdl(void *ops, void *p_rx_info);
+int32 is_dsleep_no_txcali(void);
+int32 is_dsleep_wakeup(void);
+int32 dsleep_rx_hdl(void *ops, void *p_rx_info);
 
 //----------------------------------------------------------------------------------
 

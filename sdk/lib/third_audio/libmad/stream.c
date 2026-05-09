@@ -19,8 +19,8 @@
  * $Id: stream.c,v 1.12 2004/02/05 09:02:39 rob Exp $
  */
 
-# ifdef HAVE_CONFIG_H
-#  include "config.h"
+# ifdef HAVE_MAD_CONFIG_H
+#  include "mad_config.h"
 # endif
 
 # include "global.h"

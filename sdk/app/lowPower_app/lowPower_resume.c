@@ -60,7 +60,7 @@ static void enter_lowpower_timer(struct event *ei, void *d)
 //恢复顺序根据硬件以及程序逻辑去适配(比如io复用之类都要考虑)
 void lowPower_resume_task(void *d)
 {
-    //uint32_t flags;
+    uint32_t flags;
     struct os_msgqueue *msgq = (struct os_msgqueue *)d;
     uint32_t res = os_msgq_get(msgq,-1);
     //收到信号量,恢复对应的硬件
@@ -97,8 +97,6 @@ void lowPower_resume_task(void *d)
             jpg_cfg(HG_JPG0_DEVID,VPP_DATA0);
         #endif
         #if DVP_EN
-			bool csi_cfg();
-			bool csi_open();
             csi_cfg();
             csi_open();
         #endif

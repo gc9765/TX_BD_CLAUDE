@@ -3,13 +3,15 @@
 
 #include "lib/umac/ieee80211.h"
 
-#define CFG_VERSION_NUM  0x0103
+#define CFG_VERSION_NUM  0x0104
+#define WIFI_PROFILE_MAX  3
 
 enum WIFI_WORK_MODE {
     WIFI_MODE_NONE = 0,
     WIFI_MODE_STA,
     WIFI_MODE_AP,
     WIFI_MODE_APSTA,
+    WIFI_MODE_P2P,
 };
 
 
@@ -24,8 +26,18 @@ struct system_status {
            dbg_irq: 1,
            reset_wdt: 1,
            upgrading: 1,
-           pair_success: 1;
+           pair_success: 1,
+		   ntp_update: 1;    
+    int8   rssi;
+    int8   evm;
     uint8  channel;
+    uint8  bssid[6];
+    uint8  pair_peer[6];
+    uint8  wifi_mode;
+    uint8  wifi_status_code;
+    struct {
+        uint32 ipaddr, netmask, svrip, router, dns1, dns2;
+    } dhcpc_result;
 };
 
 struct sys_config {
@@ -35,14 +47,14 @@ struct sys_config {
     uint8  wifi_hwmode, default_wifi_mode;
     uint8  wifi_mode, bss_bw, tx_mcs, channel;
     uint8  bssid[6], mac[6];
-    uint8  ssid[32];
+    uint8  ssid[SSID_MAX_LEN+1];
     uint8  psk[32];
     char   passwd[PASSWD_MAX_LEN+1];
     uint16 bss_max_idle, beacon_int;
     uint16 ack_tmo, dtim_period;
     uint32 key_mgmt;
 
-    uint32 dhcpc_en:1, dhcpd_en:1, ap_hide:1, xxxxxx: 29;
+    uint32 dhcpc_en:1, dhcpd_en:1, ap_hide:1, cfg_init:1, xxxxxx: 28;
     uint32 ipaddr, netmask, gw_ip;
     uint32 dhcpd_startip, dhcpd_endip, dhcpd_lease_time;
     uint32 user_param1,user_param2;
@@ -53,6 +65,18 @@ struct sys_config {
     uint8  ble_pair_status;
     uint8  net_pair_switch;
     uint8  station_channel;
+    uint32 dhcpd_dns1, dhcpd_dns2, dhcpd_router;
+    uint8  devname[8];
+    uint8  web_pwd[PASSWD_MAX_LEN+1];
+
+    /* Saved WiFi profiles (persisted to flash) */
+    struct {
+        char   ssid[SSID_MAX_LEN+1];
+        char   passwd[PASSWD_MAX_LEN+1];
+        uint32 key_mgmt;
+    } wifi_profiles[WIFI_PROFILE_MAX];
+    uint8  wifi_profile_count;
+    uint8  _reserved[3];
 };
 
 extern struct sys_config sys_cfgs;
@@ -61,7 +85,9 @@ extern struct system_status sys_status;
 
 
 void syscfg_set_default_val(void);
+void netcfg_flush(void);
 int32 wificfg_flush(uint8 ifidx);
+void syscfg_flush(int32 reset);
 void syscfg_check(void);
 void syscfg_dump(void);
 

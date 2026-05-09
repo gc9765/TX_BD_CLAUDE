@@ -763,7 +763,7 @@ int sd_multiple_write(struct sdh_device * host,uint32 lba,uint32 len,uint8* buf)
         send_cmd = 0;
     }
 
-    if ((host->new_lba + len/SECTOR_SIZE) >= host->card_max_blk_num)
+    if ((host->new_lba + len/SECTOR_SIZE) > host->card_max_blk_num)
     {
         os_printf("%s operation lba %d size %d max : %d err\r\n", __func__, host->new_lba, len/SECTOR_SIZE, host->card_max_blk_num);
         host->new_lba = backup_lba;
@@ -831,7 +831,7 @@ int sd_multiple_read(struct sdh_device * host,uint32 lba,uint32 len,uint8* buf)
     {
         send_cmd = 0;
     }
-    if ((host->new_lba + len/SECTOR_SIZE) >= host->card_max_blk_num)
+    if ((host->new_lba + len/SECTOR_SIZE) > host->card_max_blk_num)
     {
         os_printf("%s operation lba %d size %d max : %d err\r\n", __func__, host->new_lba, len/SECTOR_SIZE, host->card_max_blk_num);
         host->new_lba = backup_lba;
@@ -1089,11 +1089,11 @@ uint32 sd_init(struct sdh_device * host, uint32 clk)
     }
 	__delay_asm(100);
     ret = send_if_cond(host,host->valid_ocr);
-    if(ret)
-    {
-        os_printf("SEND_IF_COND cmd err\r\n");
-        return RET_ERR;
-    }
+//    if(ret)
+//    {
+//        os_printf("SEND_IF_COND cmd err\r\n");
+//        return RET_ERR;
+//    }
 
     ret = send_app_op_cond(host,0x40ff8000,&ocr);
     if(ret){
@@ -1353,13 +1353,13 @@ uint32 sdhost_deinit_for_sleep()
     return err;
 }
 
-volatile uint8_t sdh_init_flag = 0;
+
 uint32 sdhost_init(uint32 clk)
 {
     uint32 err = 1;
     struct sdh_device *sdh = NULL;
     sdh = (struct sdh_device *)dev_get(HG_SDIOHOST_DEVID);
-	os_printf("## sdhost_init: clk=%d MHz ##\r\n", clk/1000000);
+
 #if SDH_I2C2_REUSE
     os_sema_down(&sem,osWaitForever);
 #endif
@@ -1367,9 +1367,9 @@ uint32 sdhost_init(uint32 clk)
     if(sdh)
     {
         err = sd_init(sdh, clk);
-        if(err){
+        if(err)
             sdh->sd_opt = SD_OFF;
-		os_printf("## sd_init failed: err=%d ##\r\n", err);}
+
         if(sdhost_wk.init == 0 && sdhost_wk.running == 0)
         {
             OS_WORK_INIT(&sdhost_wk, sdh_loop, 0);
@@ -1380,9 +1380,6 @@ uint32 sdhost_init(uint32 clk)
 #if SDH_I2C2_REUSE
     os_sema_up(&sem);
 #endif
-
-	sdh_init_flag = 0;
-    os_printf("## sdhost_init finish: err=%d ##\r\n", err);  // 新增
 
     return err;
 }

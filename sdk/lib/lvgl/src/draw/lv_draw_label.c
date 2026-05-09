@@ -368,32 +368,6 @@ void lv_draw_letter(lv_draw_ctx_t * draw_ctx, const lv_draw_label_dsc_t * dsc,  
 }
 
 
-uint32_t get_lv_label_font_max_line(const lv_draw_label_dsc_t * dsc,int32_t max_width,const char * txt)
-{
-    const lv_font_t * font = dsc->font;
-    int32_t w = max_width;
-    uint32_t line_end = 0;
-    uint32_t line_start     = 0;
-    uint32_t line_count = 0;
-    int32_t line_height_font = lv_font_get_line_height(font);
-    int32_t line_height = line_height_font + dsc->line_space;
-    if(txt == NULL || txt[0] == '\0')
-        return 0;
-    while(1) 
-    {
-        /*Go to next line*/
-        line_start = line_end;
-        line_end += _lv_txt_get_next_line(&txt[line_start], font, dsc->letter_space, w, NULL, dsc->flag);
-        line_count++;
-        if(txt[line_end] == '\0') 
-        {
-            break;
-        }
-    }
-    return line_count*line_height;
-}
-
-
 /**********************
  *   STATIC FUNCTIONS
  **********************/

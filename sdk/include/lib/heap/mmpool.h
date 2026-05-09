@@ -7,16 +7,19 @@ extern "C" {
 
 #include "list.h"
 
+
+#define MMPOOL_OBJ \
+    const char *name;\
+    uint32 size, free_size;\
+    uint8  region_cnt, align, headsize, tailsize, trace_off, ofchk_off;
+
+struct mmpool_base {
+    MMPOOL_OBJ;
+};
+
 #define MMPOOL_REGION_MAX (4)
-struct mmpool {
-    const char *name;
-    uint32 size, free_size;
-    uint8  region_cnt;
-    uint8  align;
-    uint8  headsize;
-    uint8  tailsize;
-    uint8  trace_off;
-    uint8  ofchk_off;
+struct mmpool1 {
+    MMPOOL_OBJ;
     uint32 regions[MMPOOL_REGION_MAX][2];
     struct list_head free_list;
     struct list_head used_list;
@@ -28,16 +31,9 @@ struct mmpool {
 };
 
 #define MMPOOL2_REGION_MAX (4)
-#define MMPOOL2_FRAG_LOG (12)
+#define MMPOOL2_FRAG_LOG   (12)
 struct mmpool2 {
-    const char *name;
-    uint32 size, free_size;
-    uint8  region_cnt;
-    uint8  align;
-    uint8  headsize;
-    uint8  tailsize;
-    uint8  trace_off;
-    uint8  ofchk_off;
+    MMPOOL_OBJ;
     uint32 regions[MMPOOL2_REGION_MAX][2];
     struct list_head free_list[MMPOOL2_FRAG_LOG];
     struct list_head used_list;
@@ -49,22 +45,15 @@ struct mmpool2 {
 };
 
 #define MMPOOL3_REGION_MAX (4)
-#define MMPOOL3_FRAG_LOG  (12)
+#define MMPOOL3_FRAG_LOG   (12)
 struct mmpool3_region {
     uint32 start, end;
-    uint32 blk_size, blocks, blk_cnt; 
+    uint32 blk_size, blocks, blk_cnt;
     struct list_head block_list;
 };
 struct mmpool3 {
-    const char *name;
-    uint32 size, free_size;
-    uint8  region_cnt;
-    uint8  align;
-    uint8  headsize;
-    uint8  tailsize;
-    uint8  trace_off;
-    uint8  ofchk_off;
-    uint8  min_size;
+    MMPOOL_OBJ;
+    uint8 min_size;
     struct mmpool3_region regions[MMPOOL3_REGION_MAX];
     struct list_head used_list;
     struct list_head frag_list[MMPOOL3_FRAG_LOG];
@@ -75,50 +64,28 @@ struct mmpool3 {
 #endif
 };
 
-uint32_t cpu_cycle_diff(uint8_t sub, uint32_t last_cycle);
-void *mmpool_alloc(struct mmpool *mp, uint32 size, const char *func, int32 line);
-void mmpool_free(struct mmpool *mp, void *ptr);
-int32 mmpool_init(struct mmpool *mp, uint32 addr, uint32 size);
-int32 mmpool_free_state(struct mmpool *mp, uint32 *stat_buf, int32 size, uint32 *tot_size);
-int32 mmpool_used_state(struct mmpool *mp, uint32 *stat_buf, int32 size, uint32 *tot_size, uint32 mini_size);
-int32 mmpool_add_region(struct mmpool *mp, uint32 addr, uint32 size);
-uint32 mmpool_free_size(struct mmpool *mp, uint32 min);
-int32 mmpool_of_check(struct mmpool *mp, uint32 addr, uint32 size);
-int32 mmpool_valid_addr(struct mmpool *mp, uint32 addr);
-int32 mmpool_perfermance(struct mmpool *mp, uint8 alloc, uint32 *values, uint32 count);
-int32 mmpool_used_list(struct mmpool *mp, uint32_t *list_buf, int32 list_size);
-void mmpool_dump(struct mmpool *mp);
-void mmpool_time(struct mmpool *mp, uint32 *alloc_time, uint32 *free_time);
+struct mmpool_ops {
+    void *(*alloc)(void *mp, uint32 size, const char *func, int32 line);
+    int32(*free)(void *mp, void *ptr);
+    int32(*init)(void *mp, uint32 addr, uint32 size, uint32 blk_size);
+    int32(*free_state)(void *mp, uint32 *stat_buf, int32 size, uint32 *tot_size);
+    int32(*used_state)(void *mp, uint32 *stat_buf, int32 size, uint32 *tot_size, uint32 mini_size);
+    int32(*add_region)(void *mp, uint32 addr, uint32 size, uint32 blk_size);
+    int32(*of_check)(void *mp, uint32 addr, uint32 size);
+    int32(*valid_addr)(void *pool, uint32 addr, uint8 first);
+    int32(*perfermance)(void *mp, uint8 alloc, uint32 *values, uint32 count);
+    void (*dump)(void *mp);
+    void (*time)(void *mp, uint32 *alloc_time, uint32 *free_time);
+    int32 (*used_list)(void *pool, uint32_t *list_buf, int32 list_size);
+};
 
-void *mmpool2_alloc(struct mmpool2 *mp, uint32 size, const char *func, int32 line);
-void mmpool2_free(struct mmpool2 *mp, void *ptr);
-int32 mmpool2_init(struct mmpool2 *mp, uint32 addr, uint32 size);
-int32 mmpool2_free_state(struct mmpool2 *mp, uint32 *stat_buf, int32 size, uint32 *tot_size);
-int32 mmpool2_used_state(struct mmpool2 *mp, uint32 *stat_buf, int32 size, uint32 *tot_size, uint32 mini_size);
-int32 mmpool2_add_region(struct mmpool2 *mp, uint32 addr, uint32 size);
-uint32 mmpool2_free_size(struct mmpool2 *mp, uint32 min);
-int32 mmpool2_of_check(struct mmpool2 *mp, uint32 addr, uint32 size);
-int32 mmpool2_valid_addr(struct mmpool2 *mp, uint32 addr);
-int32 mmpool2_perfermance(struct mmpool2 *mp, uint8 alloc, uint32 *values, uint32 count);
-int32 mmpool2_used_list(struct mmpool2 *mp, uint32_t *list_buf, int32 list_size);
-void mmpool2_dump(struct mmpool2 *mp);
-void mmpool2_time(struct mmpool2 *mp, uint32 *alloc_time, uint32 *free_time);
-
-void *mmpool3_alloc(struct mmpool3 *mp, uint32 size, const char *func, int32 line);
-void mmpool3_free(struct mmpool3 *mp, void *ptr);
-int32 mmpool3_add_region(struct mmpool3 *mp, uint32 addr, uint32 size, uint32 blk_size);
-int32 mmpool3_init(struct mmpool3 *mp, uint32 addr, uint32 size, uint32 blk_size);
-uint32 mmpool3_free_size(struct mmpool3 *mp, uint32 min);
-int32 mmpool3_free_state(struct mmpool3 *mp, uint32 *stat_buf, int32 size, uint32 *tot_size);
-int32 mmpool3_used_state(struct mmpool3 *mp, uint32 *stat_buf, int32 size, uint32 *tot_size, uint32 mini_size);
-int32 mmpool3_of_check(struct mmpool3 *mp, uint32 addr, uint32 size);
-int32 mmpool3_valid_addr(struct mmpool3 *mp, uint32 addr);
-int32 mmpool3_perfermance(struct mmpool3 *mp, uint8 alloc, uint32 *values, uint32 count);
-int32 mmpool3_used_list(struct mmpool3 *mp, uint32_t *list_buf, int32 list_size);
-void mmpool3_dump(struct mmpool3 *mp);
-void mmpool3_time(struct mmpool3 *mp, uint32 *alloc_time, uint32 *free_time);
+extern const struct mmpool_ops mmpool1_ops;
+extern const struct mmpool_ops mmpool2_ops;
+extern const struct mmpool_ops mmpool3_ops;
+extern uint32 cpu_cycle_diff(uint8 sub, uint32 last_cycle);
 
 #ifdef __cplusplus
 }
 #endif
 #endif
+

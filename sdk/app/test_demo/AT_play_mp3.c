@@ -29,7 +29,7 @@ int32 demon_atcmd_play_mp3(const char *cmd, char *argv[], uint32 argc)
             set_mp3_decode_status(MP3_STOP);
         }
         else if(play_mode == 1) {
-            mp3_decode_init(audio_filePath, NULL);
+            mp3_decode_init(audio_filePath,NULL);
 
         }
 	}

@@ -1,3 +1,14 @@
+/* 
+针对 USB DMA RX , 需做的内存预留大小为 4 字节, 防止 DMA 内存越界引起的内存错误问题
+
+
+
+USB2.0 SIE: 
+(1) rx len % 4 == 1 实际 dma sram 会多 2 byte , 即 rx len + 2
+(2) rx len % 4 == 2 实际 dma sram 会多 1 byte , 即 rx len + 1
+(3) rx len % 4 == 0 || rx len % 4 == 3 实际 dma sram 长度与 rx len相同 , 即 rx len
+
+*/
 #include <rtthread.h>
 #include <include/usb_host.h>
 #include "hal/usb_device.h"

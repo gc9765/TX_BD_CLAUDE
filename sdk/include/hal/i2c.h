@@ -106,6 +106,14 @@ enum i2c_irq_flag {
      */
     I2C_IRQ_FLAG_DETECT_STOP = BIT(4),
 
+	/*
+	* @brief Interrupt: IIC slave addressed
+	* @Note :
+	* 		The interrupt triggered when the II slave is addressed
+	*/
+
+	I2C_IRQ_FLAG_SLAVE_ADDRESSED = BIT(5)
+
 
 };
 

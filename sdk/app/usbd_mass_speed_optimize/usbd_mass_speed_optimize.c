@@ -24,7 +24,6 @@
 
 #if PINGPANG_BUF_EN
 
-volatile uint32_t pingpang_flag = 0;
 struct usbd_mass_speed_dev_t *g_dev = NULL;
 
 int usbd_mass_speed_optimize_send_mq(struct usbd_mass_speed_dev_t *dev, uint32_t sector_addr, uint32_t sector_count, uint32_t read_write_flag)
@@ -34,11 +33,12 @@ int usbd_mass_speed_optimize_send_mq(struct usbd_mass_speed_dev_t *dev, uint32_t
     dev->mq.sector_count = sector_count;
 
 //    os_printf("mq.read_write_flag:%d sector_addr:%x sector_count:%d\n",read_write_flag,sector_addr,sector_count);
-    
-    void *ptr = os_malloc(sizeof(struct usbd_mass_speed_optimize_mq));
+
+    void *ptr = os_zalloc(sizeof(struct usbd_mass_speed_optimize_mq));
     if (ptr) {
         os_memcpy(ptr, (uint8_t *)&dev->mq, sizeof(struct usbd_mass_speed_optimize_mq));
         if (os_msgq_put(dev->msgqueue, (uint32)ptr, osWaitForever)) {
+            os_printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
             os_free(ptr);
             return -1;
         }
@@ -47,10 +47,43 @@ int usbd_mass_speed_optimize_send_mq(struct usbd_mass_speed_dev_t *dev, uint32_t
     return -1;
 }
 
+uint32_t usbd_mass_speed_sec_calc(uint32_t sec)
+{
+    uint32_t calc_optimize_sec = 0;
+    uint32_t i = 0;
+
+    if(sec <= 1)
+    {
+        return calc_optimize_sec;
+    }
+#if 1
+    for(i = MULTI_SECTOR_COUNT; i > 1; i = i / 2)
+    {
+        if(sec % i == 0)
+        {
+            calc_optimize_sec = sec / i;
+            break;
+        }
+    }
+#else
+    if((sec % MULTI_SECTOR_COUNT) == 0)
+    {
+        calc_optimize_sec = sec / MULTI_SECTOR_COUNT;
+    }
+    else
+    {
+        calc_optimize_sec = 0;
+    }
+#endif
+
+    return calc_optimize_sec;
+}
+
 static void usbd_mass_speed_optimize_thread(void *arg)
 {
     struct usbd_mass_speed_dev_t *dev = (struct usbd_mass_speed_dev_t *)arg;
     struct usbd_mass_speed_optimize_mq *mq = NULL;
+    uint32_t calc_optimize_sec = 0;
     uint8_t *buff = NULL;
     int ret = 0;
 
@@ -59,7 +92,7 @@ static void usbd_mass_speed_optimize_thread(void *arg)
         void *ptr = (void *)os_msgq_get(dev->msgqueue, osWaitForever);
         if(ptr){
 
-
+            calc_optimize_sec = 0;
             dev->error_flag = 0;
 
             mq = ptr;
@@ -76,25 +109,28 @@ static void usbd_mass_speed_optimize_thread(void *arg)
             uint32_t lba = mq->sector_addr;
             uint32_t multi_sector_en = 0;       
 
-            if((sec >= MULTI_SECTOR_COUNT) && (sec % MULTI_SECTOR_COUNT == 0))
-            {
-                sec = sec / MULTI_SECTOR_COUNT;
-                multi_sector_en = 1;
-            }
+            calc_optimize_sec = usbd_mass_speed_sec_calc(sec);
+            if (calc_optimize_sec) {
+                sec = calc_optimize_sec;
+                calc_optimize_sec = mq->sector_count / sec;
+                multi_sector_en = 1;               
+            } else {
+                multi_sector_en = 0;
+            } 
             
             //先读写一包
 
             os_sema_down(dev->usb_sem_write, osWaitForever);//保证读和写最后一包都会起这个信号量
 
-            if(pingpang_flag)
+            if(dev->pingpang_flag)
             {
                 buff = dev->disk->buf_1;
-                pingpang_flag = 0;
+                dev->pingpang_flag = 0;
             }
             else
             {
                 buff = dev->disk->buf_2;
-                pingpang_flag = 1;
+                dev->pingpang_flag = 1;
             }
 
 
@@ -105,7 +141,7 @@ static void usbd_mass_speed_optimize_thread(void *arg)
                 {
                     if(multi_sector_en)
                     {
-                        ret = dev->udisk_read(lba,MULTI_SECTOR_COUNT,buff);
+                        ret = dev->udisk_read(lba,calc_optimize_sec,buff);
                     }
                     else
                     {
@@ -127,10 +163,10 @@ static void usbd_mass_speed_optimize_thread(void *arg)
 
                 if(dev->error_flag == 0)
                 {
-                    os_printf("sector write\n");
+                    // os_printf("sector write\n");
                     if(multi_sector_en)
                     {
-                        ret = dev->udisk_write(lba,MULTI_SECTOR_COUNT,buff);
+                        ret = dev->udisk_write(lba,calc_optimize_sec,buff);
                     }
                     else
                     {
@@ -150,7 +186,7 @@ static void usbd_mass_speed_optimize_thread(void *arg)
             
             if(multi_sector_en)
             {
-                lba+=MULTI_SECTOR_COUNT;
+                lba+=calc_optimize_sec;
             }
             else
             {
@@ -167,15 +203,15 @@ static void usbd_mass_speed_optimize_thread(void *arg)
             { 
                 os_sema_down(dev->usb_sem_write, osWaitForever);
 
-                if(pingpang_flag)
+                if(dev->pingpang_flag)
                 {
                     buff = dev->disk->buf_1;
-                    pingpang_flag = 0;
+                    dev->pingpang_flag = 0;
                 }
                 else
                 {
                     buff = dev->disk->buf_2;
-                    pingpang_flag = 1;
+                    dev->pingpang_flag = 1;
                 }
                 
                 switch (mq->read_write_flag)
@@ -185,7 +221,7 @@ static void usbd_mass_speed_optimize_thread(void *arg)
                     {
                         if(multi_sector_en)
                         {
-                            ret = dev->udisk_read(lba,MULTI_SECTOR_COUNT,buff);
+                            ret = dev->udisk_read(lba,calc_optimize_sec,buff);
                         }
                         else
                         {
@@ -207,10 +243,10 @@ static void usbd_mass_speed_optimize_thread(void *arg)
                     os_sema_up(dev->sem);  
                     if(dev->error_flag == 0)
                     {
-                        os_printf("sector write\n");
+                        // os_printf("sector write\n");
                         if(multi_sector_en)
                         {
-                            ret = dev->udisk_write(lba,MULTI_SECTOR_COUNT,buff);
+                            ret = dev->udisk_write(lba,calc_optimize_sec,buff);
                         }
                         else
                         {
@@ -230,7 +266,7 @@ static void usbd_mass_speed_optimize_thread(void *arg)
                 
                 if(multi_sector_en)
                 {
-                    lba+=MULTI_SECTOR_COUNT;
+                    lba+=calc_optimize_sec;
                 }
                 else
                 {
@@ -242,15 +278,23 @@ static void usbd_mass_speed_optimize_thread(void *arg)
 
 __exit_err:
             os_free(ptr);
+            ptr = NULL;
         }
     }
     
 
 }
 
-void* usbd_mass_speed_optimize_thread_init(void *arg)
+void* usbd_mass_speed_optimize_thread_init(void *arg, usbd_mass_read read, usbd_mass_write write)
 {
     struct usbd_mass_speed_info *disk = (struct usbd_mass_speed_info *)arg;
+
+    if(read == NULL || write == NULL)
+    {
+        os_printf("usbd_mass_speed_optimize_thread_init read or write is null\n");
+        return 0;
+    }
+
     struct usbd_mass_speed_dev_t *dev = os_zalloc(sizeof(struct usbd_mass_speed_dev_t));
     if(dev == NULL)
     {
@@ -258,21 +302,21 @@ void* usbd_mass_speed_optimize_thread_init(void *arg)
         return 0;
     }
 
-    dev->msgqueue = os_malloc(sizeof(struct os_msgqueue));
+    dev->msgqueue = os_zalloc(sizeof(struct os_msgqueue));
     if(dev->msgqueue == NULL)
     {
         os_printf("usbd_mass_speed_optimize_thread_init msgqueue malloc fail\n");
         return 0;
     }
     
-    dev->sem = os_malloc(sizeof(struct os_semaphore));
+    dev->sem = os_zalloc(sizeof(struct os_semaphore));
     if(dev->sem == NULL)
     {
         os_printf("usbd_mass_speed_optimize_thread_init sem malloc fail\n");
         return 0;
     }
     
-    dev->usb_sem_write = os_malloc(sizeof(struct os_semaphore));
+    dev->usb_sem_write = os_zalloc(sizeof(struct os_semaphore));
     if(dev->usb_sem_write == NULL)
     {
         os_printf("usbd_mass_speed_optimize_thread_init usb_sem_write malloc fail\n");
@@ -281,26 +325,13 @@ void* usbd_mass_speed_optimize_thread_init(void *arg)
     
     dev->disk = disk;
     dev->error_flag = 0;
+    dev->pingpang_flag = 0;
     dev->thread_status = 1;
-
-    #if USBDISK == 1
-    //暂时仅支持旧架构sd u盘的读写速度优化
-    dev->udisk_read  = usb_sd_scsi_read;
-    dev->udisk_write = usb_sd_scsi_write; 
-    #elif USBDISK == 2
-    dev->udisk_read  = flashdisk_usb_read;
-    dev->udisk_write = flashdisk_usb_write;
-    #endif
+    dev->udisk_read  = read;
+    dev->udisk_write = write;
 
     g_dev = dev;
     
-    #if USB_IO_TEST_TIME
-    gpio_set_dir(PA_1, GPIO_DIR_OUTPUT);
-    gpio_set_dir(PA_2,GPIO_DIR_OUTPUT);
-    gpio_set_val(PA_1, 0);
-    gpio_set_val(PA_2, 0);
-    #endif
-
     os_sema_init(dev->sem, 0);
     os_sema_init(dev->usb_sem_write, 1);
     os_msgq_init(dev->msgqueue, 16);
@@ -347,11 +378,6 @@ void usbd_mass_speed_optimize_thread_deinit()
         os_free(g_dev);
         g_dev = NULL;
         
-        #if USB_IO_TEST_TIME
-        gpio_set_dir(PA_1, GPIO_DIR_INPUT);
-        gpio_set_dir(PA_2,GPIO_DIR_INPUT);
-        #endif
-
     }
 }
 

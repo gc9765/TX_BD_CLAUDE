@@ -102,7 +102,7 @@ int32 release_irq(uint32 irq_num)
     }
 }
 
-uint32 irq_status(void)
+uint32 sysirq_time(void)
 {
     uint32 tot_time = 0;
 #ifdef SYS_IRQ_STAT

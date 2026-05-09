@@ -119,11 +119,13 @@ static int32 hg_sysaes_v3_hdl(struct sysaes_dev *dev, struct sysaes_para *para, 
     }
     hw->AES_STAT = AES_STAT_COMP_PD_MSK;
     while(ll_sysctrl_dma2ahb_is_busy(DMA2AHB_BURST_CH_SYSAES_WR));
+    os_sema_eat(&sysaes->done);
     hw->AES_CTRL |= AES_CTRL_START_MSK;
-    ret = os_sema_down(&sysaes->done, 200);
+    ret = os_sema_down(&sysaes->done, 2000);
     
     
     if (!ret) {
+        sysctrl_sysaes_reset();
         if (flags == ENCRYPT) {
             SYS_AES_ERR_PRINTF("sysaes encrypt wait irq timeout!\r\n");
         } else {

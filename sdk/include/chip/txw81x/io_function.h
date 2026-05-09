@@ -26,6 +26,60 @@ extern "C" {
 
 #include "typesdef.h"
 
+#define REG_GPIO_DIR_CLR(port, n)        \
+    (*(volatile unsigned int*)(port+0x00))  &= ~(3<<(n<<1))
+
+#define REG_GPIO_DIR_INPUT(port, n)     						\
+	do {								 						\
+		REG_GPIO_DIR_CLR(port, n);								\
+		(*(volatile unsigned int*)(port+0x00))  |= (0<<(n<<1)); \
+	} while(0)
+
+#define REG_GPIO_DIR_OUTPUT(port, n)                            \
+    do {                                                        \
+        REG_GPIO_DIR_CLR(port, n);                              \
+       (*(volatile unsigned int*)(port+0x00)) |= (1<<(n<<1));   \
+    } while(0)
+		
+#define REG_GPIO_OTYPE_CLR(port, n)                     \
+	(*(volatile unsigned int*)(port+0x04)) &= ~(1<<(n));
+	
+#define REG_GPIO_OPEN_DRAIN(port, n)					\
+	do {												\
+		REG_GPIO_OTYPE_CLR(port, n);					\
+		(*(volatile unsigned int*)(port+0x04)) |= (1<<(n));\
+	} while(0)
+		
+#define REG_GPIO_PUSH_PULL(port, n)					\
+	do {												\
+		REG_GPIO_OTYPE_CLR(port, n);					\
+		(*(volatile unsigned int*)(port+0x04)) |= (0<<(n));\
+	} while(0)
+
+#define REG_GPIO_PUL_100(port, n)        \
+    (*(volatile unsigned int*)(port+0x10)) |= BIT(((n-0)<<2))
+#define REG_GPIO_PUH_100(port, n)        \
+    (*(volatile unsigned int*)(port+0x14)) |= BIT(((n-8)<<2))
+
+#define REG_GPIO_PDL_100(port, n)        \
+    (*(volatile unsigned int*)(port+0x18)) |= BIT(((n-0)<<2))
+#define REG_GPIO_PDH_100(port, n)        \
+    (*(volatile unsigned int*)(port+0x1C)) |= BIT(((n-8)<<2))
+	
+#define REG_GPIO_SET(port, n)            \
+    (*(volatile unsigned int*)(port+0x24)) =                    \
+        ((*(volatile unsigned int*)(port+0x24)) & ~BIT(n)) | BIT(n)
+
+
+struct gpio_cfg_info {
+    uint8  pin;
+    uint8  dir : 1; 
+    uint8  data: 1;
+    uint8  mode: 3;
+    uint8  rev : 4;
+};
+void gpio_cfg(struct gpio_cfg_info *gpio_info, uint32 info_size);
+
 /** @addtogroup Docxygenid_GPIO_enum
   * @{
   */

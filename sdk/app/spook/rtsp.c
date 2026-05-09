@@ -330,7 +330,7 @@ static int handle_DESCRIBE( struct req *req )
 		rtsp_send_error( req, 404, "Not Found" );
 	}
 
-	sess->teardown( sess, NULL );
+	sess->select_close(sess, NULL);
 
 	return 0;
 }
@@ -484,7 +484,7 @@ static int handle_SETUP( struct req *req )
 	if( s->setup( s, track ) < 0 )
 	{
 		rtsp_send_error( req, 404, "Not Found" );
-		if( ! rs ) s->teardown( s, NULL );
+		if( ! rs ) s->select_close(s, NULL);
 		return 0;
 	}
 
@@ -507,7 +507,7 @@ static int handle_SETUP( struct req *req )
 		free_pmsg( req->resp );
 		_os_printf("%s %d\r\n",__func__,__LINE__);
 		rtsp_send_error( req, 461, "Unsupported Transport" );
-		s->teardown( s, s->ep[track] );
+		s->select_close(s, s->ep[track]);
 	} else
 	{
 		if( ! rs ) rs = new_rtsp_session( s );

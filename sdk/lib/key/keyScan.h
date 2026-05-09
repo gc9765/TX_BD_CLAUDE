@@ -31,7 +31,6 @@ enum
   AD_A,
   AD_B,
   AD_C,
-  AD_D,
   LOWPOWER_CHECK,
 };
 

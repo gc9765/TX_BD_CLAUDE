@@ -4,11 +4,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include "typesdef.h"
 
 typedef void (*os_task_func_t)(void *arg);
 
 enum OS_TASK_FLAGS{
-    OS_TASK_FLAGS_LPRUN = BIT(31), //TASK在低功耗保活状态下需要调度运行
+    OS_TASK_FLAGS_LPRUN = BIT(31), //TASKÔÚµÍ¹¦ºÄ±£»î×´Ì¬ÏÂÐèÒªµ÷¶ÈÔËÐÐ
 };
 
 typedef enum  {
@@ -83,6 +84,7 @@ int32 os_task_yield(void);
 
 int32 os_sched_disable(void);
 int32 os_sched_enbale(void);
+struct os_task *os_task_hdl2tsk(void *hdl);
 void os_lpower_mode(uint8 enable);
 
 void *os_task_create(const char *name, os_task_func_t func, void *args, uint32 prio, uint32 time, void *stack, uint32 stack_size);

@@ -421,7 +421,8 @@ void analysis_uvc_desc(uint8 *desc,uint32 desclen)
                         memcpy(&uac_des.ac_input[uac_des.ac_input_num], temp_desc, uac_des.DesLen);
                         uac_des.ac_input_num++;
                     }
-                if(uac_des.Subtype == AC_FEATURE_DES) {
+					
+                    if(uac_des.Subtype == AC_FEATURE_DES) {
                         if(uac_des.DesLen >= sizeof(AC_FEATURE))
                             memcpy(&uac_des.ac_feature[uac_des.ac_feature_num], temp_desc, sizeof(AC_FEATURE));
                         else

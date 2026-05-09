@@ -19,8 +19,8 @@
  * $Id: layer12.c,v 1.17 2004/02/05 09:02:39 rob Exp $
  */
 
-# ifdef HAVE_CONFIG_H
-#  include "config.h"
+# ifdef HAVE_MAD_CONFIG_H
+#  include "mad_config.h"
 # endif
 
 # include "global.h"
@@ -562,13 +562,14 @@ int mad_layer_II(struct mad_stream *stream, struct mad_frame *frame)
 
         for (ch = 0; ch < nch; ++ch) {
             for (s = 0; s < 3; ++s) {
-                for (sb = sblimit; sb < 32; ++sb) {}
+                for (sb = sblimit; sb < 32; ++sb) {
 #if FORCE_MONO_CHANNEL
                     if(ch == 0)
 #endif
                     {
                         frame->sbsample[ch][3 * gr + s][sb] = 0;
                     }
+				}
             }
         }
     }

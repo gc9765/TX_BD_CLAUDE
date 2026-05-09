@@ -25,7 +25,7 @@ enum psram_cfg_enum
     PSRAM_DEF(16MByte),
     PSRAM_DEF(E_PSRAM),
     PSRAM_DEF(E2MByte),
-	PSRAM_SELECT(8MByte),
+	PSRAM_SELECT(4MByte),
 };
 
 

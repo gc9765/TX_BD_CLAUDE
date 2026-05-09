@@ -22,6 +22,10 @@ struct mem_pool {
     unsigned int heap_base;
     unsigned int blocks;
     struct frag_list  frags[LOG_MAX];
+#ifdef MMPOOL_PERF_COUNT
+    uint32 alloc_perf[MMPOOL_PERF_COUNT];
+    uint32 free_perf[MMPOOL_PERF_COUNT];
+#endif
 };
 
 #define mpool_free_size(pool) ((pool)->heap_end-(pool)->heap_ptr)

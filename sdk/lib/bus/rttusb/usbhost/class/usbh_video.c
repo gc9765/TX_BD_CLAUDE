@@ -396,10 +396,10 @@ void usbh_video_list_info(struct usbh_video *video_class)
         os_printf("  Resolution:\r\n");
         for (rt_uint8_t j = 0; j < video_class->format[i].num_of_frames; j++) {
             os_printf("      FrameIndex:%u\r\n", j + 1);
-            os_printf("      wWidth: %d, wHeight: %d dwDefaultFrameInterval:%x\r\n",
+            os_printf("      wWidth: %d, wHeight: %d (%d Fps)\r\n",
                          video_class->format[i].frame[j].wWidth,
                          video_class->format[i].frame[j].wHeight,
-                         video_class->format[i].frame[j].dwDefaultFrameInterval);
+                         (video_class->format[i].frame[j].dwDefaultFrameInterval ? (10000000/video_class->format[i].frame[j].dwDefaultFrameInterval) : 0));
         }
     }
 
@@ -504,12 +504,10 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
     cfg_len = p_intf[0]->device->cfg_desc->wTotalLength;
     os_printf("cfg_len:%x\n",cfg_len);
 
-    // analysis_uvc_desc(p_intf[0]->device->cfg_desc,p_intf[0]->device->cfg_desc->wTotalLength);
-
     while (p[DESC_bLength]) {
         switch (p[DESC_bDescriptorType]) {
             case USB_DESC_TYPE_INTERFACE:
-                //os_printf("USB_DESC_TYPE_INTERFACE\n");
+                //os_printf("USB_DESC_TYPE_INTERFACE :%d\n",p[DESC_bDescriptorType]);
                 cur_iface = p[INTF_DESC_bInterfaceNumber];
                 cur_alt_setting = p[INTF_DESC_bAlternateSetting];
                 cur_class = p[INTF_DESC_bInterfaceClass];
@@ -528,7 +526,7 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
                 break;
             case VIDEO_CS_INTERFACE_DESCRIPTOR_TYPE:
                 if (cur_iface == video_class->ctrl_intf) {
-                    //os_printf("VIDEO_CS_INTERFACE_DESCRIPTOR_TYPE 1\n");
+                    //os_printf("VIDEO_CS_INTERFACE_DESCRIPTOR_TYPE 1 cur_iface:%d p[DESC_bDescriptorSubType]:0x%x\n",cur_iface,p[DESC_bDescriptorSubType]);
                     switch (p[DESC_bDescriptorSubType]) {
                         case VIDEO_VC_HEADER_DESCRIPTOR_SUBTYPE:
                             video_class->bcdVDC = ((rt_uint16_t)p[4] << 8) | (rt_uint16_t)p[3];
@@ -544,14 +542,22 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
                             break;
                     }
                 } else if (cur_iface == video_class->data_intf) {
-                    //os_printf("VIDEO_CS_INTERFACE_DESCRIPTOR_TYPE 2\n");
+                    //os_printf("VIDEO_CS_INTERFACE_DESCRIPTOR_TYPE 2, cur_inface:%d p[DESC_bDescriptorSubType]:0x%x\n",cur_iface,p[DESC_bDescriptorSubType]);
                     switch (p[DESC_bDescriptorSubType]) {
                         case VIDEO_VS_INPUT_HEADER_DESCRIPTOR_SUBTYPE:
                             video_class->num_of_formats = p[DESC_bNumFormats];
+                            if(video_class->num_of_formats > USBH_VIDEO_MAX_FORMAT_NUM) {
+                                os_printf("The value of USBH_VIDEO_MAX_FORMAT_NUM needs to be increased,USBH_VIDEO_MAX_FORMAT_NUM:%d video_class->num_of_formats:%d\n",
+                                            USBH_VIDEO_MAX_FORMAT_NUM, video_class->num_of_formats);
+                            }
                             break;
                         case VIDEO_VS_FORMAT_UNCOMPRESSED_DESCRIPTOR_SUBTYPE:
                             format_index = p[DESC_bFormatIndex];
                             num_of_frames = p[DESC_bNumFrameDescriptors];
+                            if (num_of_frames > USBH_VIDEO_MAX_FRAME_NUM) {
+                                os_printf("The value of USBH_VIDEO_MAX_FRAME_NUM needs to be increased,USBH_VIDEO_MAX_FRAME_NUM:%d num_of_frames:%d\n",
+                                    USBH_VIDEO_MAX_FRAME_NUM, num_of_frames);
+                            }
 
                             video_class->format[format_index - 1].num_of_frames = num_of_frames;
                             video_class->format[format_index - 1].format_type = USBH_VIDEO_FORMAT_UNCOMPRESSED;
@@ -559,6 +565,10 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
                         case VIDEO_VS_FORMAT_MJPEG_DESCRIPTOR_SUBTYPE:
                             format_index = p[DESC_bFormatIndex];
                             num_of_frames = p[DESC_bNumFrameDescriptors];
+                            if (num_of_frames > USBH_VIDEO_MAX_FRAME_NUM) {
+                                os_printf("The value of USBH_VIDEO_MAX_FRAME_NUM needs to be increased,USBH_VIDEO_MAX_FRAME_NUM:%d num_of_frames:%d\n",
+                                    USBH_VIDEO_MAX_FRAME_NUM, num_of_frames);
+                            }
 
                             video_class->format[format_index - 1].num_of_frames = num_of_frames;
                             video_class->format[format_index - 1].format_type = USBH_VIDEO_FORMAT_MJPEG;
@@ -566,6 +576,10 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
                         case VIDEO_VS_FORMAT_FRAME_BASED_DESCRIPTOR_SUBTYPE:
                             format_index = p[DESC_bFormatIndex];
                             num_of_frames = p[DESC_bNumFrameDescriptors];
+                            if (num_of_frames > USBH_VIDEO_MAX_FRAME_NUM) {
+                                os_printf("The value of USBH_VIDEO_MAX_FRAME_NUM needs to be increased,USBH_VIDEO_MAX_FRAME_NUM:%d num_of_frames:%d\n",
+                                    USBH_VIDEO_MAX_FRAME_NUM, num_of_frames);
+                            }
 
                             video_class->format[format_index - 1].num_of_frames = num_of_frames;
                             video_class->format[format_index - 1].format_type = USBH_VIDEO_FORMAT_BASED;
@@ -596,6 +610,8 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
                             os_printf("VIDEO_CS_INTERFACE_DESCRIPTOR_TYPE default %X\n",p[DESC_bDescriptorSubType]);
                             break;
                     }
+                }else{
+                    //os_printf("cur_iface:%d default:0x%x\n",cur_iface,p[DESC_bDescriptorSubType]);
                 }
 
                 break;
@@ -623,7 +639,7 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
 
     usbh_video_intf_altersetting_ep_config(video_class);
 
-    video_class->rx_buff = (rt_uint8_t *)rt_malloc(video_class->video_rx_size+video_class->uvc_head);
+    video_class->rx_buff = (rt_uint8_t *)rt_malloc(video_class->video_rx_size + video_class->uvc_head + USB_RX_BUFF_RESERVE_SIZE);
     if(video_class->rx_buff == RT_NULL) {
         os_printf("malloc rx_buff fail!!!!!!!!!!!\n");
         return RT_ENOMEM;
@@ -632,7 +648,7 @@ static rt_err_t rt_usbh_class_driver_video_enable(void *arg)
 
     #if USBH_VIDEO_PPB
     video_class->usbh_pingpang_flag = 0;
-    video_class->rx_double_buff = (rt_uint8_t *)rt_malloc(video_class->video_rx_size+video_class->uvc_head);
+    video_class->rx_double_buff = (rt_uint8_t *)rt_malloc(video_class->video_rx_size + video_class->uvc_head + USB_RX_BUFF_RESERVE_SIZE);
     if(video_class->rx_double_buff == RT_NULL) {
         rt_free(video_class->rx_buff);
         video_class->rx_buff = RT_NULL;

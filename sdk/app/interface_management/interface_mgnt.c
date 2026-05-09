@@ -8,6 +8,7 @@
 #include "hal/gpio.h"
 #include "hal/lcdc.h"
 #include "hal/spi.h"
+#include "custom_mem/custom_mem.h"
 #include "osal/irq.h"
 #include "osal/string.h"
 #include "dev/vpp/hgvpp.h"
@@ -289,7 +290,10 @@ void lvgl_init(uint16_t w,uint16_t h,uint8_t rotate)
 #if KEY_MODULE_EN == 1
 	memset(&lvgl_key_msgq,0,sizeof(lvgl_key_msgq));
 	os_msgq_init(&lvgl_key_msgq,10);
-	add_keycallback(lvgl_push_key,NULL);
+	/* 不在此处注册 lvgl_push_key 回调，避免与 app_key 双重处理按键
+	 * 当使用 app_key (baidu_interaction) 时，由 app_key_init 统一处理
+	 * 当使用 LVGL 原生按键时，由下方 lvgl_init_key_bridge 启用 */
+	//add_keycallback(lvgl_push_key,NULL);
 #endif
 
 	//初始化流
@@ -308,11 +312,23 @@ void lvgl_init(uint16_t w,uint16_t h,uint8_t rotate)
 	lv_style_set_shadow_color(&g_style, lv_color_make(0x00, 0x00, 0x00));
 	lv_style_set_border_color(&g_style, lv_color_make(0x00, 0x00, 0x00));
 	lv_style_set_outline_color(&g_style, lv_color_make(0x00, 0x00, 0x00));
-	lv_style_set_radius(&g_style, 0); 
+	lv_style_set_radius(&g_style, 0);
 
-	main_ui(NULL);
-	
-	g_lvgl_hdl = os_task_create("gui_thread", lvgl_run, s, OS_TASK_PRIORITY_NORMAL, 0, NULL, 4096);
+	// 在 GUI 线程启动前创建 UI 页面，确保首帧就是欢迎页
+	// 参照 intercom_test_v3 的做法
+	#if CUSTOMER_ID == 12
+	{
+		extern void ui_manager_init(void);
+		ui_manager_init();
+	}
+	#endif
+
+	{
+		static struct os_task gui_task;
+		void *gui_stack = custom_malloc_psram(8192);
+		OS_TASK_INIT2("gui_thread", &gui_task, lvgl_run, s, OS_TASK_PRIORITY_NORMAL, gui_stack, 8192);
+		g_lvgl_hdl = gui_task.hdl;
+	}
 
 }
 
@@ -356,30 +372,33 @@ void lvgl_init(uint16_t w,uint16_t h,uint8_t rotate){
 #if KEY_MODULE_EN == 1
 	memset(&lvgl_key_msgq,0,sizeof(lvgl_key_msgq));
 	os_msgq_init(&lvgl_key_msgq,10);
-	add_keycallback(lvgl_push_key,NULL);
+	//add_keycallback(lvgl_push_key,NULL);  /* disabled: avoid double focus with app_key */
 #endif
 
 
 	lv_init();                  // lvgl初始化，如果这个没有初始化，那么下面的初始化会崩溃
     lv_port_disp_init(NULL,w,h,rotate);        // 显示器初始化
-//    lv_port_indev_init();
+    lv_port_indev_init();
 	
 #if BBM_DEMO
 	void lv_baby_display();
 	lv_time_set();
 	lv_baby_display();
 #elif 1	
-//	lv_page_init();
-//    lv_page_select(0);
-//	lv_time_set();
-//	lv_demo_benchmark(1);
+	lv_page_init();
+    lv_page_select(0);
+	lv_time_set();
 #else
 	void lv_uvc_display();
 	lv_time_set();
 	lv_uvc_display();	
 #endif
 
-	os_task_create("gui_thread", lvgl_run, NULL, OS_TASK_PRIORITY_NORMAL, 0, NULL, 4096);
+	{
+		static struct os_task gui_task;
+		void *gui_stack = custom_malloc_psram(8192);
+		OS_TASK_INIT2("gui_thread", &gui_task, lvgl_run, NULL, OS_TASK_PRIORITY_NORMAL, gui_stack, 8192);
+	}
 
 }
 #endif

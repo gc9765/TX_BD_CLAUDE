@@ -388,6 +388,9 @@ struct netif {
   u16_t loop_cnt_current;
 #endif /* LWIP_LOOPBACK_MAX_PBUFS */
 #endif /* ENABLE_LOOPBACK */
+
+    u32_t dhcp_lease_time; //seconds
+    void *pcap;
 };
 
 #if LWIP_CHECKSUM_CTRL_PER_NETIF
@@ -662,6 +665,11 @@ void netif_invoke_ext_callback(struct netif* netif, netif_nsc_reason_t reason, c
 #define netif_remove_ext_callback(callback)
 #define netif_invoke_ext_callback(netif, reason, args)
 #endif
+
+void pcap_stop(struct netif *netif);
+char *pcap_start(struct netif *netif, char *save_dir);
+void pcap(struct netif *netif, char *data, int len);
+void pcap_scatter(struct netif *netif, scatter_data *scat_data, int count);
 
 #ifdef __cplusplus
 }

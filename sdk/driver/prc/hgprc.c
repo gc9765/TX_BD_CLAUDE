@@ -140,7 +140,7 @@ int32 hgprc_suspend(struct dev_obj *obj){
 	struct hgprc *prc_hw = (struct hgprc*)obj;
 	struct hgprc_hw *hw;
 	struct hgprc_hw *hw_cfg;
-	//ç¡®ä¿å·²ç»è¢«æ‰“å¼€å¹¶ä¸”ä¼‘çœ è¿‡,ç›´æŽ¥è¿”å›ž
+	//È·±£ÒÑ¾­±»´ò¿ª²¢ÇÒÐÝÃß¹ý,Ö±½Ó·µ»Ø
 	if(!prc_hw->opened || prc_hw->dsleep)
 	{
 		return RET_OK;
@@ -164,7 +164,7 @@ int32 hgprc_resume(struct dev_obj *obj){
 	struct hgprc *prc_hw = (struct hgprc*)obj;
 	struct hgprc_hw *hw;
 	struct hgprc_hw *hw_cfg;
-	//å¦‚æžœå·²ç»è¢«æ‰“å¼€å¹¶ä¸”æ²¡æœ‰ä¼‘çœ è¿‡,ç›´æŽ¥è¿”å›ž
+	//Èç¹ûÒÑ¾­±»´ò¿ª²¢ÇÒÃ»ÓÐÐÝÃß¹ý,Ö±½Ó·µ»Ø
 	if(!prc_hw->opened || !prc_hw->dsleep)
 	{
 		return RET_OK;

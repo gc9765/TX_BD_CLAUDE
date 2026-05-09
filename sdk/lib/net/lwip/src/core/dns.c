@@ -114,7 +114,7 @@ static u16_t dns_txid;
 
 /** DNS resource record max. TTL (one week as default) */
 #ifndef DNS_MAX_TTL
-#define DNS_MAX_TTL               604800
+#define DNS_MAX_TTL               604800 * (1000 / DNS_TMR_INTERVAL)
 #elif DNS_MAX_TTL > 0x7FFFFFFF
 #error DNS_MAX_TTL must be a positive 32-bit value
 #endif
@@ -627,6 +627,7 @@ dns_lookup(const char *name, ip_addr_t *addr LWIP_DNS_ADDRTYPE_ARG(u8_t dns_addr
       return ERR_OK;
     }
   }
+  LWIP_DEBUGF(DNS_DEBUG, ("dns_lookup: \"%s\": no found\n", name));
 
   return ERR_ARG;
 }
@@ -1107,22 +1108,22 @@ dns_check_entry(u8_t i)
         /* flush this entry, there cannot be any related pending entries in this state */
         entry->state = DNS_STATE_UNUSED;
       }
-      if(entry->ttl > 0 && entry->ttl < 16 && (entry->ttl&0x3) == 0 && entry->pcb_idx == DNS_MAX_SOURCE_PORTS){
-        LWIP_DEBUGF2(DNS_DEBUG, ("dns_check_entry: \"%s\": ttl:%d, refresh!!\n", entry->name, entry->ttl));
+      if(entry->ttl > 0 && entry->ttl < 2 && entry->pcb_idx == DNS_MAX_SOURCE_PORTS){
+        LWIP_DEBUGF(DNS_DEBUG, ("dns_check_entry: \"%s\": ttl:%d, refresh!!\n", entry->name, entry->ttl));
 #if ((LWIP_DNS_SECURE & LWIP_DNS_SECURE_RAND_SRC_PORT) != 0)
         entry->pcb_idx = dns_alloc_pcb();
         if (entry->pcb_idx >= DNS_MAX_SOURCE_PORTS) {
         /* failed to get a UDP pcb */
-          LWIP_DEBUGF2(DNS_DEBUG, ("dns_enqueue: \"%s\": failed to allocate a pcb\n", entry->name));
+          LWIP_DEBUGF(DNS_DEBUG, ("dns_enqueue: \"%s\": failed to allocate a pcb\n", entry->name));
           break;
         }
-        LWIP_DEBUGF2(DNS_DEBUG, ("dns_enqueue: \"%s\": use DNS pcb %"U16_F"\n", entry->name, (u16_t)(entry->pcb_idx)));
+        LWIP_DEBUGF(DNS_DEBUG, ("dns_enqueue: \"%s\": use DNS pcb %"U16_F"\n", entry->name, (u16_t)(entry->pcb_idx)));
 #endif
         dns_seqno++;
         /* send DNS packet for this entry */
         err = dns_send(i);
         if (err != ERR_OK) {
-          LWIP_DEBUGF2(DNS_DEBUG | LWIP_DBG_LEVEL_WARNING, ("dns_send returned error: %s\n", lwip_strerr(err)));
+          LWIP_DEBUGF(DNS_DEBUG | LWIP_DBG_LEVEL_WARNING, ("dns_send returned error: %s\n", lwip_strerr(err)));
         }
       }
       break;
@@ -1158,7 +1159,7 @@ dns_correct_response(u8_t idx, u32_t ttl)
 
   entry->state = DNS_STATE_DONE;
 
-  LWIP_DEBUGF(DNS_DEBUG, ("dns_recv: \"%s\": response = ", entry->name));
+  LWIP_DEBUGF(DNS_DEBUG, ("dns_recv: \"%s\": ttl = %d, response = ", entry->name, ttl));
   ip_addr_debug_print_val(DNS_DEBUG, entry->ipaddr);
   LWIP_DEBUGF(DNS_DEBUG, ("\n"));
 

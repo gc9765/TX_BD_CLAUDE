@@ -316,8 +316,8 @@ void spi_senosr_open(){
 	struct i2c_setting i2c_setting;	
 	struct hgpwm_v0 *global_hgpwm;
 	iic_test = (struct i2c_device *)dev_get(HG_I2C2_DEVID);	
-	i2c_set_baudrate(iic_test,IIC_CLK);
 	i2c_open(iic_test, IIC_MODE_MASTER, IIC_ADDR_7BIT, 0);
+	i2c_set_baudrate(iic_test,IIC_CLK);
 	i2c_ioctl(iic_test,IIC_SDA_OUTPUT_DELAY,20);	
 	i2c_ioctl(iic_test,IIC_FILTERING,20);
 	i2c_ioctl(iic_test,IIC_STRONG_OUTPUT,1);

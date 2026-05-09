@@ -19,8 +19,8 @@
  * $Id: timer.c,v 1.18 2004/01/23 09:41:33 rob Exp $
  */
 
-# ifdef HAVE_CONFIG_H
-#  include "config.h"
+# ifdef HAVE_MAD_CONFIG_H
+#  include "mad_config.h"
 # endif
 
 # include "global.h"

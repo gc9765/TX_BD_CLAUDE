@@ -9,37 +9,31 @@
 #include "stream_frame.h"
 #include "osal/task.h"
 #include "osal_file.h"
+#ifdef SRC_DUMP
+#include "fatfs/ff.h"
+#endif
 
 #include "txw81x_voice.h"
-
-#include "dev.h"
-#include "hal/gpio.h"
 
 #define STACK_SIZE 1024 * 3
 #define MSG_SIZE 256
 
 // #define AUDIO_TUNING
-// #define SRC_DUMP
-//#define PLAYBACK_DUMP
-// #define AUDIO_DUMP_TO_UART  // 启用串口输出TTS音频（已禁用）
-//#define PLAYBACK_DUMP        // 启用SD卡写入TTS音频
+//#define SRC_DUMP
+// #define PLAYBACK_DUMP
 
 static int kill_src_req = 0;
 static int kill_play_req = 0;
-extern int is_first_audio;  // TTS speaking state from app_main.c
-
-#define PIN_SPK_MUTE   PA_6
-
-static void mute_speaker(uint8_t enable) {
-    // PA_6: 0=mute, 1=unmute
-    // enable=1 打开喇叭, enable=0 关闭喇叭
-    gpio_set_val(PIN_SPK_MUTE, enable);
-//    printf("!!! Mute GPIO PA_6 = %d (enable=%d, 0=mute, 1=unmute)\n", enable, enable);
-}
 
 extern int get_audio_dac_set_filter_type(void);
 extern void audio_dac_set_filter_type(int filter_type);
-extern bool fatfs_register(void);
+extern int audio_dac_get_samplingrate(void);
+extern void audio_da_recfg(uint32_t hz);
+extern int32 gpio_set_mode(uint32 pin, int mode, int level);
+extern int32 gpio_set_dir(uint32 pin, int direction);
+extern int32 gpio_set_val(uint32 pin, int32 value);
+
+#define PA_EN_PIN  PC_4
 #define AUDIO_LEN (1024)
 
 #ifdef PSRAM_HEAP
@@ -93,16 +87,13 @@ static int play_opcode_func(stream *s, void *priv, int opcode) {
         break;
     case STREAM_OPEN_EXIT: {
         printf("%s:%d\topcode:%d STREAM_OPEN_EXIT\n", __FUNCTION__, __LINE__, opcode);
-        audio_buf = TX_VOICE_MALLOC(8 * AUDIO_LEN);   // 8KB  audio_buf
+        audio_buf = TX_VOICE_MALLOC(8 * AUDIO_LEN);
         if (audio_buf) {
             os_memset(audio_buf, 0, 8 * AUDIO_LEN);
             os_printf("at audio malloc:%x\n", audio_buf);
-            stream_data_dis_mem(s, 8);  //对s进行分配空间,用回调函数操作,8是分配的最大值
+            stream_data_dis_mem(s, 8);
         }
-		else{
-			os_printf("at audio malloc falied!!!\r\n");
-		}
-        streamSrc_bind_streamDest(s, R_SPEAKER);     // 把流数据s绑定到喇叭输出R_SPEAKER
+        streamSrc_bind_streamDest(s, R_SPEAKER);
     } break;
     case STREAM_OPEN_FAIL:
         printf("%s:%d STREAM_OPEN_FAIL \n", __FUNCTION__, __LINE__);
@@ -148,7 +139,6 @@ static void voip_src_task(void *priv) {
         printf("%s start audio src task failed.\r\n", __func__);
         return;
     }
-	static uint32_t has_data_count = 0;
 
     uint32_t count = 0;
     uint8_t *dev_buf = NULL;
@@ -165,7 +155,7 @@ static void voip_src_task(void *priv) {
     uint32_t start_time = 0;
 #endif
 
-    os_printf("Entry %s:%d\r\n", __FUNCTION__, __LINE__);
+    os_printf("Entry %s:%d\n", __FUNCTION__, __LINE__);
     src_stream = open_stream_available(R_SPEECH_RECOGNITION, 0, 8, src_opcode_func, NULL);
     if (!src_stream) {
         goto audio_src_thread_end;
@@ -205,6 +195,10 @@ static void voip_src_task(void *priv) {
             w_len = osal_fwrite(dev_buf, dev_buf_len, 1, fp);
             total_size += dev_buf_len;
             w_count ++;
+            if (w_count % 100 == 0) {
+                f_sync((FIL*)fp);
+                os_printf("[src_dump] frames=%d total=%d bytes\n", w_count, total_size);
+            }
 #endif
 
 #ifdef AUDIO_TUNING
@@ -234,7 +228,7 @@ static void voip_src_task(void *priv) {
             }
 #endif
             (void)aubuf_write(st->aubuf, dev_buf, dev_buf_len);
-			
+
             free_data(src_data);
             src_data = NULL;
         }
@@ -278,14 +272,7 @@ void ausrc_write_handler(void *sampv, size_t sampc, void *arg) {
         return;
     }
 
-	// 每 50 次打印一次（约 1 秒）
-//	static int count = 0;
-//	if (++count % 10 == 0) {
-//		size_t cur = aubuf_cur_size(st->aubuf);
-//		printf("[AUBUF] wr=%u, cur=%u/3840\n", sampc, cur);
-//	}
-
-    (void)aubuf_write(st->aubuf, sampv, sampc);  // 写入 aubuf
+    (void)aubuf_write(st->aubuf, sampv, sampc);
 }
 
 static void voip_play_task(void *priv) {
@@ -307,40 +294,39 @@ static void voip_play_task(void *priv) {
     char filename[64] = {0};
     void *fp  = NULL;
     uint32_t start_time = 0;
-    bool is_recording = false;  // 记录是否正在录音
-    static int last_is_first_audio = -1;  // 记录上次的 TTS 状态
 #endif
 
     os_printf("Entry %s:%d\n", __FUNCTION__, __LINE__);
+
+    /* set DAC filter to accept SOUND_FILE */
+    int prev_filter = get_audio_dac_set_filter_type();
+    audio_dac_set_filter_type(SOUND_FILE);
+
     stream *remote_stream = open_stream_available("brtc_playout", 8, 0, play_opcode_func, NULL);
     if (!remote_stream) {
         os_printf("\nopen stream err");
+        audio_dac_set_filter_type(prev_filter);
+        gpio_set_val(PA_EN_PIN, 1);
         return;
     }
 
-    // 记录最后一次有音频数据的时间（用于超时静音判断）
-    static uint32_t last_data_time = 0;
-    last_data_time = os_jiffies();
+#ifdef PLAYBACK_DUMP
+    os_sprintf(filename, "0:def_%04d.pcm", (uint32_t)os_jiffies() % 9999);
+    os_printf("playback name:%s\n", filename);
+    fp = osal_fopen(filename,"wb+");
+    // fp = osal_fopen("0:playback_11111.pcm","wb+");
+    if(!fp)
+    {
+        os_printf("Error %s:%d open file %s\n", __FUNCTION__, __LINE__, filename);
+        // goto audio_play_thread_end;
+    }
+    start_time = os_jiffies();
+#endif
     enable_stream(remote_stream, 1);
 
     while (1) {
-        os_sleep_ms(20);
-
+		os_sleep_ms(20);
 #ifdef PLAYBACK_DUMP
-        // TTS 状态变化检测（移到 while 循环主层级，确保总能检测到）
-        if (is_first_audio != last_is_first_audio) {
-            printf(">>> TTS state changed: is_first_audio=%d\n", is_first_audio);
-            last_is_first_audio = is_first_audio;
-
-            // TTS 结束时关闭文件（无论是否有音频数据）
-            if (!is_first_audio && is_recording) {
-                os_printf("[TTS_DUMP] 录音结束: 总大小 %d 字节, %d 帧\n", total_size, w_count);
-                osal_fclose(fp);
-                fp = NULL;
-                is_recording = false;
-            }
-        }
-
         if ((os_jiffies() - start_time) / 1000 > 2 * 60)
         {
             os_printf("Entry %s:%d\n", __FUNCTION__, __LINE__);
@@ -358,61 +344,18 @@ static void voip_play_task(void *priv) {
         }
 
         if (len >= frame_len) {
-#ifdef AUDIO_TUNING
-            if (count % 100 == 0 ) {
-                os_printf("%s:%d aubuf available len %d\n", __FUNCTION__, __LINE__, len);
-            }
-#endif
-            int src_data_time = os_jiffies();
             play_data = get_src_data_f(remote_stream);
 
             if (play_data) {
                 pcm_buff = (uint8_t *)get_stream_real_data(play_data);
 
-#ifdef PLAYBACK_DUMP
-                // TTS 开始时创建文件（需要在 play_data 分支内，确保有数据才创建）
-                if (is_first_audio && !is_recording) {
-                    os_sprintf(filename, "0:/tts_%04lx.pcm", (uint32_t)os_jiffies() & 0xFFFF);
-                    os_printf("[TTS_DUMP] 开始录音: %s\n", filename);
-                    fp = osal_fopen(filename, "wb+");
-                    if (fp) {
-                        is_recording = true;
-                        start_time = os_jiffies();
-                        w_count = 0;
-                        total_size = 0;
-                        os_printf("[TTS_DUMP] 文件创建成功, fp=%p, is_recording=%d\n", fp, is_recording);
-                    } else {
-                        os_printf("[TTS_DUMP] 文件创建失败!\n");
-                    }
-                }
-#endif
-
-                // 只有 TTS 真正在说话时才打开喇叭
-                if (is_first_audio) {
-                    // TTS 正在说话，更新时间戳并打开喇叭
-                    last_data_time = os_jiffies();
-                    mute_speaker(1);
-                } else {
-                    // TTS 已停止，检查超时（100ms）后才静音
-                    if (os_jiffies() - last_data_time > 100) {
-                        mute_speaker(0);
-                    }
-                }
-
-				// pcm_aubuf写入sd卡数据完整，说明 play_data 结构体数据完整
                 aubuf_read(st->aubuf, pcm_buff, len);
 
 #ifdef PLAYBACK_DUMP
-                // 只有正在录音时才写入数据
-                if (is_recording && fp && len > 0) {
+                if (fp) {
                     w_len = osal_fwrite(pcm_buff, len, 1, fp);
                     total_size += len;
-                    w_count++;
-
-                    // 每 100 帧打印一次进度
-//                    if (w_count % 50 == 0) {
-//                        os_printf("[TTS_DUMP] 写入进度: %d 帧, %d 字节\n", w_count, total_size);
-//                    }
+                    w_count ++;
                 }
 #endif
 
@@ -445,44 +388,9 @@ static void voip_play_task(void *priv) {
                             dev_pcm[15]);
                 }
 #endif
-				//
-                play_data->type = SET_DATA_TYPE(SOUND, SOUND_MIC);
+                play_data->type = SET_DATA_TYPE(SOUND, SOUND_FILE);
                 set_sound_data_len(play_data, len);
                 send_data_to_stream(play_data);
-
-#ifdef AUDIO_DUMP_TO_UART
-                // 通过串口输出音频数据用于调试
-                static int uart_dump_count = 0;
-                if (++uart_dump_count % 5 == 0) {  // 每5帧输出一次，避免串口拥塞
-                    const uint16_t *samples = (const uint16_t *)pcm_buff;
-                    size_t num_samples = len/2;
-
-                    // 输出帧开始标记 >>> 十六进制数据 <<<
-                    os_printf(">>>");
-                    for (size_t i = 0; i < num_samples; i++) {
-                        os_printf("%04X", samples[i]);
-                    }
-                    os_printf("<<<\n");
-                }
-#endif
-
-//				static int play_count = 0;
-//				if (++play_count % 10 == 0) {  // 每 200 ms打印一次
-//					size_t available = aubuf_cur_size(st->aubuf);
-//					printf("[PLAY] count=%d, available=%u/3840, play_data=%p\n",
-//							play_count, available, play_data);
-//				}
-				
-            } else {
-                // 无 play_data - 只在 TTS 停止且超时后才静音
-                if (!is_first_audio && (os_jiffies() - last_data_time > 100)) {
-                    mute_speaker(0);
-                }
-            }
-        } else {
-            // 数据不足 - 只在 TTS 停止且超时后才静音
-            if (!is_first_audio && (os_jiffies() - last_data_time > 100)) {
-                mute_speaker(0);
             }
         }
 
@@ -493,15 +401,15 @@ static void voip_play_task(void *priv) {
     }
 
 audio_play_thread_end:
+    /* restore DAC filter before closing stream */
+    audio_dac_set_filter_type(prev_filter);
+
 #ifdef PLAYBACK_DUMP
-    // 任务退出时，如果正在录音，先关闭文件
-    if (is_recording && fp) {
-        os_printf("[TTS_DUMP] 任务退出，关闭录音文件: 总大小 %d 字节, %d 帧\n", total_size, w_count);
-        osal_fclose(fp);
-        fp = NULL;
-        is_recording = false;
-    }
     os_printf("%s audio_play_thread_end total_size %d frame count %d  ... \n", __FUNCTION__, total_size, w_count);
+    if(fp)
+    {
+        osal_fclose(fp);
+    }
 #endif
     os_printf("voip_play_task exit ...\n");
     if (remote_stream != NULL) {
@@ -511,6 +419,7 @@ audio_play_thread_end:
         close_stream(remote_stream);
         remote_stream = NULL;
     }
+    os_sleep_ms(150);
 }
 
 void txw81_src_destructor(void *arg) {
@@ -537,6 +446,9 @@ void txw81_play_destructor(void *arg) {
     mem_deref(st->aubuf);
     st->wh = NULL;
     g_txw81_playst = NULL;
+
+    /* disable PA */
+   gpio_set_val(PA_EN_PIN, 1);
 }
 
 int voice_txw81_src_alloc(
@@ -625,33 +537,35 @@ int voice_txw81_play_alloc(
     st->arg = arg;
     st->ready = true;
 
-    // 初始化喇叭静音 GPIO (PA_6: 0=mute, 1=unmute)
-    gpio_set_mode(PIN_SPK_MUTE, GPIO_PULL_NONE, GPIO_PULL_LEVEL_NONE);
-    gpio_set_dir(PIN_SPK_MUTE, GPIO_DIR_OUTPUT);
-    mute_speaker(0);  // 默认静音
-
     g_txw81_playst = st;
     g_txw81_playst->srate = prm->srate;
 
     st->sampsz = sizeof(int16_t);
     st->sampc = prm->srate * prm->ch * prm->ptime / 1000;
     psize = st->sampsz * st->sampc;
-    printf("%s, size:%d, sampc:%d, sample rate:%d, ptime:%d\n",
+    printf("%s, size:%d, sampc:%d, sample rate:%d, ptime:%d, buffer_maxsz:%d \n",
            __func__,
            psize,
            st->sampc,
            prm->srate,
-           prm->ptime);
+           prm->ptime,
+           prm->buffer_maxsz
+        );
 
-    st->sampv = TX_VOICE_MALLOC(psize);  //分配采样缓冲区
+    st->sampv = TX_VOICE_MALLOC(psize);
     if (!st->sampv) {
         printf("%s, st->sampv malloc failed, err:%d\n", __func__, ENOMEM);
         TX_VOICE_FREE(st);
         return ENOMEM;
     }
 
-	// 缓冲区大小一定要与audio buf的length长度一致
-    err = aubuf_alloc(&st->aubuf, psize, psize * 8);  //tts语音数据环形缓冲区内存分配 
+    int buffer_maxsz = psize * 4;
+    if(prm->buffer_maxsz > 0) {
+        buffer_maxsz = prm->buffer_maxsz;
+    }
+
+    // err = aubuf_alloc(&st->aubuf, psize, psize * 4);
+    err = aubuf_alloc(&st->aubuf, psize, buffer_maxsz);
     if (err) {
         printf("%s, st->aubuf malloc failed, err:%d\n", __func__, ENOMEM);
         TX_VOICE_FREE(st);
@@ -659,13 +573,19 @@ int voice_txw81_play_alloc(
     }
 
     kill_play_req = 0;
+
+    /* enable PA once (8002D amplifier on PC4) */
+    gpio_set_mode(PA_EN_PIN, 0, 0);
+    gpio_set_dir(PA_EN_PIN, 1);
+    gpio_set_val(PA_EN_PIN, 0);
+
     OS_TASK_INIT(
             "ext_voip_play",
             &st->at_play_audio_task,
             voip_play_task,
             (void *)st,
             OS_TASK_PRIORITY_ABOVE_NORMAL,
-            3 * 1024);
+            4 * 1024);
 
     *stp = st;
     return 0;

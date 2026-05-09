@@ -56,7 +56,7 @@ extern "C" {
 
 struct ucdc_data
 {
-    void *device;
+    struct uinstance* device;
     upipe_t pipe_in;
     upipe_t pipe_out;
     struct usb_cdc_line_coding* line_coding;
@@ -66,6 +66,9 @@ struct ucdc_data
     rt_uint8_t tx_rbp[CDC_TX_BUFSIZE];
     struct rt_ringbuffer tx_ringbuffer;
 
+    rt_thread_t thread;
+    rt_uint32_t thread_state;
+    
 };
 typedef struct ucdc_data* ucdc_data_t;
 
@@ -82,7 +85,8 @@ rt_err_t rt_usbh_cdc_get_line_coding(uinst_t device, int intf, void* buffer);
 rt_err_t rt_usbh_cdc_set_line_coding(uinst_t device, int intf, void* buffer);
 rt_err_t rt_usbh_cdc_set_control_line_state(uinst_t device, int intf, void * buffer, int len);
 void analysis_cdc_line_coding(struct usb_cdc_line_coding * line_coding);
-
+void rt_usbh_cdc_trans_init();
+void rt_usbh_cdc_trans_deinit();
 
 #ifdef __cplusplus
 }

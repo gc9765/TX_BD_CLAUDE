@@ -94,4 +94,12 @@ int32 lwip_netif_set_mac2(const char *name, uint8 *mac);
 void lwip_netif_updown(struct netdev *ndev, uint8 up);
 void lwip_netif_updown2(char *ifname, uint8 up);
 
+uint8 *lwip_netif_hwaddr(struct netif* netif);
+uint32 lwip_netif_ipaddr4(struct netif* netif);
+uint8 *lwip_netif_ipaddr6(struct netif* netif);
+err_t lwip_netif_linkoutput(struct netif* netif, struct pbuf *buf);
+
+uint32 lwip_netif_get_dhcp_lease_time(struct netdev *ndev);
+uint32 lwip_netif_get_dhcp_lease_time2(const char *name);
+
 #endif /* LWIP_ETHERNETIF_H */

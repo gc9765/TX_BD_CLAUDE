@@ -126,7 +126,7 @@ enum
 
 #define R_SONIC_PROCESS     "r_sonic_process"
 
-#define R_SPEECH_RECOGNITION "r_speech_recognition"
+#define R_SPEECH_RECOGNITION   "r_speech_recognition"
 
 //S
 #define S_PDM               "pdm"

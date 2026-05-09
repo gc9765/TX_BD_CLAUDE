@@ -8,11 +8,12 @@ enum SKBPOOL_FLAGS {
     SKBPOOL_FLAGS_ALIGN_16       = BIT(3),
 };
 
-extern int32 skbpool_init(uint32 addr, uint32 size, uint32 max, uint8 flags);
+extern uint32 skbpool_time(void);
+extern int32 skbpool_init(uint32 start_addr, uint32 end_addr, uint32 max, uint8 flags);
 extern uint32 skbpool_freesize(int8 tx);
 extern int32 skbpool_collect_init(void);
 extern void skbpool_status(uint32 *status_buf, uint32 size, uint32 mini_size);
-extern int32 skbpool_max_usage(uint8 max);
-extern int32 skbpool_add_region(uint32 addr, uint32 size);
+extern int32 skbpool_max_usage(uint8 tx_max, uint8 rx_max);
+extern int32 skbpool_add_region(uint32 start_addr, uint32 end_addr);
 #endif
 

@@ -689,6 +689,9 @@ int socketpair(int d, int type, int protocol, int sv[2]);
 int socket_err(int sockfd);
 int socket_done(int sockfd);
 
+void lwip_dump_sockets(void);
+
+
 #ifdef __cplusplus
 }
 #endif

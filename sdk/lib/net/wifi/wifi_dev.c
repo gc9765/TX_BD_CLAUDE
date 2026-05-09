@@ -11,6 +11,7 @@
 #include "hal/netdev.h"
 #include "hal/dma.h"
 #include "hal/netdev.h"
+#include "lib/common/common.h"
 #include "lib/heap/sysheap.h"
 #include "lib/umac/ieee80211.h"
 #include "lib/skb/skb.h"
@@ -19,11 +20,15 @@
 #include "syscfg.h"
 
 #ifndef WIFI_DEV_ICMP_MONITOR
-#define WIFI_DEV_ICMP_MONITOR 1
+#define WIFI_DEV_ICMP_MONITOR 0
+#endif
+
+#ifndef WIFI_BRMAC_HASH
+#define WIFI_BRMAC_HASH (16)
 #endif
 
 #ifdef WIFI_BRIDGE_DEVLIST
-#define ADDR_IDX(addr)          (addr[5]&0x0f)
+#define ADDR_IDX(addr)          (addr[5]&(WIFI_BRMAC_HASH-1))
 #define MAC_ENTRY_TMO           (5*60*1000)
 #define MAC_ENTRY_COUNT_MAX     (256)
 #define MAC_ENTRY_COUNT_WARNING (100)
@@ -53,68 +58,32 @@ struct wifi_dev {
     struct os_mutex lock;
     struct os_work work;
     uint32 mac_count;
-    struct list_head mac_table[16];
+    struct list_head mac_table[WIFI_BRMAC_HASH];
     uint32 brdev_cnt;
     struct netdev *brdev_list[0];
 #endif
 };
 
+extern int32 wifi_mcastfw_output(struct netdev *ndev, uint8 *data, uint32 size);
+extern int32 wifi_mcastfw_input(uint8 *data, uint32 size);
+
+static void wifi_dev_icmp_monitor(struct wifi_dev *wifi, uint8 *data, uint32 len, const char *prefix)
+{
 #if WIFI_DEV_ICMP_MONITOR
-static void wifi_dev_icmp_monitor(struct wifi_dev *wifi, uint8 *data, uint8 tx)
-{
     if (wifi->icmp_mntr) {
-        if (get_unaligned_be16(data + 12) == 0x800 && data[23] == 0x1) {
-            if (data[34] == 8 || data[34] == 0) {
-                uint16 sn = get_unaligned_be16(data + 40);
-                os_printf(KERN_NOTICE"wifi: %s imcp %s, sn:%d\r\n", tx ? "TX" : "RX", data[34] == 8 ? "Echo " : "Reply", sn);
-            }
-        }
+        icmp_pkt_monitor(prefix, data, len, 12);
     }
-}
-
-static uint8 *wifi_dev_scatter_offset(scatter_data *data, uint32 count, uint32 off)
-{
-    uint8 i;
-    for (i = 0; i < count; i++) {
-        if (off <= data[i].size) {
-            return data[i].addr + off;
-        }
-        off -= data[i].size;
-    }
-    return NULL;
-}
-
-static void wifi_dev_icmp_monitor_scatter(struct wifi_dev *wifi, scatter_data *data, uint32 count, uint8 tx)
-{
-    uint8 *ptr;
-    uint16 p1, sn;
-    uint8  p2, p3;
-    if (wifi->icmp_mntr) {
-        ptr = wifi_dev_scatter_offset(data, count, 12);
-        if (ptr == NULL) return;
-        p1 = get_unaligned_be16(ptr);
-
-        ptr = wifi_dev_scatter_offset(data, count, 23);
-        if (ptr == NULL) return;
-        p2 = *ptr;
-
-        if (p1 == 0x800 && p2 == 0x1) {
-            ptr = wifi_dev_scatter_offset(data, count, 34);
-            if (ptr == NULL) return;
-            p3 = *ptr;
-            if (p3 == 8 || p3 == 0) {
-                ptr = wifi_dev_scatter_offset(data, count, 40);
-                if (ptr == NULL) return;
-                sn = get_unaligned_be16(ptr);
-                os_printf(KERN_NOTICE"wifi: %s imcp %s, sn:%d\r\n", tx ? "TX" : "RX", p3 == 8 ? "Echo " : "Reply", sn);
-            }
-        }
-    }
-}
-#else
-#define wifi_dev_icmp_monitor(...)
-#define wifi_dev_icmp_monitor_scatter(...)
 #endif
+}
+
+static void wifi_dev_icmp_monitor_scatter(struct wifi_dev *wifi, scatter_data *data, uint32 count, const char *prefix)
+{
+#if WIFI_DEV_ICMP_MONITOR
+    if (wifi->icmp_mntr) {
+        icmp_pkt_monitor_scatter(prefix, data, count);
+    }
+#endif
+}
 
 #ifdef WIFI_BRIDGE_DEVLIST
 static int32 wifi_dev_hook_input_data(struct netdev *ndev, uint8 *data, uint32 len)
@@ -164,7 +133,7 @@ static void wifi_brdev_clear_mac_entry(struct wifi_dev *wifi)
     struct mac_table_entry *pos, *n;
 
     os_mutex_lock(&wifi->lock, osWaitForever);
-    for (i = 0; i < 16; i++) {
+    for (i = 0; i < WIFI_BRMAC_HASH; i++) {
         head = &wifi->mac_table[i];
         list_for_each_entry_safe(pos, n, head, list) {
             list_del(&pos->list);
@@ -198,7 +167,7 @@ static void wifi_brdev_mac_table_expired(struct wifi_dev *wifi)
     struct mac_table_entry *entry;
     uint32 tmo = wifi->mac_count > MAC_ENTRY_COUNT_WARNING ? 500 : MAC_ENTRY_TMO;
 
-    for (i = 0; i < 16; i++) {
+    for (i = 0; i < WIFI_BRMAC_HASH; i++) {
         head  = &wifi->mac_table[i];
         entry = list_first_entry_or_null(head, struct mac_table_entry, list);
         if (entry && TIME_AFTER(os_jiffies(), entry->lifetime + os_msecs_to_jiffies(tmo))) {
@@ -269,7 +238,7 @@ static int32 wifi_brdev_list_forward(struct wifi_dev *wifi, uint8 *data, uint32 
     uint8 mcast = IS_MCAST_ADDR(data);
 
     if (!wifi->bridge_mode) {
-        return 0;
+        return -1;
     }
 
     for (i = 0; i < wifi->brdev_cnt; i++) {
@@ -280,6 +249,7 @@ static int32 wifi_brdev_list_forward(struct wifi_dev *wifi, uint8 *data, uint32 
             }
         }
     }
+
     return 0;
 }
 
@@ -289,7 +259,7 @@ static int32 wifi_brdev_list_forward_scatter(struct wifi_dev *wifi, scatter_data
     uint8 mcast = IS_MCAST_ADDR(data[0].addr);
 
     if (!wifi->bridge_mode) {
-        return 0;
+        return -1;
     }
 
     for (i = 0; i < wifi->brdev_cnt; i++) {
@@ -305,8 +275,8 @@ static int32 wifi_brdev_list_forward_scatter(struct wifi_dev *wifi, scatter_data
 
 static void wifi_brdev_input_cb(struct netdev *ndev, uint8 *data, uint32 size, void *priv)
 {
-    int32 i = 0;
-    uint32 mcast;
+    uint32 i = 0;
+    uint8  mcast;
     void  *input_priv;
     netdev_input_cb input_cb;
     struct wifi_dev *wifi = (struct wifi_dev *)priv;
@@ -316,16 +286,17 @@ static void wifi_brdev_input_cb(struct netdev *ndev, uint8 *data, uint32 size, v
         return;
     }
 
-    mcast = disable_irq();
+    mcast = IS_MCAST_ADDR(data);
+
+    i = disable_irq();
     input_cb   = wifi->input_cb;
     input_priv = wifi->input_priv;
-    enable_irq(mcast);
+    enable_irq(i);
 
-    mcast = IS_MCAST_ADDR(data);
     wifi_brdev_update_mac_table(wifi, ndev, data + 6);
 
     if (input_cb && (mcast || MAC_EQU(data, wifi->addr))) {
-        wifi_dev_icmp_monitor(wifi, data, 0);
+        wifi_dev_icmp_monitor(wifi, data, size, "LWIP RX");
         input_cb(&wifi->wifi, data, size, input_priv);
         if (!mcast) {
             return;
@@ -343,6 +314,7 @@ static void wifi_brdev_input_cb(struct netdev *ndev, uint8 *data, uint32 size, v
 
     wifi->tx_data++;
     wifi->wifi.tx_bytes += size;
+    wifi_dev_icmp_monitor(wifi, data, size, "BR TX");
     ieee80211_tx(ifidx, data, size);
 }
 
@@ -357,10 +329,11 @@ static int32 wifi_brdev_work(struct os_work *work)
     return 0;
 }
 
-static void wifi_brdev_open_close(struct wifi_dev *wifi, uint8 open)
+static void wifi_brdev_open_close(struct wifi_dev *wifi, uint8 bridge, uint8 open)
 {
     int32 i = 0;
-    for (i = 0; i < wifi->brdev_cnt; i++) {
+
+    for (i = 0; bridge && i < wifi->brdev_cnt; i++) {
         if (open) {
             netdev_open(wifi->brdev_list[i], wifi_brdev_input_cb, NULL, wifi);
         } else {
@@ -384,7 +357,7 @@ static int32 wifi_dev_open(struct netdev *ndev, netdev_input_cb cb, netdev_event
     }
 
 #ifdef WIFI_BRIDGE_DEVLIST
-    wifi_brdev_open_close(wifi, 1);
+    wifi_brdev_open_close(wifi, wifi->bridge_mode, 1);
     os_run_work_delay(&wifi->work, 500);
 #endif
 
@@ -397,7 +370,7 @@ static int32 wifi_dev_close(struct netdev *ndev)
     uint8 ifidx = (wifi->ifidx == WIFI_MODE_APSTA ? WIFI_MODE_STA : wifi->ifidx);
 
 #ifdef WIFI_BRIDGE_DEVLIST
-    wifi_brdev_open_close(wifi, 0);
+    wifi_brdev_open_close(wifi, wifi->bridge_mode, 0);
     wifi_brdev_clear_mac_entry(wifi);
 #endif
 
@@ -409,17 +382,16 @@ static int32 wifi_dev_send(struct netdev *ndev, uint8 *data, uint32 size)
     struct wifi_dev *wifi = (struct wifi_dev *)ndev;
     uint8 ifidx = (wifi->ifidx == WIFI_MODE_APSTA ? 0 : wifi->ifidx);
 
-    wifi_dev_icmp_monitor(wifi, data, 1);
-
 #ifdef WIFI_BRIDGE_DEVLIST
     int32 ret = RET_OK;
-    if (wifi_brdev_list_forward(wifi, data, size, &ret)) {
+    if (wifi_brdev_list_forward(wifi, data, size, &ret) == 1) {
         return ret;
     }
 #endif
 
     wifi->tx_data++;
     wifi->wifi.tx_bytes += size;
+    wifi_dev_icmp_monitor(wifi, data, size, "LWIP TX");
     return ieee80211_tx(ifidx, (uint8 *)data, size);
 }
 
@@ -427,18 +399,16 @@ static int32 wifi_dev_scatter_send(struct netdev *ndev, scatter_data *data, uint
 {
     struct wifi_dev *wifi = (struct wifi_dev *)ndev;
     uint8 ifidx = (wifi->ifidx == WIFI_MODE_APSTA ? 0 : wifi->ifidx);
-
-    wifi_dev_icmp_monitor_scatter(wifi, data, count, 1);
-
 #ifdef WIFI_BRIDGE_DEVLIST
     int32 ret = RET_OK;
-    if (wifi_brdev_list_forward_scatter(wifi, data, count, &ret)) {
+    if (wifi_brdev_list_forward_scatter(wifi, data, count, &ret) == 1) {
         return ret;
     }
 #endif
 
     wifi->tx_data++;
-    wifi->wifi.tx_bytes += scatter_data_size(data, count);
+    wifi->wifi.tx_bytes += scatter_size(data, count);
+    wifi_dev_icmp_monitor_scatter(wifi, data, count, "LWIP TX");
     return ieee80211_scatter_tx(ifidx, data, count);
 }
 
@@ -472,18 +442,16 @@ static int32 wifi_dev_ioctl(struct netdev *ndev, uint32 cmd, uint32 param1, uint
             ret = !wifi_dev_hook_input_data(ndev, (uint8 *)param1, param2);
             break;
         case NETDEV_IOCTL_ENABLE_WIFIBRIDGE:
+            wifi_brdev_open_close(wifi, wifi->bridge_mode|param1, param1);
             wifi->bridge_mode = param1 ? 1 : 0;
-            wifi_brdev_open_close(wifi, param1);
+            break;
+        case NETDEV_IOCTL_CLEAR_ROUTETBL:
+            wifi_brdev_clear_mac_entry(wifi);
             break;
 #endif
         case NETDEV_IOCTL_ENABLE_ICMPMNTR:
             wifi->icmp_mntr = param1 ? 1 : 0;
             break;
-#ifdef WIFI_BRIDGE_DEVLIST
-        case NETDEV_IOCTL_CLEAR_ROUTETBL:
-            wifi_brdev_clear_mac_entry(wifi);
-            break;
-#endif
         default:
             ret = -ENOTSUPP;
             break;
@@ -499,9 +467,7 @@ int32 sys_wifi_recv(void *priv, uint8 *data, uint32 len, uint32 flags)
     void           *input_priv;
     uint8 mcast = IS_MCAST_ADDR(data);
 
-    wifi->wifi.rx_bytes += len;
     wifi->rx_data++;
-
     ret = disable_irq();
     input_cb   = wifi->input_cb;
     input_priv = wifi->input_priv;
@@ -513,8 +479,9 @@ int32 sys_wifi_recv(void *priv, uint8 *data, uint32 len, uint32 flags)
 #endif
 
     if (input_cb && (mcast || MAC_EQU(data, wifi->addr))) {
-        wifi_dev_icmp_monitor(wifi, data, 0);
+        wifi_dev_icmp_monitor(wifi, data, len, "LWIP RX");
         input_cb(&wifi->wifi, data, len, input_priv);
+        wifi->wifi.rx_bytes += len;
         if (!mcast) {
             return RET_OK;
         }
@@ -522,12 +489,12 @@ int32 sys_wifi_recv(void *priv, uint8 *data, uint32 len, uint32 flags)
 
 #ifdef WIFI_BRIDGE_DEVLIST
     ret = wifi_brdev_list_forward(wifi, data, len, &ret);
-    if(ret == 0 && !mcast && wifi->bridge_mode){ //NO Route: send to all interface.
+    if(ret == 0 && !mcast){ //NO Route: send to all interface.
         int8 i = 0;
         for (i = 0; i < wifi->brdev_cnt; i++) {
            netdev_send_data(wifi->brdev_list[i], data, len);
         }
-        wifi_dev_icmp_monitor(wifi, data, len);
+        wifi_dev_icmp_monitor(wifi, data, len, "BR RX");
     }
 #endif
     return ret;
@@ -574,7 +541,7 @@ __init void *sys_wifi_register(uint32 ifidx)
     OS_WORK_INIT(&wifi->work, wifi_brdev_work, 0);
     wifi->bridge_mode = 1;
     wifi->brdev_cnt = ARRAY_SIZE(brdev_list);
-    for (i = 0; i < 16; i++) {
+    for (i = 0; i < WIFI_BRMAC_HASH; i++) {
         INIT_LIST_HEAD(&wifi->mac_table[i]);
     }
     os_printf(KERN_NOTICE"wifi brigde device:");
@@ -600,7 +567,7 @@ void wifi_dev_status(uint32 dev_id)
         return;
     }
 
-    os_printf("WiFi Dev Status: no_mem=%u, bridge:%d\r\n", wifi->no_mem, wifi->bridge_mode);
+    os_printf("WiFi Dev Status: no_mem=%u\r\n", wifi->no_mem);
     os_printf("    wifi: tx:%d, rx:%d, tx_bytes:%llu, rx_bytes:%llu\r\n", wifi->tx_data, wifi->rx_data, wifi->wifi.tx_bytes, wifi->wifi.rx_bytes);
     wifi->rx_data = 0;
     wifi->tx_data = 0;
@@ -617,9 +584,3 @@ void wifi_dev_status(uint32 dev_id)
 #endif
 }
 
-#ifdef FMAC_EN
-__weak void hgic_custom_driver_data_handler(uint8 *data, uint16 len)
-{
-    // do nothing default
-}
-#endif

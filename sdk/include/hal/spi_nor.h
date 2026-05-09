@@ -72,6 +72,7 @@ void spi_nor_custom_read(struct spi_nor_flash *flash, uint32_t param);
 void spi_nor_custom_write(struct spi_nor_flash *flash, uint32_t param);
 void spi_nor_custom_erase(struct spi_nor_flash *flash, uint32_t param);
 int32 spi_nor_ioctl(struct spi_nor_flash *flash, uint32_t cmd,uint32_t param1,uint32_t param2);
+void spi_nor_custom_encry_disable_range(struct spi_nor_flash *flash, uint32_t index, uint32_t st_addr_1k, uint32_t end_addr_1k);
 
 #ifdef __cplusplus
 }

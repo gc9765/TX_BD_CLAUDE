@@ -173,6 +173,8 @@ void sysctrl_efuse_mac_addr_calc_uuid(uint8 *addr_buf);
 uint16 sysctrl_efuse_get_customer_id(void);
 uint32 sysctrl_efuse_get_smt_dat(void);
 int32 tsensor_meas(uint8 sensor_idx);
+uint32_t cpu_runtime_meas(uint32_t last_val);
+
 
 /*******************************************************************/
 /*             RFADC                                               */
@@ -274,15 +276,6 @@ __STATIC_INLINE void sys_dcache_clean_range (uint32_t *addr, int32_t dsize)
         csi_dcache_clean_range(addr, dsize);
     }
 }
-/* usefor TCPIP CHKSUM */
-__STATIC_INLINE void sys_dcache_clean_range_unaligned (uint32_t *addr, int32_t dsize)
-{
-    if (((uint32)addr >= PSRAM_BASE) && 
-        ((uint32)addr < PSRAM_END_ADDR) && 
-        csi_is_cache_enable()) {
-        csi_dcache_clean_range(addr, dsize);
-    }
-}
 
 
 /** use when DMA destination is psram 
@@ -325,14 +318,23 @@ __STATIC_INLINE void sys_dcache_invalid_range (uint32_t *addr, int32_t dsize)
     }
 }
 
+/* usefor TCPIP CHKSUM */
+__STATIC_INLINE void sys_dcache_clean_range_unaligned (uint32_t *addr, int32_t dsize)
+{
+    if (((uint32)addr >= PSRAM_BASE) && 
+        ((uint32)addr < PSRAM_END_ADDR) && 
+        csi_is_cache_enable()) {
+        csi_dcache_clean_range(addr, dsize);
+    }
+}
+
 #else
 #define sys_dcache_clean_range(addr, dsize)
 #define sys_dcache_clean_range_unaligned(addr, dsize)
 #define sys_dcache_clean_invalid_range(addr, dsize)
 #define sys_dcache_invalid_range(addr, dsize)
+
 #endif
-
-
 
 int32 sysctrl_is_chipdcn_compid(void);
 /* 速率：x Bps */

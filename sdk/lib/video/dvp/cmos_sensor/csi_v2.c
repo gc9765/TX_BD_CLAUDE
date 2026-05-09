@@ -137,6 +137,10 @@ static const _Sensor_Ident_ *devSensorInitTable[] = {
 	&sc101iot_init,
 #endif
 
+#if DEV_SENSOR_BF20A6
+	&bf20a6_init,
+#endif
+
 	NULL,
 };
 
@@ -232,6 +236,10 @@ static const _Sensor_Adpt_ *devSensorOPTable[] = {
 
 #if DEV_SENSOR_IOT101
 	&sc101iot_cmd,
+#endif
+
+#if DEV_SENSOR_BF20A6
+	&bf20a6_cmd,
 #endif
 
 };

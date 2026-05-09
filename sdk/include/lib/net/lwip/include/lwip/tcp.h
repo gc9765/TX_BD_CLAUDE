@@ -386,6 +386,8 @@ struct tcp_pcb {
   u8_t snd_scale;
   u8_t rcv_scale;
 #endif
+
+  u32_t last_send_ack;
 };
 
 #if LWIP_EVENT_API

@@ -8,6 +8,8 @@
 #include <k_api.h>
 #include <sys/time.h>
 
+#define OS_MS_PERIOD_TICK (1000/OS_SYSTICK_HZ)
+
 extern uint64_t g_sys_tick_count;
 extern osTimespec_t os_time2;
 
@@ -275,3 +277,12 @@ int32 timespec_detal_ticks(const struct timespec *abstime, const struct timespec
     return ret;
 }
 
+uint64 os_jiffies_to_msecs(uint64 jiff)
+{
+    return ((jiff)*OS_MS_PERIOD_TICK);
+}
+
+uint64 os_msecs_to_jiffies(uint64 msec)
+{
+    return ((msec)/OS_MS_PERIOD_TICK);
+}

@@ -51,7 +51,7 @@
 
 struct sys_config sys_cfgs = {
     .cfg_ver       = CFG_VERSION_NUM,
-    .default_wifi_mode     = WIFI_MODE_STA,
+    .default_wifi_mode     = WIFI_MODE_DEFAULT,
     .channel       = CHANNEL_DEFAULT,
     .beacon_int    = 100,
     .dtim_period   = 1,
@@ -190,8 +190,12 @@ void wifi_create_station(char *ssid,char *password,int key_mode)
 int32 wificfg_flush(uint8 ifidx)
 {
     ieee80211_conf_set_mac(ifidx, sys_cfgs.mac);
-    //station的时候,全信道扫描
-    if(WIFI_MODE_STA == ifidx)
+
+	if(sys_cfgs.wifi_hwmode){
+        ieee80211_conf_set_hwmode(ifidx, sys_cfgs.wifi_hwmode);
+    }
+	//station的时候,全信道扫描
+    if(ifidx == WIFI_MODE_STA)
     {
         if(sys_cfgs.station_channel)
         {
@@ -220,6 +224,31 @@ int32 wificfg_flush(uint8 ifidx)
         }
     }
     return 0;
+}
+
+void syscfg_flush(int32 reset)
+{
+    netdev_set_wifi_bridge((struct netdev *)dev_get(HG_WIFI0_DEVID), 1);        
+    netdev_set_wifi_mode((struct netdev *)dev_get(HG_WIFI0_DEVID), sys_cfgs.wifi_mode);
+
+    if(reset){
+        ieee80211_iface_stop(WIFI_MODE_STA);
+        ieee80211_iface_stop(WIFI_MODE_AP);
+    }
+
+    if(sys_cfgs.wifi_mode == WIFI_MODE_APSTA){
+        wificfg_flush(WIFI_MODE_AP);
+        wificfg_flush(WIFI_MODE_STA);
+        if(reset){
+            ieee80211_iface_start(WIFI_MODE_STA);
+            ieee80211_iface_start(WIFI_MODE_AP);
+        }
+    }else{
+        wificfg_flush(sys_cfgs.wifi_mode);
+        if(reset){
+            ieee80211_iface_start(sys_cfgs.wifi_mode);
+        }
+    }
 }
 
 void sta_ps_mode_enter(uint16 aid)
@@ -321,12 +350,12 @@ void syscfg_set_default_val()
         sys_cfgs.mac[0] &= 0xfe;
         os_printf("use random mac "MACSTR"\r\n", MAC2STR(sys_cfgs.mac));
     }
-//    os_sprintf(sys_cfgs.ssid,"%s%02x%02x%02x",SSID_DEFAULT,sys_cfgs.mac[5],sys_cfgs.mac[4],sys_cfgs.mac[3]);
+//    os_sprintf((char*)sys_cfgs.ssid,"%s%02x%02x%02x",SSID_DEFAULT,sys_cfgs.mac[5],sys_cfgs.mac[4],sys_cfgs.mac[3]);
 //    os_sprintf(sys_cfgs.passwd,"%s","12345678");
-    os_sprintf(sys_cfgs.ssid,"%s","hugeic_cs");
-    os_sprintf(sys_cfgs.passwd,"%s","reload@matrix");
-//    os_sprintf(sys_cfgs.ssid,"%s","gc123");
-//    os_sprintf(sys_cfgs.passwd,"%s","gcgcgc123");	
+//	os_strcpy(sys_cfgs.ssid,SSID_DEFAULT);
+//	os_sprintf(sys_cfgs.passwd,"%s","reload@matrix");
+	os_strcpy(sys_cfgs.ssid,"gc");
+	os_sprintf(sys_cfgs.passwd,"%s","gcgcgc123");
 #ifdef CONFIG_UMAC4
     wpa_passphrase(sys_cfgs.ssid, sys_cfgs.passwd, sys_cfgs.psk);
 #else

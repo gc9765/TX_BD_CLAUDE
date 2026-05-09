@@ -23,7 +23,9 @@ struct xip_wip {
     uint32 addrl;
     uint32 addru;
     uint32 addr;
-    uint32 tms;
+    uint32 tms  :16,
+           tsus :16;
+    uint32 trs;
     struct os_semaphore rc;    
     struct os_semaphore done;    
     struct os_task  task;

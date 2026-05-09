@@ -216,9 +216,9 @@ void hgprintf_out(char *str, int32 len, uint8 level)
         color = level;
 
     if (_print) {
-        if (color) _print(_print_priv, (char *)__print_color__[color]);
-        _print(_print_priv, str);
-        if (color) _print(_print_priv, (char *)__print_color__[8]);
+        if (color) _print(_print_priv, (char *)__print_color__[color], 0);
+        _print(_print_priv, str, len);
+        if (color) _print(_print_priv, (char *)__print_color__[8], 0);
     } else {
         if (color) hgprintf_uart((char *)__print_color__[color], 0);
         hgprintf_uart(str, len);
@@ -227,7 +227,7 @@ void hgprintf_out(char *str, int32 len, uint8 level)
 
     if (color) sys_errlog_save((char *)__print_color__[color], 0, level);
     sys_errlog_save(str, len, level);
-    if (color) sys_errlog_save((char *)__print_color__[8], 0, level);
+    if (color) sys_errlog_save((char *)__print_color__[8], 0, level);    
 }
 
 void hgvprintf(const char *fmt, va_list ap)
@@ -261,10 +261,10 @@ void hgvprintf(const char *fmt, va_list ap)
         gettimeofday(&tv, NULL);
         if (tv.tv_sec > 1704038400) {
             tv.tv_sec += 8 * 3600; //时区
-            tm_t = localtime((time_t *)&tv.tv_sec);
-            len = os_sprintf(_print_buff_p, "[%02d/%02d %02d:%02d:%02d-%03d]",
-                             (uint32)(tm_t->tm_mon + 1), (uint32)tm_t->tm_mday, (uint32)tm_t->tm_hour,
-                             (uint32)tm_t->tm_min, (uint32)tm_t->tm_sec, (uint32)(tv.tv_usec / 1000));
+            tm_t = localtime((const time_t *)&tv.tv_sec);
+            len = os_sprintf(_print_buff_p, "[%02d/%02d %02d:%02d:%02d-%03llu]",
+                             tm_t->tm_mon + 1, tm_t->tm_mday, tm_t->tm_hour,
+                             tm_t->tm_min, tm_t->tm_sec, tv.tv_usec / 1000);
         } else {
             len = os_sprintf(_print_buff_p, "[%llu]", os_jiffies_to_msecs(os_jiffies()));
         }
@@ -302,17 +302,32 @@ int hgputs(const char *s)
     return os_strlen(s) + 1;
 }
 
-void dump_hex(char *str, uint8 *data, uint32 len, int32 newline)
+void dump_hex(char *title, uint8 *data, uint32 len, int32 newline)
 {
     int i = 0;
     if (data && len) {
-        if (str) _os_printf("%s", str);
+        if (title) _os_printf("%s", title);
+        _os_printf("dump address: %x\r\n", data);
         for (i = 0; i < len; i++) {
             if (i > 0 && newline) {
                 if ((i & 0x7) == 0) _os_printf("   ");
                 if ((i & 0xf) == 0) _os_printf("\r\n");
             }
             _os_printf("%02x ", data[i] & 0xFF);
+        }
+        _os_printf("\r\n");
+    }
+}
+
+void dump_memory(char *title, uint32 *data, uint32 len)
+{
+    int i = 0;
+    if (data && len) {
+        if (title) _os_printf("%s", title);
+        for (i = 0; i < len; i++) {
+            if ((i & 0x7) == 0)  _os_printf("0x%x: ", data+i);
+            if ((i & 0x7) == 7) _os_printf("\r\n");
+            _os_printf("%x ", data[i]);
         }
         _os_printf("\r\n");
     }
@@ -334,22 +349,8 @@ void dump_key(char *str, uint8 *key, uint32 len, uint32 sp)
     }
 }
 
-void dump_memory(char *title, uint32 *data, uint32 len)
-{
-    int i = 0;
-    if (data && len) {
-        if (title) _os_printf("%s", title);
-        for (i = 0; i < len; i++) {
-            if ((i & 0x7) == 0)  _os_printf("0x%x: ", data+i);
-            if ((i & 0x7) == 7) _os_printf("\r\n");
-            _os_printf("%x ", data[i]);
-        }
-        _os_printf("\r\n");
-    }
-}
-
 // str_buf申请的空间需要比key_len多1byte，sprintf会额外在字符串结束添加0
-void key_str(uint8 *key, uint32 key_len, uint8 *str_buf)
+void key_str(uint8 *key, uint32 key_len, char *str_buf)
 {
     int32 i = 0;
     for (i = 0; i < key_len; i++) {
@@ -360,19 +361,13 @@ void key_str(uint8 *key, uint32 key_len, uint8 *str_buf)
 void *_os_memcpy(void *str1, const void *str2, int32 n)
 {
 #ifdef PSRAM_HEAP
-    struct sys_heap *heap = sysheap_valid_addr(&psram_heap, str1) ? &psram_heap : &sram_heap;
+    void *heap = IS_PSRAM_ADDR(str1) ? (void *)(&psram_heap) : (void *)(&sram_heap);
 #else
-    struct sys_heap *heap = &sram_heap;
+    void *heap = &sram_heap;
 #endif
-
     int32 ret = sysheap_of_check(heap, str1, n);
-    if (ret == -1) {
-        //os_printf("%s: WARING: OF CHECK 0x%x\r\n", str1, __FUNCTION__);
-    } else {
-        if (!ret) {
-            os_printf("check addr fail: %x, size:%d \r\n", str1, n);
-        }
-        ASSERT(ret == 1);
+    if (ret == 0) {
+        os_printf(KERN_WARNING"%s: memroy %p maybe overflow!!\r\n", __FUNCTION__, str1);
     }
     return memcpy(str1, str2, n);
 }
@@ -380,20 +375,14 @@ void *_os_memcpy(void *str1, const void *str2, int32 n)
 char *_os_strcpy(char *dest, const char *src)
 {
 #ifdef PSRAM_HEAP
-    struct sys_heap *heap = sysheap_valid_addr(&psram_heap, dest) ? &psram_heap : &sram_heap;
+    void *heap = IS_PSRAM_ADDR(dest) ? (void *)(&psram_heap) : (void *)(&sram_heap);
 #else
-    struct sys_heap *heap = &sram_heap;
+    void *heap = &sram_heap;
 #endif
-
     int32 n   = strlen(src) + 1;  // +'\0'
     int32 ret = sysheap_of_check(heap, dest, n);
-    if (ret == -1) {
-        //os_printf("%s: WARING: OF CHECK 0x%x\r\n", dest, __FUNCTION__);
-    } else {
-        if (!ret) {
-            os_printf("check addr fail: %x, size:%d \r\n", dest, n);
-        }
-        ASSERT(ret == 1);
+    if (ret == 0) {
+        os_printf(KERN_WARNING"%s: memroy %p maybe overflow!!\r\n", __FUNCTION__, dest);
     }
     return strcpy(dest, src);
 }
@@ -401,19 +390,13 @@ char *_os_strcpy(char *dest, const char *src)
 void *_os_memset(void *str, int c, int32 n)
 {
 #ifdef PSRAM_HEAP
-    struct sys_heap *heap = sysheap_valid_addr(&psram_heap, str) ? &psram_heap : &sram_heap;
+    void *heap = IS_PSRAM_ADDR(str) ? (void *)(&psram_heap) : (void *)(&sram_heap);
 #else
-    struct sys_heap *heap = &sram_heap;
+    void *heap = &sram_heap;
 #endif
-
     int32 ret = sysheap_of_check(heap, str, n);
-    if (ret == -1) {
-        //os_printf("%s: WARING: OF CHECK 0x%x\r\n", str, __FUNCTION__);
-    } else {
-        if (!ret) {
-            os_printf("check addr fail: %x, size:%d \r\n", str, n);
-        }
-        ASSERT(ret == 1);
+    if (ret == 0) {
+        os_printf(KERN_WARNING"%s: memroy %p maybe overflow!!\r\n", __FUNCTION__, str);
     }
     return memset(str, c, n);
 }
@@ -421,19 +404,13 @@ void *_os_memset(void *str, int c, int32 n)
 void *_os_memmove(void *str1, const void *str2, size_t n)
 {
 #ifdef PSRAM_HEAP
-    struct sys_heap *heap = sysheap_valid_addr(&psram_heap, str1) ? &psram_heap : &sram_heap;
+    void *heap = IS_PSRAM_ADDR(str1) ? (void *)(&psram_heap) : (void *)(&sram_heap);
 #else
-    struct sys_heap *heap = &sram_heap;
+    void *heap = &sram_heap;
 #endif
-
     int32 ret = sysheap_of_check(heap, str1, n);
-    if (ret == -1) {
-        //os_printf("%s: WARING: OF CHECK 0x%x\r\n", str1, __FUNCTION__);
-    } else {
-        if (!ret) {
-            os_printf("check addr fail: %x, size:%d \r\n", str1, n);
-        }
-        ASSERT(ret == 1);
+    if (ret == 0) {
+        os_printf(KERN_WARNING"%s: memroy %p maybe overflow!!\r\n", __FUNCTION__, str1);
     }
     return memmove(str1, str2, n);
 }
@@ -441,19 +418,13 @@ void *_os_memmove(void *str1, const void *str2, size_t n)
 char *_os_strncpy(char *dest, const char *src, int32 n)
 {
 #ifdef PSRAM_HEAP
-    struct sys_heap *heap = sysheap_valid_addr(&psram_heap, dest) ? &psram_heap : &sram_heap;
+    void *heap = IS_PSRAM_ADDR(dest) ? (void *)(&psram_heap) : (void *)(&sram_heap);
 #else
-    struct sys_heap *heap = &sram_heap;
+    void *heap = &sram_heap;
 #endif
-
     int32 ret = sysheap_of_check(heap, dest, n);
-    if (ret == -1) {
-        //os_printf("%s: WARING: OF CHECK 0x%x\r\n", dest, __FUNCTION__);
-    } else {
-        ASSERT(ret == 1);
-        if (!ret) {
-            os_printf("check addr fail: %x, size:%d \r\n", dest, n);
-        }
+    if (ret == 0) {
+        os_printf(KERN_WARNING"%s: memroy %p maybe overflow!!\r\n", __FUNCTION__, dest);
     }
     return strncpy(dest, src, n);
 }
@@ -461,9 +432,9 @@ char *_os_strncpy(char *dest, const char *src, int32 n)
 int _os_sprintf(char *str, const char *format, ...)
 {
 #ifdef PSRAM_HEAP
-    struct sys_heap *heap = sysheap_valid_addr(&psram_heap, str) ? &psram_heap : &sram_heap;
+    void *heap = IS_PSRAM_ADDR(str) ? (void *)(&psram_heap) : (void *)(&sram_heap);
 #else
-    struct sys_heap *heap = &sram_heap;
+    void *heap = &sram_heap;
 #endif
 
     int ret, len, check_len;
@@ -475,8 +446,7 @@ int _os_sprintf(char *str, const char *format, ...)
     check_len = len + 1; // +'\0'
     ret = sysheap_of_check(heap, str, check_len);
     if (ret == 0) {
-        os_printf("check addr fail: %x, size:%d \r\n", str, len);
-        ASSERT(ret == 1);
+        os_printf(KERN_WARNING"%s: memroy %p maybe overflow!!\r\n", __FUNCTION__, str);
     }
     return len;
 }
@@ -484,17 +454,16 @@ int _os_sprintf(char *str, const char *format, ...)
 int _os_vsnprintf(char *s, size_t n, const char *format, va_list arg)
 {
 #ifdef PSRAM_HEAP
-    struct sys_heap *heap = sysheap_valid_addr(&psram_heap, s) ? &psram_heap : &sram_heap;
+    void *heap = IS_PSRAM_ADDR(s) ? (void *)(&psram_heap) : (void *)(&sram_heap);
 #else
-    struct sys_heap *heap = &sram_heap;
+    void *heap = &sram_heap;
 #endif
 
     int len = vsnprintf(s, n, format, arg);
     int check_len = (len < n) ? len + 1 : n;
     int ret = sysheap_of_check(heap, s, check_len);
     if (ret == 0) {
-        os_printf("check addr fail: %x, size:%d \r\n", s, len);
-        ASSERT(ret == 1);
+        os_printf(KERN_WARNING"%s: memroy %p maybe overflow!!\r\n", __FUNCTION__, s);
     }
     return len;
 }
@@ -502,22 +471,20 @@ int _os_vsnprintf(char *s, size_t n, const char *format, va_list arg)
 int _os_snprintf(char *str, size_t size, const char *format, ...)
 {
 #ifdef PSRAM_HEAP
-    struct sys_heap *heap = sysheap_valid_addr(&psram_heap, str) ? &psram_heap : &sram_heap;
+    void *heap = IS_PSRAM_ADDR(str) ? (void *)(&psram_heap) : (void *)(&sram_heap);
 #else
-    struct sys_heap *heap = &sram_heap;
+    void *heap = &sram_heap;
 #endif
-
     int ret, len;
     va_list ap;
 
     va_start(ap, format);
     len = vsnprintf(str, size, format, ap);
     va_end(ap);
-    int check_len = len = (len < size) ? len + 1 : size;
+    int check_len = (len < size) ? len + 1 : size;
     ret = sysheap_of_check(heap, str, check_len);
     if (ret == 0) {
-        os_printf("check addr fail: %x, size:%d \r\n", str, len);
-        ASSERT(ret == 1);
+        os_printf(KERN_WARNING"%s: memroy %p maybe overflow!!\r\n", __FUNCTION__, str);
     }
     return len;
 }

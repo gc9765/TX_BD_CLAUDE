@@ -42,6 +42,14 @@ static inline void INIT_LIST_HEAD(struct list_head *list)
 	list->prev = list;
 }
 
+static inline void INIT_LIST_ARRARY(struct list_head *list, uint32 cnt)
+{
+    uint32 i = 0;
+    for(i=0; i<cnt; i++){
+        INIT_LIST_HEAD(&list[i]);
+    }
+}
+
 /*
  * Insert a nhead entry between two known consecutive entries.
  *

@@ -20,6 +20,8 @@ int32 fmac_dev_get_wpa_psk(struct netdev *ndev, char *buff);//buff size >= 64
 int32 fmac_dev_set_bss_bw(struct netdev *ndev, uint8 bss_bw);
 int32 fmac_dev_set_chan_list(struct netdev *ndev, uint16 *chan_list, uint32 count);
 int32 fmac_dev_set_paired_stas(struct netdev *ndev, uint8 *mac_list, uint32 count);
+int32 fmac_dev_set_customer_dvrdata(struct netdev *ndev, uint16 cmd_id, uint8 *data, uint32 len); //可以自定义CMD ID
+int32 fmac_dev_set_cust_driver_data(struct netdev *ndev, uint8 *data, uint32 len); //不能自定义CMD ID
 int32 fmac_dev_enter_sleep(struct netdev *ndev, uint16 sleep, uint32 sleep_ms);
 int32 fmac_dev_ota(struct netdev *ndev);
 

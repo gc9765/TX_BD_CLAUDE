@@ -180,6 +180,20 @@ static void rtsp_closed( struct session *s, struct rtp_endpoint *ep )
 	ls->closed = 1;
 }
 
+static void rtsp_select_close( struct session *s, struct rtp_endpoint *ep)
+{
+	struct rtsp_session *ls = (struct rtsp_session *)s->private;
+	if(ls->source->handle.hdl)
+	{
+		_os_printf("%s: %d, set closed\r\n", __FUNCTION__, __LINE__);
+		s->closed(s, NULL);
+	}
+	else
+	{
+		_os_printf("%s: %d, set teardown\r\n", __FUNCTION__, __LINE__);
+		s->teardown(s, NULL);
+	}
+}
 
 struct session *rtsp_open( char *path, void *d )
 {
@@ -198,6 +212,7 @@ struct session *rtsp_open( char *path, void *d )
 	ls->sess->play = rtsp_play;
 	ls->sess->teardown = rtsp_teardown;
 	ls->sess->closed = rtsp_closed;
+	ls->sess->select_close = rtsp_select_close;
 	ls->sess->private = ls;
 	ls->closed = 0;
 	if(strlen(path)<sizeof(ls->path))

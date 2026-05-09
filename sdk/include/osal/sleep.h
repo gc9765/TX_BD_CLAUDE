@@ -135,6 +135,12 @@ enum DSLEEP_IOCTL_CMD {
     DSLEEP_IOCTL_SET_ASSERT_HOLD,
     DSLEEP_IOCTL_SET_USR_DSLEEP_CB,
     DSLEEP_IOCTL_SET_WKIO_PUPD_DIS,
+    DSLEEP_IOCTL_SET_SOFT_DEBOUNCE,
+    DSLEEP_IOCTL_SET_VCAM_WKUP_ON,
+    DSLEEP_IOCTL_SET_EXT_LDO_WKUP_ON,
+    DSLEEP_IOCTL_SET_EXT_LDO_CTL_CB,
+    DSLEEP_IOCTL_SET_RX_MARGIN,
+    
     /*Get CMDs*/
     DSLEEP_IOCTL_GET_IP_ADDR = 0x20000000,
     DSLEEP_IOCTL_GET_DTIM,
@@ -167,6 +173,12 @@ enum DSLEEP_IOCTL_CMD {
 #define dsleep_set_assert_hold(en)                  dsleep_ioctl(DSLEEP_IOCTL_SET_ASSERT_HOLD, (uint32)en, 0)
 #define dsleep_set_usr_dsleep_cb(priv, func)        dsleep_ioctl(DSLEEP_IOCTL_SET_USR_DSLEEP_CB, (uint32)priv, (uint32)(func))
 #define dsleep_set_wkio_pupd_dis(en)                dsleep_ioctl(DSLEEP_IOCTL_SET_WKIO_PUPD_DIS, (uint8)en, 0)
+#define dsleep_set_soft_debounce(val_us)            dsleep_ioctl(DSLEEP_IOCTL_SET_SOFT_DEBOUNCE, (uint32)val_us, 0)
+
+#define dsleep_set_vcam_wkup_on(en)                 dsleep_ioctl(DSLEEP_IOCTL_SET_VCAM_WKUP_ON, (uint32)en, 0)
+#define dsleep_set_ext_ldo_wkup_on(en)              dsleep_ioctl(DSLEEP_IOCTL_SET_EXT_LDO_WKUP_ON, (uint32)en, 0)
+#define dsleep_set_ext_ldo_ctl_cb(func)             dsleep_ioctl(DSLEEP_IOCTL_SET_EXT_LDO_CTL_CB, (int32 *)func, 0)
+#define dsleep_set_rx_margin(lead_us, tmo_us)       dsleep_ioctl(DSLEEP_IOCTL_SET_RX_MARGIN, (int16)lead_us, (int16)tmo_us)
 
 //ioctrl: get_cfg
 #define dsleep_get_ip_addr()                        dsleep_ioctl(DSLEEP_IOCTL_GET_IP_ADDR, 0, 0)
@@ -180,7 +192,7 @@ void os_sleep_ms(int msec);
 extern void os_sleep_us(int us);
 
 int usleep(useconds_t usec);
-unsigned int sleep(unsigned int us);
+unsigned int sleep(unsigned int sec);
 void delay_us(uint32 n);
 
 int sys_sleepcb_init(void);

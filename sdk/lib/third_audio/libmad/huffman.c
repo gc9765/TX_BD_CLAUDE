@@ -19,8 +19,8 @@
  * $Id: huffman.c,v 1.10 2004/01/23 09:41:32 rob Exp $
  */
 
-# ifdef HAVE_CONFIG_H
-#  include "config.h"
+# ifdef HAVE_MAD_CONFIG_H
+#  include "mad_config.h"
 # endif
 
 # include "global.h"

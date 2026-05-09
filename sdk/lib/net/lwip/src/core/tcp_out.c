@@ -1504,6 +1504,7 @@ tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb, struct netif *netif
     *opts = TCP_BUILD_MSS_OPTION(mss);
     opts += 1;
   }
+  pcb->last_send_ack  = pcb->rcv_nxt;
 #if LWIP_TCP_TIMESTAMPS
   pcb->ts_lastacksent = pcb->rcv_nxt;
 
@@ -2048,6 +2049,7 @@ tcp_send_empty_ack(struct tcp_pcb *pcb)
   }
   tcp_output_fill_options(pcb, p, optflags, num_sacks);
 
+  pcb->last_send_ack  = pcb->rcv_nxt;
 #if LWIP_TCP_TIMESTAMPS
   pcb->ts_lastacksent = pcb->rcv_nxt;
 #endif

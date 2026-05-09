@@ -158,7 +158,7 @@ struct hggpio_v4 gpioe = {
 
 struct mem_dma_dev mem_dma = {
     .hw      = (void *)M2M_DMA_BASE,
-    .irq_num = M2M0_IRQn,	
+    .irq_num = M2M0_IRQn,
 };
 
 struct hg_gmac_eva_v2 gmac = {
@@ -514,7 +514,7 @@ void device_init(void)
 #endif
 
     hgpwm_v0_attach(HG_PWM0_DEVID, &pwm);
-   // hgtimer_v4_attach(HG_TIMER0_DEVID, &timer0);
+    hgtimer_v4_attach(HG_TIMER0_DEVID, &timer0);  // 启用 TIMER0 用于打印机
 #if PWM_EN
     hgtimer_v4_attach(HG_TIMER0_DEVID, &timer0);
     hgtimer_v4_attach(HG_TIMER1_DEVID, &timer1);
@@ -567,7 +567,7 @@ void device_init(void)
     uart_open((struct uart_device *)&uart0, 921600);
     console_handle = (void*)&uart0;
     //hg_gmac_v2_attach(HG_GMAC_DEVID, &gmac);
-
+    
 #if UART_FLY_CTRL_EN
     uart_open((struct uart_device *)&uart0, 115200);
 #endif
@@ -584,17 +584,8 @@ void device_init(void)
         }
 #endif
 
-#ifdef LMAC_BGN_RAW
-            if(dev_get(HG_TIMER3_DEVID)){
-                os_printf("RAW_error: timer3 used\r\n");
-            }else{
-                hgtimer_v4_attach(HG_TIMER3_DEVID, &timer3);
-            }
-#endif
-
 	extern void device_burst_set(void);
 	device_burst_set();
-
 }
 
 void device_burst_set(void)

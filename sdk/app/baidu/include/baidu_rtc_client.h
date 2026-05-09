@@ -467,6 +467,13 @@ void brtc_sdk_register_log_handler(void (*log)(int level, const char *msg));
  * @return 设备媒体信息字符串
  **/
 const char * brtc_sdk_get_device_mediainfo(void);
+
+/*
+ * 设置音频解码后的PCM音频缓冲区大小
+ * @param buffer_size 缓冲区大小，默认（framesize * 25） 单位Byte
+ **/
+void brtc_sdk_set_pcm_buffer_size(int buffer_size);
+
 /*
  * 获得SDK的版本号
  * @return 版本号字符串， 比如: "3.1.4"

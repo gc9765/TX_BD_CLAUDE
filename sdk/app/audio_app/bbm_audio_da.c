@@ -9,6 +9,7 @@
 #include "osal/msgqueue.h"
 #include "osal/string.h"
 #include "hal/audac.h"
+#include "hal/gpio.h"
 #include "stream_frame.h"
 #include "osal_file.h"
 #include "stream_frame.h"
@@ -95,6 +96,10 @@ audio_da_config global_audio_da;
 int get_audio_dac_set_filter_type(void);
 void audio_dac_set_filter_type(int filter_type);
 int audio_dac_get_samplingrate(void);
+
+
+
+
 
 #ifndef PSRAM_HEAP
 static void *audio_dac_get_buf(void *priv_el,void *el_point,int *buf_size)
@@ -658,6 +663,59 @@ void audio_dac_stream_deinit()
 	}
 }
 
+
+
+uint8_t backVol=0;
+const uint32 dacgain_table[]=
+#if 1 // 0~0x7fff
+{
+	0,
+	0x40,
+	0x80,
+	0x100,
+	0x140,
+	0x180,
+	0x200,
+	0x280,
+	0x300,
+	0x480,
+	0x500
+};
+#else
+{
+	0,
+	2,
+	6,
+	8,
+	10,
+	12,
+	14,
+	16,
+	18,
+	20,
+	40//22
+};
+#endif
+
+void volume_adjust(uint8_t vol)
+{
+	struct audac_device *test = (struct audac_device *)dev_get(HG_AUDAC_DEVID);
+
+
+	if(vol>10)
+		vol =10;
+
+	if(backVol!=vol)
+	{
+		backVol = vol;
+		audac_ioctl(test,AUDAC_IOCTL_CMD_SET_DIGITAL_GAIN,dacgain_table[vol],0);
+	}
+	
+}
+
+
+
+
 void audio_da_init()
 {
 	struct aufade_device *fade = (struct aufade_device *)dev_get(HG_AUFADE_DEVID);
@@ -674,13 +732,18 @@ void audio_da_init()
 	audio_da_cfg->play_empty_buf = empty_buf;
     audio_da_cfg->irq_func = global_audio_da_write;
 	audio_da_cfg->audio_hz = AUDAC_SAMPLE_RATE_8K;
-	
+
 	stream *dest = audio_dac_stream_init(R_SPEAKER);
 	*((uint32_t*)0x4000802c) |= 0x690000;
     audac_open(audio_da, audio_da_cfg->audio_hz );
     audac_request_irq(audio_da, AUDAC_IRQ_FLAG_HALF | AUDAC_IRQ_FLAG_FULL, (audac_irq_hdl)audio_dac_irq, (uint32_t)audio_da_cfg);
     audio_da_cfg->irq_func(audio_da_cfg , audio_da_cfg->play_empty_buf, audio_da_cfg->buf_size);
 	global_audio_dac_s = dest;
+
+	gpio_set_mode(PC_4, GPIO_PULL_NONE, GPIO_PULL_LEVEL_NONE);
+	gpio_set_dir(PC_4, GPIO_DIR_OUTPUT);
+	gpio_set_val(PC_4, 0);
+	audio_dac_set_filter_type(SOUND_ALL);
     return;
 }
 
@@ -894,4 +957,12 @@ int audio_dac_get_samplingrate(void)
 	}
 	printf("now DAC samplingrate:%d\n",samplingrate);
 	return samplingrate;    
+}
+
+
+// dac 检测数据 空闲的返回值为1；
+uint8_t audac_wait_empty(void)
+{
+	audio_da_config *audio_da_cfg = &global_audio_da;
+	return audio_da_cfg->is_empty;
 }

@@ -14,7 +14,7 @@ struct hg_sysaes_v3 {
     uint32              irq_num;
     uint32              flags;
 #ifdef CONFIG_SLEEP
-    uint32              *regs;
+    uint32              regs[18];
 #endif    
 };
 

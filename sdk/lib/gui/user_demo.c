@@ -437,7 +437,7 @@ static void MP3_exit(lv_event_t * e)
 		lv_obj_del(obj);
 	}
 }
-extern void mp3_decode_thread(void *d);
+extern void mp3_decode_init(void *d, void *read_func);
 static void MP3_replay(lv_event_t * e)
 {
 	lv_event_code_t code = lv_event_get_code(e);
@@ -449,7 +449,7 @@ static void MP3_replay(lv_event_t * e)
 		char filepath[64];
 		os_sprintf(filepath,"0:mp3/%s",lv_list_get_btn_text(list,btn));
 		os_printf("filepath:%s\n",filepath);
-		mp3_decode_thread(filepath);
+		mp3_decode_init(filepath,NULL);
 	}
 }
 
@@ -726,7 +726,7 @@ static void MP3_replay(lv_event_t * e)
 			char filepath[64];
 			os_sprintf(filepath,"0:mp3/%s",lv_label_get_text(label));
 			os_printf("filepath:%s\n",filepath);
-			mp3_decode_init(filepath, NULL);
+			mp3_decode_init(filepath,NULL);
 		}
 
 	}
@@ -2487,7 +2487,7 @@ void page_rec_analyze(lv_event_t * e){
 
 }
 
-volatile uint8  printer_action = 0;
+extern volatile uint8  printer_action;
 extern volatile uint8_t itp_finish;
 extern uint32_t get_takephoto_thread_status();
 void page_takephoto_analyze(lv_event_t * e){

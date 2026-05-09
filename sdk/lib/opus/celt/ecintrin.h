@@ -68,7 +68,7 @@ static __inline int ec_bsr(unsigned long _x){
 # include "dsplib.h"
 # define EC_CLZ0    (31)
 # define EC_CLZ(_x) (_lnorm(_x))
-#elif __GNUC_PREREQ(3,4)
+#elif 0
 # if INT_MAX>=2147483647
 #  define EC_CLZ0    ((int)sizeof(unsigned)*CHAR_BIT)
 #  define EC_CLZ(_x) (__builtin_clz(_x))

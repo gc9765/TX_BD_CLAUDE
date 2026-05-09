@@ -2,142 +2,93 @@
 #include "typesdef.h"
 #include "adkey.h"
 #include "keyScan.h"
- 
-#include "dev/adc/hgadc_v0.h"
+
 #include "hal/gpio.h"
 #include "osal/string.h"
 
 
-static void key_adkey_init(key_channel_t *key,uint8_t enable)
-{
-    adkey_t *adkey = (adkey_t *)key->priv;
-    struct hgadc_v0 *adc = (struct hgadc_v0*)dev_get(HG_ADC0_DEVID);
+/*********************************************************
+ *  拍学机 PA1 电源键 — GPIO 模式
+ *
+ *  参考: intercom_test_v3/sdk/lib/key/iokey.c
+ *
+ *  PA1 为电源开关键，按下接 VCC（高电平），松开通过外部下拉为低。
+ *  使用 GPIO 读取电平，不经过 ADC。
+ *
+ *  按键行为:
+ *    - 长按 → 关机 (软件检测长按后调用 power_off)
+ *    - 短按 → UI 功能键
+ *
+ *  PA1 按键电路: SW7 → R53(33K) → PA1, R56(100K) pulldown to GND
+ *  按下时: GPIO = 1 (高电平)
+ *  松开时: GPIO = 0 (低电平)
+ ************************************************************/
 
-    
-    if(enable)
-    {
-        adc_open((struct adc_device *)adc);	
-        gpio_set_mode(adkey->pin,adkey->pull,adkey->pull_level);
-        adc_add_channel((struct adc_device *)adc, adkey->pin);	
-        os_printf("%s:%d\n",__FUNCTION__,__LINE__);
-        adkey->priv = (void*)adc;
+/* 与参考工程 iokey.h 保持一致 */
+struct iokey_t {
+    void   *priv;
+    uint32  pin;
+    uint8   pull;
+    uint8   pull_level;
+    uint8   invert;        /* 1=高电平表示按下, 0=低电平表示按下 */
+    uint8   keycode;
+};
+
+/* 与参考工程 iokey.c init 完全一致: 只调 gpio_set_mode */
+static void key_iokey_init(key_channel_t *key, uint8_t enable)
+{
+    struct iokey_t *iokey = (struct iokey_t *)key->priv;
+
+    if (enable) {
+        gpio_set_mode(iokey->pin, iokey->pull, iokey->pull_level);
+        os_printf("[iokey] init pin=%d pull=%d\n", iokey->pin, iokey->pull);
         key->enable = 1;
-    }
-    else
-    {
-        adc_open((struct adc_device *)adc);	
-        adc_delete_channel((struct adc_device *)adc, adkey->pin);
-        os_printf("%s:%d\n",__FUNCTION__,__LINE__);
-        adkey->priv = (void*)adc;
+    } else {
+        gpio_set_mode(iokey->pin, GPIO_PULL_NONE, 0);
+        os_printf("[iokey] deinit pin=%d\n", iokey->pin);
         key->enable = 0;
     }
-
-
 }
 
-static uint8 key_adkey_scan(key_channel_t *key)
+/* 与参考工程 iokey.c scan 完全一致 */
+static uint8 key_iokey_scan(key_channel_t *key)
 {
-    adkey_t *adkey = (adkey_t *)key->priv;
-    uint32 vol;
-    struct adkey_scan_code *key_scan = (struct adkey_scan_code*)key->key_table;
-    adc_get_value((struct adc_device *)adkey->priv, adkey->pin, &vol);
-	//os_printf("vol:%d\t%X\n",vol,adkey->pin);
-    //记录当前adc的值,用与发送到应用层,至于应用层是否需要,由应用层去管理
-    key->extern_value = vol;
-    for(;;)
-    {
-        if(vol>=key_scan->adc)
-        {
-            key_scan++;
-        }
-        else
-        {
-            key_scan--;
-            break;
-        }
+    struct iokey_t *iokey = (struct iokey_t *)key->priv;
+    uint32 gpio_val = gpio_get_val(iokey->pin);
+    key->extern_value = gpio_val;
+
+    if (iokey->invert) {
+        /* 反相: 高电平表示按下 */
+        return gpio_val ? iokey->keycode : KEY_NONE;
+    } else {
+        /* 正常: 低电平表示按下 */
+        return gpio_val ? KEY_NONE : iokey->keycode;
     }
-    //printf("key_scan->key:%d\tvol:%d\n",key_scan->key,vol);
-    return key_scan->key;
 }
 
 
-
-
-
-
-
-
-/*********************************************************
- *                      adkey的参数配置
- * 
-    default: 4080
-    up:536
-    down:0
-    left:1682
-    right:1100
-    press:2200
-    A:3915
-    B:3345
-    C:2800
-    D:NULL
-默认开发板先检查每一个按键的值,然后大概每一个ad-100填到下表
-************************************************************/
-#if 0
-static const struct adkey_scan_code adkey_table[] = 
-{
-	{0,     AD_DOWN},
-	{400,   AD_UP},
-	{1000,  AD_RIGHT},
-	{1500,  AD_LEFT},
-    {2100,  AD_PRESS},
-	{2700,  AD_C},
-	{3200,  AD_B},
-    {3800,  AD_A},
-    {4000,  KEY_NONE},
-    {4096,  KEY_NONE},
-};
-#else
-
-static const struct adkey_scan_code adkey_table[] = 
-{
-	{0,     AD_A},
-	{900,  AD_B},
-	{1800,  AD_C},
-	{2800,  AD_D},
-    //{3900,  AD_PRESS},
-    {3950,  KEY_NONE},
-    {4096,  KEY_NONE},
-};
-
-#endif
-
-static const keys_t adkey_arg = 
-{
-    .period_long     = 500,
+static const keys_t iokey_arg = {
+    .period_long     = 1000,  /* 长按判定 1s (关机触发) */
     .period_repeat   = 1000,
-    .period_dither = 80,
+    .period_dither   = 80,
 };
 
-
-static adkey_t adkey= {
-  .priv = NULL,
-  .pin  = PA_1,
-  .pull = GPIO_PULL_NONE,
-  .pull_level = GPIO_PULL_LEVEL_NONE,
+/* PA1 电源键: 外部已有 R56(100K) 下拉，无需芯片内部下拉 */
+static struct iokey_t iokey_power = {
+    .priv       = NULL,
+    .pin        = PA_1,
+    .pull       = GPIO_PULL_NONE,
+    .pull_level = GPIO_PULL_LEVEL_NONE,
+    .invert     = 1,          /* 高电平 = 按下 */
+    .keycode    = AD_C,       /* 映射到 AD_C，在 app_key.c 中转为 KEY_ID_POWER */
 };
 
-
-
-//外部调用
-key_channel_t adkey_key2 = 
-{
-  .init       = key_adkey_init,
-  .scan       = key_adkey_scan,
-  .prepare    = NULL,
-  .priv       = (void*)&adkey,
-  .key_arg    = &adkey_arg,//按键的参数,可能不同的类型按键,参数不一样
-  .key_table  = &adkey_table,
+/* 外部调用 — 名称保持 adkey_key2 与 keyWork.c 中 button_channels[] 一致 */
+key_channel_t adkey_key2 = {
+    .init       = key_iokey_init,
+    .scan       = key_iokey_scan,
+    .prepare    = NULL,
+    .priv       = (void *)&iokey_power,
+    .key_arg    = &iokey_arg,
+    .key_table  = NULL,       /* GPIO 按键不需要 lookup table */
 };
-
-
-

@@ -16,6 +16,7 @@ struct ausrc_prm {
 	uint8_t    ch;          /**< Number of channels         */
 	uint32_t   ptime;       /**< Wanted packet-time in [ms] */
 	int        fmt;         /**< Sample format (enum aufmt) */
+    int buffer_maxsz;
 };
 
 typedef void (ausrc_read_h)(const void *sampv, size_t sampc, void *arg);

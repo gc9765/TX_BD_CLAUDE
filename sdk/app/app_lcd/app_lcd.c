@@ -79,11 +79,11 @@ static void lcd_timeout1(uint32 irq_flag,uint32 irq_data,uint32 param1){
 
 //暂时没有作处理
 static void lcd_te_isr1(uint32 irq_flag,uint32 irq_data,uint32 param1){
-    os_printf("%s:%d\n",__FUNCTION__,__LINE__);
+//    os_printf("%s:%d\n",__FUNCTION__,__LINE__);
     struct app_lcd_s *lcd_s= (struct app_lcd_s *)irq_data;
 	struct lcdc_device *lcd_dev;	
 	lcd_dev = lcd_s->lcd_dev;
-    os_printf("--------------------------------------------te---------------------------------\r\n");
+//    os_printf("--------------------------------------------te---------------------------------\r\n");
 }
 
 static void lcd_squralbuf_done1(uint32 irq_flag,uint32 irq_data,uint32 param1)

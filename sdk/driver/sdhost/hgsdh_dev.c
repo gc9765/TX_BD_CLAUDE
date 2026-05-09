@@ -31,8 +31,9 @@ struct hgsdh_hw
 #endif	
 };
 
-
-static uint8 sdhc_cmd_rsp_buf[32]__attribute__ ((aligned(4)));
+extern uint32_t __sdhc_cmd_buff;
+volatile uint8 *sdhc_cmd_rsp_buf = NULL;
+//static uint8 sdhc_cmd_rsp_buf[32]__attribute__ ((aligned(4),section(".dsleep")));
 #if TXW81X
 static uint8 sdhc_dat_ping_buf0[512];
 static uint8 sdhc_dat_ping_buf1[512];
@@ -847,7 +848,7 @@ int32 sdh_close(struct sdh_device *sdhost)
 int32 sdh_suspend(struct sdh_device *sdhost)
 {
 	struct hgsdh *sdh_hw = (struct hgsdh*)sdhost; 
-	struct hgsdh_hw *hw  = (struct hgsdh_hw *)sdh_hw->hw;
+	struct hgsdh_hw *hw =  (struct hgsdh_hw *)sdh_hw->hw;
 	struct hgsdh_hw *hw_cfg;
     if (!sdh_hw->opened || sdh_hw->dsleep)
     {
@@ -888,16 +889,13 @@ int32 sdh_resume(struct sdh_device *sdhost)
 	struct hgsdh *sdh_hw = (struct hgsdh*)sdhost; 
 	struct hgsdh_hw *hw =  (struct hgsdh_hw *)sdh_hw->hw;
 	struct hgsdh_hw *hw_cfg;
-
     if ((!sdh_hw->opened) || (!sdh_hw->dsleep)) {
         return RET_OK;
     }
-
     if (0 > os_mutex_lock(&sdhost->bp_resume_lock, 10000)) 
     {
         return RET_ERR;
     }
-
 	sysctrl_sdhc_clk_open();
 	hw_cfg = (struct hgsdh_hw*)sdhost->cfg_backup;
 	//memcpy((uint8 *)hw,(uint8 *)sdhost->cfg_backup,sizeof(struct hgsdh_hw));	
@@ -925,12 +923,13 @@ void hgsdh_attach(uint32 dev_id, struct hgsdh *sdhost)
 {
     sdhost->dev.open                  = sdh_open;
     sdhost->dev.close                 = sdh_close;
+    //sdhost->dev.init                  = sdh_init;
     sdhost->dev.iocfg                 = sdh_cfg;
     sdhost->dev.cmd                   = sdh_cmd;
     sdhost->dev.write                 = sdh_write;
     sdhost->dev.read                  = sdh_read;   
     sdhost->dev.complete              = sdh_complete;   
-
+    sdhc_cmd_rsp_buf                  = (void *)&__sdhc_cmd_buff;
     memset(&sdhost->dev.dat_sema,0,sizeof(sdhost->dev.dat_sema));
 #ifdef CONFIG_SLEEP
     sdhost->dev.suspend               = sdh_suspend;

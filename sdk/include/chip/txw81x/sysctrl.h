@@ -48,26 +48,41 @@ extern "C" {
 #define EFUSE_5_10M_DIS_SIZE            1       //bit 2
 
 //芯片封装定义
-#define PACK_811_100                    0x01
-#define PACK_812_310                    0x02
-#define PACK_813_320                    0x03
-#define PACK_816_G00                    0x06    //QFN48
-    #define PACK_816_G00_FIX            0xF6    //QFN48 ， 改启动模式补救PCBA
-#define PACK_KL908                      0x07    //QFN48 PACK_816_G00 基础上增加VCC18 LDO封装
-    #define PACK_KL908F                 0x16    //QFN48
-#define PACK_816_810                    0x08    //QFN48
-#define PACK_817_810                    0x0A
-#define PACK_817_H24                    0x0B
-#define PACK_817_824                    0x0C
-#define PACK_817_812                    0x0D
-#define PACK_817_824F                   0x0F
-#define PACK_818_C04L                   0x10
-#define PACK_818_C08L                   0x11
-#define PACK_818_C016L                  0x12  
-#define PACK_818_C04F                   0x13
-#define PACK_818_C04LB                  0x14
-#define PACK_818_C08LP                  0x15
-#define PACK_817_824_GD                 0x1C
+#define PACK_811_100                     0x01
+#define PACK_812_310                     0x02
+#define PACK_813_320                     0x03
+#define PACK_817_500                     0x04
+#define PACK_817_504                     0x05
+#define PACK_816_G00                     0x06    //QFN48
+    #define PACK_816_G00_FIX             0xF6    //QFN48 ， 改启动模式补救PCBA
+#define PACK_KL908                       0x07    //QFN48 PACK_816_G00 基础上增加VCC18 LDO封装
+    #define PACK_KL908F                  0x16    //QFN48
+#define PACK_816_810                     0x08    //QFN48
+#define PACK_816_8H0                     0x09    //QFN48
+#define PACK_817_810                     0x0A
+#define PACK_817_H24                     0x0B
+#define PACK_817_824                     0x0C
+#define PACK_817_812                     0x0D
+#define PACK_817_824F                    0x0F
+#define PACK_818_C04L                    0x10
+#define PACK_818_C08L                    0x11
+#define PACK_818_C016L                   0x12  
+#define PACK_818_C04F                    0x13
+#define PACK_818_C04FB                   0x14
+#define PACK_818_C08LP                   0x15
+#define PACK_KL908F                      0x16
+#define PACK_818_C04LB                   0x1A   
+#define PACK_818_C04FB_CY                0x1B
+#define PACK_818_C12FP                   0x21
+#define PACK_817_824B                    0x22
+#define PACK_818_C04FP                   0x30
+#define PACK_818_C44F                    0x31
+#define PACK_818_C48F                    0x33
+#define PACK_817_824_GD                  0x1C
+#define PACK_818_MCUC04L                 0x90
+#define PACK_818_MCUC08L                 0x91
+#define PACK_818_MCUC04LB                0x92
+
 
 struct __clock_cfg {
     uint8  clk_source_sel;
@@ -746,13 +761,18 @@ int32 sys_set_sysclk(uint32 system_clk);
 
 void mcu_reset(void);
 void mcu_watchdog_timeout(uint8 tmo_sec);
+int32 pmu_watchdog_timeout(uint8 tmo_sec);
+uint32 mcu_watchdog_static(uint8 pinrtf_en);
 void mcu_watchdog_timeout_level(uint8 level);
-void mcu_watchdog_irq_request(void *hdl);
+void mcu_watchdog_set_intr(void *hdl);
 void mcu_watchdog_feed(void);
-#ifdef CONFIG_SLEEP
-void lp_watchdog_timeout(uint8 tmo_sec);
-void lp_watchdog_feed(void);
-#endif
+
+#define FUNCTION_MAYBE_COST_TIME(func, time_s) \
+    do { uint8 tmo_bak = *(volatile unsigned int *)(WDT_BASE) & 0xF; \
+        mcu_watchdog_timeout(time_s << 1); \
+        func; \
+        mcu_watchdog_timeout_level(tmo_bak); } while (0)
+
 void system_enter_sleep(void);
 void system_exit_sleep(void);
 
@@ -839,6 +859,7 @@ int32 system_is_wifi_test_mode(void);
 void system_qspi_pretect_all(void);
 uint8 get_chip_pack(void);
 uint8 get_bios_id(void);
+int ll_xip_clock_init(int clk_mhz);
 
 #define sysctrl_dma_bridge_reset()
 

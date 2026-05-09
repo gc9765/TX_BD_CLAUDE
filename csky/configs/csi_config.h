@@ -3,26 +3,6 @@
 
 #include "sys_config.h"
 
-#ifndef OS_SYSTICK_HZ
-#define OS_SYSTICK_HZ 1000
-#endif
-
-#ifndef OS_IRQ_STACK_SIZE
-#define OS_IRQ_STACK_SIZE 1024
-#endif
-
-#ifndef OS_IDLE_TASK_STACK
-#define OS_IDLE_TASK_STACK 64 //=64*4
-#endif
-
-#ifndef OS_TIMER_TASK_STACK_SIZE
-#define OS_TIMER_TASK_STACK_SIZE 128 //=128*4
-#endif
-
-#ifndef OS_TIMER_MSG_NUM
-#define OS_TIMER_MSG_NUM 10
-#endif
-
 #define CONFIG_HAVE_VIC 1
 #define CONFIG_SUPPORT_TSPEND 1
 #define CONFIG_SEPARATE_IRQ_SP 1

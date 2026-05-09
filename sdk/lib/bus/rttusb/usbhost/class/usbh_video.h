@@ -20,6 +20,9 @@
 #define CONFIG_USBHOST_DEV_NAMELEN     16
 #define CONFIG_ALTERSETTING_MAXLEN     10
 
+#define USBH_VIDEO_MAX_FORMAT_NUM       5
+#define USBH_VIDEO_MAX_FRAME_NUM       15
+
 struct usbh_video_resolution {
     rt_uint16_t wWidth;
     rt_uint16_t wHeight;
@@ -27,7 +30,7 @@ struct usbh_video_resolution {
 };
 
 struct usbh_video_format {
-    struct usbh_video_resolution frame[12];
+    struct usbh_video_resolution frame[USBH_VIDEO_MAX_FRAME_NUM];
     rt_uint8_t format_type;
     rt_uint8_t num_of_frames;
 };
@@ -75,7 +78,7 @@ struct usbh_video {
     rt_uint16_t bcdVDC;
     rt_uint8_t num_of_intf_altsettings;
     rt_uint8_t num_of_formats;
-    struct usbh_video_format format[3];
+    struct usbh_video_format format[USBH_VIDEO_MAX_FORMAT_NUM];
     rt_uint8_t *rx_buff;
     #if USBH_VIDEO_PPB
     volatile rt_uint8_t usbh_pingpang_flag;

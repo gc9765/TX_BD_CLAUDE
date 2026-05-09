@@ -173,10 +173,15 @@ static struct dhcpd_ipaddr *dhcpd_find_ip(uint32 ip, uint8 *mac)
     return NULL;
 }
 
-static uint32 dhcpd_check_ip(uint32 ip, uint8 *mac)
+static uint32 dhcpd_check_ip_cache(uint32 ip, uint8 *mac)
 {
     struct dhcpd_ipaddr *entry = dhcpd_find_ip(ip, 0);
     return (entry ? (os_memcmp(entry->mac, mac, 6) == 0) : 1);
+}
+
+static uint32 dhcpd_check_ip_range(uint32 ip)
+{
+    return ((ip >= ntohl(dhcpd->param.start_ip) && ip <= ntohl(dhcpd->param.end_ip)));
 }
 
 static uint32 dhcpd_netcmp(uint32 ip)
@@ -347,7 +352,9 @@ static void dhcpd_task_eloop(void *ei, void *d)
             dhcp_opt = dhcpd->recvbuf + DHCP_OPTIONS_OFS;
             dhcpd_parse_opt(dhcp_opt, ret - DHCP_OPTIONS_OFS, &dhcpd->info);
             if (dhcpd->info.msg_type == DHCP_DISCOVER) {
-                if (!dhcpd_netcmp(dhcpd->info.request_ip) || !dhcpd_check_ip(dhcpd->info.request_ip, msg->chaddr)) {
+                if (!dhcpd_netcmp(dhcpd->info.request_ip) ||
+                     !dhcpd_check_ip_range(dhcpd->info.request_ip) ||
+                     !dhcpd_check_ip_cache(dhcpd->info.request_ip, msg->chaddr)) {
                     dhcpd->info.request_ip = 0;
                 }
                 dhcpd_send_offer(msg);
@@ -356,11 +363,13 @@ static void dhcpd_task_eloop(void *ei, void *d)
                 if (dhcpd->info.request_ip == 0) {
                     dhcpd->info.request_ip = ntohl(msg->ciaddr.addr);
                 }
-                if(dhcpd->info.request_ip && dhcpd_netcmp(dhcpd->info.request_ip)){
-                    if(!dhcpd_check_ip(dhcpd->info.request_ip, msg->chaddr)){
+                if (dhcpd->info.request_ip) {
+                    if (!dhcpd_netcmp(dhcpd->info.request_ip)) {
+                        // ignore
+                    } else if (!dhcpd_check_ip_range(dhcpd->info.request_ip) ||
+                                !dhcpd_check_ip_cache(dhcpd->info.request_ip, msg->chaddr)){
                         dhcpd_send_nak(msg);
-                    }
-                    else{
+                    } else {
                         dhcpd_send_ack(msg);
                         SYSEVT_NEW_NETWORK_EVT(SYSEVT_DHCPD_NEW_IP, dhcpd->info.request_ip);
                         dhcpd_dump_ippool();

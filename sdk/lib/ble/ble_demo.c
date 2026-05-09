@@ -32,6 +32,7 @@
 #include "hal/gpio.h"
 #include "hal/uart.h"
 #include "hal/crc.h"
+#include "hal/netdev.h"
 
 #include "lib/heap/sysheap.h"
 #include "lib/common/common.h"

@@ -1,8 +1,6 @@
   memset                              = 0X00000584; 
   memcpy                              = 0X00000624; 
   memcmp                              = 0X000006A4; 
-  strcasecmp                          = 0X0000232C; 
-  strncasecmp                         = 0X00002370; 
   ll_qspi_xip_erase                   = 0X0000680C; 
   ll_qspi_xip_read                    = 0X00006854; 
   ll_qspi_xip_write                   = 0X00006898; 

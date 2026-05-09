@@ -516,7 +516,7 @@ static rt_err_t _function_enable(ufunction_t func)
     _vcom_reset_state(func);
 
     data = (struct vcom*)func->user_data;
-    data->ep_out->buffer = rt_malloc(CDC_RX_BUFSIZE);
+    data->ep_out->buffer = rt_malloc(CDC_RX_BUFSIZE + USB_RX_BUFF_RESERVE_SIZE);
     RT_ASSERT(data->ep_out->buffer != RT_NULL);
 
     data->ep_out->request.buffer = data->ep_out->buffer;

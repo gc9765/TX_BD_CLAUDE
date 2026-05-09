@@ -238,6 +238,11 @@ enum hgic_cmd {
     HGIC_CMD_SET_HOST_MONITOR       =  185,
     HGIC_CMD_SET_DMA_SCATTER        =  186,
     HGIC_CMD_SET_BLE_LLPKT_LEN      =  187,
+    HGIC_CMD_SET_SLEEP_ROAMING      =  188,
+    HGIC_CMD_SET_EDCA_LIMIT_MAX     =  189,
+    HGIC_CMD_SET_EDCA_SLOT_TIME     =  190,
+    HGIC_CMD_SET_NAV_LIMIT_MAX      =  191,
+    HGIC_CMD_SET_SIGNAL_THRESHOLD   =  192,	
 };
 
 enum hgic_event {

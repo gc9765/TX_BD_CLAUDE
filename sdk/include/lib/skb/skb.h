@@ -1,8 +1,6 @@
 #ifndef _HGIC_SKB_H_
 #define _HGIC_SKB_H_
 
-//#define SKB_TRACE
-
 #include "lib/skb/skbuff.h"
 #include "lib/skb/skbpool.h"
 

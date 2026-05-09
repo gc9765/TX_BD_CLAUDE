@@ -25,7 +25,7 @@ MEMORY
 		SRAM0   : ORIGIN = 0x20041000 , LENGTH = 0x2c00   /*SRAM0 16 - 4KB - 1k*/
     SRAM   : ORIGIN = 0x20000004 , LENGTH = 0x3fffc    /* on-chip SRAM 288KB */
    /* SRAM   : ORIGIN = 0x38000000 , LENGTH = 0x400000 */
-    FLASH  : ORIGIN = 0x18000000 , LENGTH = 0x200000 
+    FLASH  : ORIGIN = 0x18000000 , LENGTH = 0x800000 
     PSRAM  : ORIGIN = 0x38000000 , LENGTH = 0x400000 
 }
 
@@ -33,7 +33,8 @@ __heap_size = 0x11000;
 
 PROVIDE (__ram_end  = 0x20040000);
 PROVIDE (__heap_end = 0x20040000);
-PROVIDE (__sleep_data_start = 0x20040004);
+PROVIDE (__sdhc_cmd_buff = 0x20040100);
+PROVIDE (__sleep_data_start = 0x20040180);
 PROVIDE (__sleep_data_stop  = 0x20040a00);
 PROVIDE (__psram_heap_end = 0x38400000);
 
@@ -117,6 +118,7 @@ SECTIONS
     	__data0_start__ = . ;
         __dsleep_start = .;
  		*(.dsleep.*)
+		*(.dsleep2.*)
 		. = ALIGN(0x4) ;
 	    __dsleep_end = .;
         __data0_end__ = . ;

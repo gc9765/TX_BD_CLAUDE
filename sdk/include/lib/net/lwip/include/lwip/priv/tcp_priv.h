@@ -500,6 +500,10 @@ s16_t tcp_pcbs_sane(void);
 #  define tcp_pcbs_sane() 1
 #endif /* TCP_DEBUG */
 
+int lwip_get_tcp_segq_len(struct tcp_seg *seg, int *seg_tot_len);
+const char *tcp_get_state_str(enum tcp_state s);
+void tcp_debug_print_all_pcbs(void);
+
 /** External function (implemented in timers.c), called when TCP detects
  * that a timer is needed (i.e. active- or time-wait-pcb found). */
 void tcp_timer_needed(void);

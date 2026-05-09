@@ -15,5 +15,8 @@ extern uint32 sdk_version;
 extern uint32 svn_version;
 extern uint32 app_version;
 
+uint32 scatter_size(scatter_data *data, uint32 count);
+uint8 *scatter_offset(scatter_data *data, uint32 count, uint32 off);
+
 #endif
 

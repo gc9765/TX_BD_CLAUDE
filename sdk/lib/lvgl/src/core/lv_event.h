@@ -93,7 +93,7 @@ typedef enum {
 #endif // LV_USE_MSG
 
     _LV_EVENT_LAST,               /** Number of default events*/
-    LV_EVENT_STYLE_REFRESH,
+
 
     LV_EVENT_PREPROCESS = 0x80,   /** This is a flag that can be set with an event so it's processed
                                       before the class default event processing */

@@ -186,20 +186,49 @@ int32 os_sched_enbale(void)
     return 0;
 }
 
+struct os_task *os_task_hdl2tsk(void *hdl)
+{
+    ktask_t *task = (ktask_t *)hdl;
+    return (task && task->arg) ? ((struct os_task *)task->arg) : NULL;
+}
+
 void *os_task_data(void *hdl)
 {
     ktask_t *task = (ktask_t *)hdl;
     return (void *)task->arg;
 }
 
+/* 大栈阈值：超过此值时自动从 PSRAM 分配 */
+#define PSRAM_STACK_THRESHOLD  (30 * 1024)
+
 void *os_task_create(const char *name, os_task_func_t func, void *args, uint32 prio, uint32 time, void *stack, uint32 stack_size)
 {
     k_task_handle_t hdl = NULL;
     uint32 priority = os_task_set_priority(NULL, prio);
+    void *psram_stack = NULL;
+
+    /* 未指定栈且请求较大时，从 PSRAM 分配 */
+    if (stack == NULL && stack_size >= PSRAM_STACK_THRESHOLD) {
+        extern void *custom_zalloc_psram(int size);
+        psram_stack = custom_zalloc_psram(stack_size);
+        if (psram_stack) {
+            stack = psram_stack;
+            os_printf("[os_task_create] %s stack %u from PSRAM\r\n",
+                      name ? name : "NULL", stack_size);
+        }
+    }
+
     int32 ret = csi_kernel_task_new(func, name, args, priority, time, stack, stack_size, &hdl);
     if(ret == RET_OK){
         if(prio & OS_TASK_FLAGS_LPRUN){
             csi_kernel_task_set_lprun(hdl, 1);
+        }
+    } else {
+        os_printf("[os_task_create] FAIL: name=%s stack=%p size=%u ret=%d\r\n",
+                  name ? name : "NULL", stack, stack_size, ret);
+        if (psram_stack) {
+            extern void custom_free_psram(void *ptr);
+            custom_free_psram(psram_stack);
         }
     }
     ASSERT(!ret);

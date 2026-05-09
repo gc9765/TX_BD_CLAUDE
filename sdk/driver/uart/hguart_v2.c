@@ -987,9 +987,10 @@ int32 hguart_v2_attach(uint32 dev_id, struct hguart_v2 *uart)
     uart->use_dma         = 0;
     uart->irq_hdl         = NULL;
     uart->irq_data        = 0;
+	uart->flag = 0;
     uart->dev.dev.ops     = (const struct devobj_ops *)&uart_v2_ops;
 #ifdef CONFIG_SLEEP
-    uart->flag = 0;
+    
 #endif
     irq_disable(uart->irq_num);
     dev_register(dev_id, (struct dev_obj *)uart);

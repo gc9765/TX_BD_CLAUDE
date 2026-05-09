@@ -3,10 +3,17 @@
 
 #ifdef RT_USBH_CDC
 
-static struct uclass_driver cdc_driver;
-volatile ucdc_data_t cdc_d;
+#ifdef RT_USBH_CDC_THREAD
+#define EVENT_CDC_DATA_START (1 << 0)
+#define EVENT_CDC_DATA_END   (1 << 1)
+
+static ucdc_data_t cdc_d;
+static rt_event_t cdc_data_event;
 uint8_t buff_out[64] __attribute__((aligned(4)));
-uint8_t buff_in[64] __attribute__((aligned(4)));
+uint8_t buff_in[64 + USB_RX_BUFF_RESERVE_SIZE] __attribute__((aligned(4)));
+#endif
+
+static struct uclass_driver cdc_driver;
 
 rt_err_t rt_usbh_cdc_send_command(uinst_t device, void* buffer, int nbytes)
 {
@@ -190,12 +197,176 @@ static rt_err_t rt_usbh_get_CDC_interface_descriptor(ucfg_desc_t cfg_desc, int n
     return -RT_EIO;
 }
 
+#ifdef RT_USBH_CDC_THREAD
+
+int32 demo_atcmd_cdc_trans_ctrl(const char *cmd, char *argv[], uint32 argc)
+{
+    if(*argv[0] == '1') {
+        rt_usbh_cdc_trans_init();
+    } else if(*argv[0] == '2') {
+        rt_usbh_cdc_trans_deinit();
+    }
+	printf("OK/n");
+    return 0;
+}
+
+void rt_usbh_cdc_trans_init()
+{
+    if (cdc_data_event != RT_NULL) {
+        rt_event_send(cdc_data_event, EVENT_CDC_DATA_START);
+    }
+}
+
+void rt_usbh_cdc_trans_deinit()
+{
+    if (cdc_data_event != RT_NULL) {
+        rt_event_send(cdc_data_event, EVENT_CDC_DATA_END);
+    }
+}
+
+
+static void rt_usbh_cdc_communication_thread(void* arg)
+{
+    int i;
+    struct uhintf **intf = arg;
+    //uhcd_t hcd = NULL;
+    //uintf_desc_t intf_desc;
+    int timeout = USB_TIMEOUT_BASIC;
+    rt_uint32_t e;
+    struct usb_cdc_line_coding *line_coding = (struct usb_cdc_line_coding *)rt_malloc(sizeof(struct usb_cdc_line_coding) + USB_RX_BUFF_RESERVE_SIZE);
+    if(line_coding == RT_NULL)
+    {
+        rt_kprintf("rt_usbh_cdc_communication_thread malloc line_coding failed\n");
+        goto __exit;
+    }
+    os_printf("rt_usbh_cdc_communication_thread arg:%x\n",arg);
+
+    cdc_d->thread_state = 1;
+    cdc_d->line_coding = line_coding;
+
+    while(1)
+    {
+        if (rt_event_recv(cdc_data_event, EVENT_CDC_DATA_START | EVENT_CDC_DATA_END, 
+                          RT_EVENT_FLAG_OR | RT_EVENT_FLAG_CLEAR, 
+                          1000, &e) != RT_EOK)
+        {
+            continue;
+        }
+
+        if (e & EVENT_CDC_DATA_START)
+        {
+
+        }else if(e & EVENT_CDC_DATA_END)
+        {
+            goto __exit;
+        }else
+        {
+            continue;
+        }
+
+        os_printf("cdc translate strat\n");
+
+        memset(line_coding, 0, sizeof(struct usb_cdc_line_coding));
+        rt_usbh_cdc_get_line_coding(intf[0]->device, intf[0]->intf_desc->bInterfaceNumber, line_coding);
+        analysis_cdc_line_coding(line_coding);
+
+        line_coding->dwDTERate = BAUD_RATE_2000000;
+        line_coding->bCharFormat = STOP_BITS_1;
+        line_coding->bParityType = PARITY_NONE;
+        line_coding->bDataBits = DATA_BITS_8;
+
+        rt_usbh_cdc_set_line_coding(intf[0]->device, intf[0]->intf_desc->bInterfaceNumber, line_coding);
+        analysis_cdc_line_coding(line_coding);
+
+        memset(line_coding, 0, sizeof(struct usb_cdc_line_coding));
+        rt_usbh_cdc_get_line_coding(intf[0]->device, intf[0]->intf_desc->bInterfaceNumber, line_coding);
+
+        rt_usbh_cdc_set_control_line_state(intf[0]->device, intf[0]->intf_desc->bInterfaceNumber, RT_NULL, 0);
+        analysis_cdc_line_coding(line_coding);
+
+        if(cdc_d->pipe_in == RT_NULL && cdc_d->pipe_out == RT_NULL)
+        {
+            for(i = 0; i < intf[1]->intf_desc->bNumEndpoints; i++)
+            {
+                uep_desc_t ep_desc;
+                upipe_t pipe;
+                rt_usbh_get_endpoint_descriptor(intf[1]->intf_desc, i, &ep_desc);
+                if(ep_desc == RT_NULL)
+                {
+                    rt_kprintf("rt_usb_get_endpoint_descriptor error\n");
+                    return ;
+                }
+                analysis_usb_ep_desc(ep_desc); //获取端点描述符 打印端点描述符信息
+                /* the endpoint type of mass storage class should be BULK */
+                if((ep_desc->bmAttributes & USB_EP_ATTR_TYPE_MASK) != USB_EP_ATTR_BULK)
+                    continue;
+                
+                if (rt_usb_hcd_alloc_pipe(intf[0]->device->hcd, &pipe, intf[0]->device, ep_desc) != RT_EOK) {
+                    rt_kprintf("alloc pipe failed\n");
+                    return ;
+                }
+    
+                rt_usb_instance_add_pipe(intf[0]->device, pipe);
+    
+                if ((ep_desc->bEndpointAddress & USB_DIR_MASK) == USB_DIR_IN) {
+                    cdc_d->pipe_in = pipe;
+                    os_printf("cdc_d->pipe_in:%x pipe:%x\n",cdc_d->pipe_in,pipe);
+                } else {
+                    cdc_d->pipe_out = pipe;
+                    os_printf("cdc_d->pipe_out:%x pipe:%x\n",cdc_d->pipe_out,pipe);
+                }     
+    
+            }
+        }
+
+        if(cdc_d->pipe_in != RT_NULL && cdc_d->pipe_out != RT_NULL)
+        {
+            buff_out[0] = 0xAA;
+            buff_out[1] = 0x55;
+            buff_out[2] = 0xD1;
+            buff_out[3] = 0x00;
+            buff_out[4] = 0x00;
+            buff_out[5] = 0x00;
+            buff_out[6] = 0x00;
+            buff_out[7] = 0x00;
+            buff_out[8] = 0x00;
+            buff_out[9] = 0xD0;
+    
+            memset(buff_in,0,10);
+    
+            rt_usb_hcd_pipe_xfer(intf[0]->device->hcd, cdc_d->pipe_out, buff_out, 64, timeout);
+    
+            rt_usb_hcd_pipe_xfer(intf[0]->device->hcd, cdc_d->pipe_in, buff_in, 64, timeout); 
+    
+            for(int i = 0; i < 10; i++)
+            {
+                printf("buff_in[%d]:%x\n",i,buff_in[i]);
+            }
+        }
+    }
+
+__exit:
+
+    if (cdc_d->line_coding != RT_NULL)
+    {
+        rt_free(cdc_d->line_coding);
+        cdc_d->line_coding = RT_NULL;
+    }
+
+    rt_thread_suspend(cdc_d->thread);
+    cdc_d->thread_state = 0;
+
+    return ;
+}
+
+#endif
+
 static rt_err_t rt_usbh_cdc_enable(void *arg)
 {
     struct uhintf **intf = arg;
     uhcd_t hcd = NULL;
 
-    if (intf == NULL) {
+    if (intf[0] == NULL) {
         return -EIO;
     }
 
@@ -204,93 +375,32 @@ static rt_err_t rt_usbh_cdc_enable(void *arg)
         intf[0]->intf_desc->bInterfaceSubClass,
         intf[0]->intf_desc->bInterfaceProtocol);
 
-#ifdef RT_USBH_UVC
-    int i;
-    struct usb_cdc_line_coding line_coding;
-    upipe_t pipe;
-    uintf_desc_t intf_desc = RT_NULL;
-
+#ifdef RT_USBH_CDC_THREAD
     cdc_d = rt_malloc(sizeof(struct ucdc_data));
     if(cdc_d == RT_NULL)
     {
         rt_kprintf("allocate cdc_d memory failed\n");
         return -RT_ENOMEM;
     }
-    os_printf("cdc_d:%x\n",cdc_d);
-
-    cdc_d->line_coding = &line_coding;
-    cdc_d->device = intf[0]->device;
 
     rt_memset(cdc_d, 0, sizeof(struct ucdc_data));
+
+    cdc_d->device = intf[0]->device;
+
+    os_printf("cdc_d:%x  cdc_d->device:%x hcd:%x\n",cdc_d,cdc_d->device,cdc_d->device->hcd);
+
     intf[0]->user_data = (void *)cdc_d;
 
-    rt_usbh_cdc_get_line_coding(intf[0]->device, intf[0]->intf_desc->bInterfaceNumber, &line_coding);
+    os_printf("rt_usbh_cdc_enable arg:%x\n",arg);
 
-    analysis_cdc_line_coding(&line_coding);
+    cdc_data_event = rt_event_create("cdc_data_event", RT_IPC_FLAG_FIFO);
 
-    line_coding.dwDTERate = BAUD_RATE_2000000;
-    line_coding.bCharFormat = STOP_BITS_1;
-    line_coding.bParityType = PARITY_NONE;
-    line_coding.bDataBits = DATA_BITS_8;
-
-    rt_usbh_cdc_set_line_coding(intf[0]->device, intf[0]->intf_desc->bInterfaceNumber, &line_coding);
-
-
-    analysis_cdc_line_coding(&line_coding);
-
-    rt_usbh_cdc_get_line_coding(intf[0]->device, intf[0]->intf_desc->bInterfaceNumber, &line_coding);
-
-    rt_usbh_cdc_set_control_line_state(intf[0]->device, intf[0]->intf_desc->bInterfaceNumber, RT_NULL, 0);
-
-    analysis_cdc_line_coding(&line_coding);
-
-    rt_usbh_get_CDC_interface_descriptor(intf[0]->device->cfg_desc, 1, &intf_desc);
-
-    for(i = 0; i < intf_desc->bNumEndpoints; i++)
+    cdc_d->thread = rt_thread_create("cdc_comm_thread",rt_usbh_cdc_communication_thread,arg,1024,OS_TASK_PRIORITY_NORMAL,0);
+    if(cdc_d->thread != RT_NULL)
     {
-        uep_desc_t ep_desc;
-        rt_usbh_get_endpoint_descriptor(intf_desc, i, &ep_desc);
-        if(ep_desc == RT_NULL)
-        {
-            rt_kprintf("rt_usb_get_endpoint_descriptor error\n");
-            return -RT_ERROR;
-        }
-        analysis_usb_ep_desc(ep_desc); //获取端点描述符 打印端点描述符信息
-        /* the endpoint type of mass storage class should be BULK */
-        if((ep_desc->bmAttributes & USB_EP_ATTR_TYPE_MASK) != USB_EP_ATTR_BULK)
-            continue;
-        
-        if (rt_usb_hcd_alloc_pipe(intf[0]->device->hcd, &pipe, intf[0]->device, ep_desc) != RT_EOK) {
-            rt_kprintf("alloc pipe failed\n");
-            return -RT_ERROR;
-        }
+        rt_thread_startup(cdc_d->thread);
+    } 
 
-        rt_usb_instance_add_pipe(intf[0]->device, pipe);
-
-        if ((ep_desc->bEndpointAddress & USB_DIR_MASK) == USB_DIR_IN) {
-            cdc_d->pipe_in = pipe;
-            os_printf("cdc_d->pipe_in:%x pipe:%x\n",cdc_d->pipe_in,pipe);
-        } else {
-            cdc_d->pipe_out = pipe;
-            os_printf("cdc_d->pipe_out:%x pipe:%x\n",cdc_d->pipe_out,pipe);
-        }     
-
-    }
-
-    buff_out[0] = 0xAA;
-    buff_out[1] = 0x55;
-    buff_out[2] = 0xF1;
-
-    rt_usb_hcd_pipe_xfer(intf[0]->device->hcd, cdc_d->pipe_out, buff_out, 8, 0);
-
-    memset(buff_in,0,8);
-
-    rt_usb_hcd_pipe_xfer(intf[0]->device->hcd, cdc_d->pipe_in, buff_in, 8, 0);
-
-    for(int i = 0; i < 8; i++)
-    {
-        printf("buff_in[%d]:%x\n",i,buff_in[i]);
-    }
 #endif
 
     return RET_OK;
@@ -298,17 +408,37 @@ static rt_err_t rt_usbh_cdc_enable(void *arg)
 
 static rt_err_t rt_usbh_cdc_disable(void *arg)
 {
-#ifdef RT_USBH_UVC
-    struct uhintf *intf = arg;
+    // struct uhintf *intf = arg;
 
-    if (intf == NULL) {
-        return -EIO;
+#ifdef RT_USBH_CDC_THREAD
+
+    rt_usbh_cdc_trans_deinit();
+
+    while(!cdc_d->thread_state)
+    {
+        rt_thread_delay(1);
+    }
+
+    if(cdc_d->thread != RT_NULL)
+    {
+        rt_thread_delete(cdc_d->thread);
+        cdc_d->thread = RT_NULL;
+    }
+
+    if(cdc_data_event != RT_NULL)
+    {
+        rt_event_delete(cdc_data_event);
+        cdc_data_event = RT_NULL;
     }
 
     if(cdc_d != RT_NULL)
+    {
         rt_free(cdc_d);
+        cdc_d = RT_NULL;
+    }
 
 #endif
+
     return RET_OK;
 }
 

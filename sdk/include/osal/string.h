@@ -34,7 +34,7 @@ void *_os_realloc(void *ptr, int size);
 void *_os_calloc(size_t nmemb, size_t size);
 
 void *_os_malloc_t(int size, const char *func, int line);
-void _os_free_t(void *ptr);
+void _os_free_t(void *ptr, const char *func, int line);
 void *_os_zalloc_t(int size, const char *func, int line);
 void *_os_realloc_t(void *ptr, int size, const char *func, int line);
 void *_os_calloc_t(size_t nmemb, size_t size, const char *func, int line);
@@ -46,14 +46,10 @@ void *_os_realloc_psram(void *ptr, int size);
 void *_os_calloc_psram(size_t nmemb, size_t size);
 
 void *_os_malloc_psram_t(int size, const char *func, int line);
-void _os_free_psram_t(void *ptr);
+void _os_free_psram_t(void *ptr, const char *func, int line);
 void *_os_zalloc_psram_t(int size, const char *func, int line);
 void *_os_realloc_psram_t(void *ptr, int size, const char *func, int line);
 void *_os_calloc_psram_t(size_t nmemb, size_t size, const char *func, int line);
-
-void mem_free_rec(void *addr, void *lr);
-void mem_alloc_rec(void *addr, void *lr);
-void mem_reclist_dump(void);
 
 #ifdef M2M_DMA
 void hw_memcpy(void *dest, const void *src, uint32 size);
@@ -103,9 +99,10 @@ int32 os_strtok(char *str, char *separator, char *argv[], int argv_size);
 void disable_print(int8 dis);
 void disable_print_color(int8 dis);
 void hgprintf(const char *fmt, ...);
+void hgvprintf(const char *fmt, va_list ap);
 void hgprintf_out(char *str, int32 len, uint8 level);
 
-typedef void (*osprint_hook)(void *priv, char *msg);
+typedef void (*osprint_hook)(void *priv, char *msg, int len);
 void print_redirect(osprint_hook hook, void *priv);
 
 int32 hexchr2int(char c);
@@ -114,11 +111,16 @@ int32 hex2bin(char *hex, uint8 *buf, uint32 len);
 void str2mac(char *macstr, uint8 *mac);
 uint32 str2ip(char *ipstr);
 void dump_hex(char *str, uint8 *data, uint32 len, int32 newline);
-void dump_memory(char *title, uint32 *data, uint32 len);
 void dump_key(char *str, uint8 *key, uint32 len, uint32 sp);
-void key_str(uint8 *key, uint32 key_len, uint8 *str_buf);
+void dump_memory(char *title, uint32 *addr, uint32 len);
+void key_str(uint8 *key, uint32 key_len, char *str_buf);
 void *os_memdup(const void *ptr, uint32 len);
 int32 os_random_bytes(uint8 *data, int32 len);
+
+void mem_free_rec(void *addr, void *lr);
+void mem_alloc_rec(void *addr, void *lr);
+void mem_reclist_dump(void);
+
 
 extern int snprintf(char *str, size_t size, const char *format, ...);
 extern int sprintf(char *string, const char *format, ...);

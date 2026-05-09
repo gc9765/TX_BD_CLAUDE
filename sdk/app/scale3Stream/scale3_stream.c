@@ -77,6 +77,7 @@ int32_t scale3_stream_done(uint32 irq_flag,uint32 irq_data,uint32 param1)
     struct scale3Stream *scale3_stream = (struct scale3Stream *)irq_data;
     struct data_structure  *data;
     uint8_t *p_buf;
+    {static int _sc3_cnt=0;if(++_sc3_cnt%30==1)os_printf("[sc3]done #%d s=%X\n",_sc3_cnt,(uint32)scale3_stream->s);}
     data = get_src_data_f(scale3_stream->s);
     //os_printf("%s:%d\tdata:%X\n",__FUNCTION__,__LINE__,data);
     //找不到新的空间,则返回,使用旧空间

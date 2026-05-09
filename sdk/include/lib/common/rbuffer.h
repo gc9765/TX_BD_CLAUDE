@@ -78,6 +78,13 @@ extern "C" {
         __ret__;\
     })
 
+#define RB_SET_F(rb, val) ({\
+        if(RB_FULL(rb)) (rb)->rpos = RB_NPOS((rb), rpos, 1);\
+        (rb)->rbq[(rb)->wpos] = val;\
+        (rb)->wpos = RB_NPOS((rb), wpos, 1);\
+        1;\
+    })
+
 /*get a value from ringbuffer in interrupt*/
 #define RB_INT_GET(rb, val) ({\
         uint8 __ret__ = 0;\
@@ -104,12 +111,14 @@ extern "C" {
         __ret__;\
     })
 
-#define RB_INT_RESET(rb) do{\
+#define RB_INT_SET_F(rb, val) ({\
         uint32 flag = disable_irq(); \
-        (rb)->rpos = 0;\
-        (rb)->wpos = 0;\
+        if(RB_FULL(rb)) (rb)->rpos = RB_NPOS((rb), rpos, 1);\
+        (rb)->rbq[(rb)->wpos] = val;\
+        (rb)->wpos = RB_NPOS((rb), wpos, 1);\
         enable_irq(flag);\
-    }while(0)
+        1;\
+    })
 
 /*ringbuffer init*/
 #define RB_INIT(rb, size) do{\
@@ -141,6 +150,32 @@ void  rbuffer_destroy(struct rbuffer *rb);
 void  rbuffer_reset(struct rbuffer *rb);
 int32 rbuffer_alloc(struct rbuffer *rb, uint32 size);
 void  rbuffer_free(struct rbuffer *rb);
+
+////////////////////////////////////////////////////////////////
+// 硬件模块可使用的ringbuffer, 默认仅支持 "1读-1写" 模式
+// 如果要支持 "多读-多写" 模式，需要打开 HWRB_IRQ 宏定义: 关中断后访问ringbuffer
+// 可支持 2~N 个小buffer乒乓使用，max_size 决定了每个乒乓小buffer的大小
+//#define HWRB_IRQ
+struct hwrbuffer {
+    uint32 rpos, wpos, qsize, ipos;
+    uint16 min_size, max_size;
+    uint8 *buff;
+};
+
+//初始化 ringbuffer:
+//  max_size: 可写数据的buffer最大长度，大于此长度，则切分buffer使用
+//  min_size: 可写数据的buffer最小长度，小于此长度，则忽略调过此buffer，使用下一块buffer
+void hwrbuffer_init(struct hwrbuffer *rb, uint8 *buff, uint32 size, uint16 max_size, uint16 min_size);
+
+//更新写地址 并 获取下一个可写的buffer地址 和 长度
+//buff: 需要更新的buffer地址，并输出 下一个可写的buffer地址
+//size: 需要更新的buffer长度，并输出 下一个可写的buffer长度
+void hwrbuffer_update_wpos(struct hwrbuffer *rb, uint8 **buff, uint32 *size);
+
+//更新读地址
+//buff: 更新已读取数据的buffer地址
+//size: 更新已读取数据的buffer长度
+void hwrbuffer_update_rpos(struct hwrbuffer *rb, uint8 *buff, uint32 size);
 
 #ifdef __cplusplus
 }

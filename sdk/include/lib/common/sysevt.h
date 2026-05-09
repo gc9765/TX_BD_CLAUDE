@@ -22,7 +22,7 @@ enum SYSEVT_MAINID { /* uint16 */
     SYS_EVENT_SYSTEM,
     SYS_EVENT_BLE,
     SYS_EVENT_LTE,
-    SYS_EVENT_LLM,
+    SYS_EVENT_MULTIMEDIA,
 
     ////////////////////////////////////
     SYSEVT_MAINID_ID,
@@ -60,6 +60,7 @@ enum SYSEVT_WIFI_SUBEVT { /* uint16 */
     SYSEVT_WIFI_TX_FAIL,           //wifi tx fail, event data: data tag setted by ieee80211_conf_set_datatag.
     SYSEVT_WIFI_UNPAIR,            //unpaired, event data:0
     SYSEVT_WIFI_WRONG_KEY,         //wifi password is wrong. event data:0
+    SYSEVT_WIFI_P2P_DONE,          //p2p wsc done. update wifi syscfg
 };
 #define SYSEVT_NEW_WIFI_EVT(subevt, data)    sys_event_new(SYS_EVENT(SYS_EVENT_WIFI, subevt), data)
 
@@ -95,12 +96,12 @@ enum SYSEVT_LTE_SUBEVT { /* uint16 */
 };
 #define SYSEVT_NEW_LTE_EVT(subevt, data) sys_event_new(SYS_EVENT(SYS_EVENT_LTE, subevt), data)
 
+
 //////////////////////////////////////////
-enum SYSEVT_LLM_SUBEVT { /* uint16 */
-    SYSEVT_LLM_CHAT_FAIL = 1,
-    SYSEVT_LLM_STT_FAIL,
-    SYSEVT_LLM_TTS_FAIL,
+enum SYSEVT_MULTIMEDIA_SUBEVT { /* uint16 */
+    SYSEVT_MULTIMEDIA_OPEN_FAIL = 1,
+    SYSEVT_MULTIMEDIA_READ_EOF,
 };
-#define SYSEVT_NEW_LLM_EVT(subevt, data) sys_event_new(SYS_EVENT(SYS_EVENT_LLM, subevt), data)
+#define SYSEVT_NEW_MULTIMEDIA_EVT(subevt, data) sys_event_new(SYS_EVENT(SYS_EVENT_MULTIMEDIA, subevt), data)
 
 #endif

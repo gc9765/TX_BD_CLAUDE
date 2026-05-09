@@ -148,4 +148,3 @@ void rbuffer_free(struct rbuffer *rb)
     os_free(rb->rbq);
 }
 
-

@@ -17,14 +17,14 @@ extern "C" {
 #endif
 
 struct os_work;
-typedef int32(*os_work_func_t)(struct os_work *work);
+typedef int32 (*os_work_func_t)(struct os_work *work);
 typedef void (*os_run_func_t)(uint32 param1, uint32 parma2, uint32 param3);
 
 struct os_work {
     struct list_head list;
     struct os_workqueue *wkq;
-    uint32 running: 1, alloc : 1, delay: 1, pri: 5, init: 1, rev: 7;
-    uint32 schedule;
+    uint16 running: 1, alloc : 1, delay: 1, pri: 5, init: 1, rev: 7;
+    uint16 schedule;
     uint64 expired;
     os_work_func_t func;
 };
@@ -42,17 +42,6 @@ struct os_workqueue {
     uint64 run_jiff;
 };
 
-#define OS_WORK_INIT(work, function, priority) do{\
-        os_memset(work, 0, sizeof(struct os_work));\
-        (work)->init = 1;\
-        (work)->func = function;\
-        (work)->pri  = ((priority)&0x1f);\
-    }while (0)
-
-#define OS_WORK_REINIT(work) do{\
-        (work)->init = 1;\
-    }while (0)
-
 int32 mainwkq_monitor_init(void);
 
 int32 os_workqueue_init(struct os_workqueue *wkq, char *name, uint16 priority, uint16 stack_size);
@@ -64,6 +53,8 @@ int32 os_run_func(os_run_func_t func, uint32 param1, uint32 param2, uint32 param
 int32 os_run_func_delay(os_run_func_t func, uint32 param1, uint32 param2, uint32 delay_ms);
 int32 os_run_work(struct os_work *work);
 int32 os_run_work_delay(struct os_work *work, uint32 delay_ms);
+int32 OS_WORK_INIT(struct os_work *work, os_work_func_t func, int32 priority);
+int32 OS_WORK_REINIT(struct os_work *work);
 
 #endif
 

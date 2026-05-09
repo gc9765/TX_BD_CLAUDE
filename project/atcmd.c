@@ -24,13 +24,13 @@ int32 sys_atcmd_sysdbg(const char *cmd, char *argv[], uint32 argc)
     }
 }
 
-extern void brtc_cmd(const char *cmd, char *argv[], uint32 argc);
 static const struct hgic_atcmd static_atcmds[] = {
     { "AT+RST", sys_atcmd_reset },
     { "AT+GOTOBOOT", sys_atcmd_goto_boot },
     { "AT+SYSDBG", sys_atcmd_sysdbg },
     { "AT+LOADDEF", sys_atcmd_loaddef },
     { "AT+REBOOT_TEST", sys_wifi_atcmd_reboot_test_mode },
+    { "AT+HEAP", sys_heap_dump_hdl },
 
     /*TESTMODE ATCMD*/
     { "AT+BSS_BW", atcmd_bss_bw_hdl },
@@ -69,7 +69,7 @@ static const struct hgic_atcmd static_atcmds[] = {
     { "AT+PCF_CHN", atcmd_pcf_chn_hdl },
 #ifdef CONFIG_SLEEP
     { "AT+SLEEP_DBG", atcmd_sleep_dbg_hdl },
-    { "AT+SLEEP_ALG", atcmd_sleep_alg_hdl },
+    //{ "AT+SLEEP_ALG", atcmd_sleep_alg_hdl },
     { "AT+SLEEP", atcmd_sleep_hdl },
     { "AT+DTIM", atcmd_dtim_hdl },
 #endif
@@ -92,16 +92,16 @@ static const struct hgic_atcmd static_atcmds[] = {
     //{ "AT+PING", sys_atcmd_ping},
     //{ "AT+ICMPMNTR", sys_atcmd_icmp_mntr},
     //{ "AT+IPERF2", sys_atcmd_iperf2},
-    {"AT+SAVE_AUDIO",demo_atcmd_save_audio},
-    {"AT+SAVE_PHOTO",demo_atcmd_save_photo},
-    {"AT+SAVE_AVI",demo_atcmd_save_avi},
-    {"AT+SAVE_H264",demo_atcmd_save_h264},
-    {"AT+OTA",demo_atcmd_sd_ota},
-	{"AT+PLAY_AUDIO",demon_atcmd_play_audio},
+    // {"AT+SAVE_AUDIO",demo_atcmd_save_audio},
+    // {"AT+SAVE_PHOTO",demo_atcmd_save_photo},
+    // {"AT+SAVE_AVI",demo_atcmd_save_avi},
+    // {"AT+SAVE_H264",demo_atcmd_save_h264},
+    // {"AT+OTA",demo_atcmd_sd_ota},
+	// {"AT+PLAY_AUDIO",demon_atcmd_play_audio},
 	//{"AT+RSO",demo_atcmd_select_resolution},
-    { "AT+OSD", demo_atcmd_save_osd},
-	{"AT+PLAY_MP3",demon_atcmd_play_mp3},
-	{"AT+BRTC_CMD",brtc_cmd},
+    // { "AT+OSD", demo_atcmd_save_osd},
+	// {"AT+PLAY_MP3",demon_atcmd_play_mp3},
+	//{"AT+UPLOAD_PHOTO",coze_atcmd_upload_photo},
 
 #if BLE_METER_TEST_EN    
     {"AT+BLE_START", atcmd_ble_start_hdl},

@@ -63,7 +63,7 @@ struct player_ui_s
     stream *avi_s;
     lv_timer_t *timer;
     lv_obj_t * label_time;
-    uint8_t *play_name;
+    char *play_name;
 
 };
 
@@ -119,7 +119,7 @@ static void enter_playback(lv_event_t * e)
     os_printf("play filename:%s\n",filename);
     os_sprintf(path,"0:%s/%s",CHECK_DIR,filename);
 
-    ui_s->play_name = (uint8_t*)STREAM_MALLOC(PLAY_AVI_STREAM_NAME);
+    ui_s->play_name = (char*)STREAM_MALLOC(PLAY_AVI_STREAM_NAME);
     os_sprintf(ui_s->play_name,"%s_%04d",filename,(uint32_t)os_jiffies());
     os_printf("stream play_name:%s\n",ui_s->play_name);
     ui_s->avi_s = newavi_player_init((const char *)ui_s->play_name,(const char *)path);

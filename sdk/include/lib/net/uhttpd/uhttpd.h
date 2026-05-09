@@ -55,6 +55,7 @@ void uhttpd_stop(void);
 ////////////////////////////////////////////////////////////////////////////
 int32 uhttpd_send_resp(int32 sock, uint32 status, uint8 gzip, char *values, int vlen);
 int32 uhttpd_resp_status(int32 sock, char *resp, uint8 status);
+int32 uhttpd_options_resp(int32 sock, char *origin);
 void uhttpd_proc_post(int32 sock, uint32 client_ip, char *buf, uint32 len);
 void uhttpd_proc_get(int32 sock, uint32 client_ip, char *buf, uint32 len);
 const struct uhttpd_html *uhttpd_find_html(char *url);
@@ -63,6 +64,7 @@ const struct uhttpd_value_entry *uhttpd_find_value(char *name);
 void uhttpd_proc_auth_action(int32 sock, uint32 client_ip, char *buf, uint32 len);
 int32 uhttpd_check_auth(int32 sock, uint32 client_ip, char *buff, uint32 len);
 void uhttpd_proc_post_action(int32 sock, uint32 client_ip, char *buf, uint32 len);
+void uhttpd_proc_options(int32 sock, uint32 client_ip, char *buff, uint32 len);
 void uhttpd_proc_firmware_upg(int32 sock, uint32 client_ip, char *buf, uint32 size);
 
 

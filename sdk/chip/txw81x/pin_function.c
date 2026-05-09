@@ -405,7 +405,6 @@ static int xspi_pin_func(int dev_id, int request)
 #define GPIO_D  (0x40020D00)
 #define GPIO_E  (0x40020E00)
 
-#define REG_GPIO_DIR_INPUT(port, n)      (*(volatile unsigned int*)(port+0x00)) &= ~(3<<(n<<1))
 #define REG_GPIO_PDL_100(port, n)        (*(volatile unsigned int*)(port+0x18)) |= BIT(((n-0)<<2))
 #define REG_GPIO_PDH_100(port, n)        (*(volatile unsigned int*)(port+0x1C)) |= BIT(((n-8)<<2))
 
@@ -418,7 +417,7 @@ static int xspi_pin_func(int dev_id, int request)
     }
     
     switch (psram_type) {
-        case 0: //APS1604M_3SQR,
+        case 0:
             if (!switch_off) {
                 //这里不能随意修改,外置psram配置,并且只能开机调用一次(特殊处理)
                 *((volatile uint32_t*)0x40020180) = 0x00004000; //IOFUNCMASK0
@@ -437,10 +436,10 @@ static int xspi_pin_func(int dev_id, int request)
                 REG_GPIO_DIR_INPUT(GPIO_A, 14);
             }
             break;
-        case 1: // APS1604M_DQRA,
+        case 1:
             /* not support */
             break;
-        case 2: //APS3208K_OKUD,
+        case 2:
             if (!switch_off) {
                 REG_GPIO_PDL_100(GPIO_E, 4);
 
@@ -463,7 +462,7 @@ static int xspi_pin_func(int dev_id, int request)
                 ); 
             }
             break;
-        case 3: //APS6408L_OBMx,
+        case 3:
             if (!switch_off) {
                 REG_GPIO_PDL_100(GPIO_E, 4);
 
@@ -518,6 +517,11 @@ static int xspi_pin_func(int dev_id, int request)
                                              OSPI_MAP0_D0(14) | OSPI_MAP0_D1(13) | OSPI_MAP0_D2(12) | OSPI_MAP0_D3(11);
                     SYSCTRL->OSPI_MAP_CTL1 = 0xFFFF0000 | OSPI_MAP1_D4(10) | OSPI_MAP1_D5(9) | OSPI_MAP1_D6(8) | OSPI_MAP1_D7(7);
                 );
+//                SYSCTRL_REG_OPT(
+//                    SYSCTRL->OSPI_MAP_CTL0 = OSPI_MAP0_CLK(13) | OSPI_MAP0_DQS(12) | OSPI_MAP0_DM(12) | OSPI_MAP0_CS(14) |
+//                                             OSPI_MAP0_D0(4) | OSPI_MAP0_D1(5) | OSPI_MAP0_D2(6) | OSPI_MAP0_D3(7);
+//                    SYSCTRL->OSPI_MAP_CTL1 = 0xFFFF0000 | OSPI_MAP1_D4(8) | OSPI_MAP1_D5(9) | OSPI_MAP1_D6(10) | OSPI_MAP1_D7(11);
+//                );
                 /**
                  * PE16_IE  [0]       PE16_OE  [1]      PE16_DRV  [2]    PE16_PD  [3]     PE16_PU  [4]      PE_OUT_DATA  [5]     PE_CLKn[6]
                  */
@@ -542,16 +546,23 @@ static int xspi_pin_func(int dev_id, int request)
                 /**
                  * PE16_IE  [0]       PE16_OE  [1]      PE16_DRV  [2]    PE16_PD  [3]     PE16_PU  [4]      PE_OUT_DATA  [5]     PE_CLKn[6]
                  */
-                //SYSCTRL_REG_OPT( SYSCTRL->PE16CON = (0x1<<1) | (0x1<<5); );// rst  = 1
-                SYSCTRL_REG_OPT( SYSCTRL->PE16CON = 0x40000101; );// rst  = 1
+                REG_GPIO_PUH_100(0x40020e00, 15); //rst = 1
                 SYSCTRL_REG_OPT( SYSCTRL->SYS_CON15 = (SYSCTRL->SYS_CON15 & ~(0x1<<14)) | (1<<14); );
                 SYSCTRL_REG_OPT( SYSCTRL->SYS_CON15 = (SYSCTRL->SYS_CON15 & ~(0x1<<15)) | (1<<15); );
+                uint8_t pack = get_chip_pack();
+                if (pack == 0x1B) {
+                    SYSCTRL_REG_OPT(
+                        SYSCTRL->OSPI_MAP_CTL0 = OSPI_MAP0_CLK(8) | OSPI_MAP0_DQS(4) | 
+                            OSPI_MAP0_DM(4) | OSPI_MAP0_CS(10) | OSPI_MAP0_D0(13) | 
+                            OSPI_MAP0_D1(14) | OSPI_MAP0_D2(11) | OSPI_MAP0_D3(12);
+                    );
+                }
             } else {
                 SYSCTRL_REG_OPT( 
                     SYSCTRL->OSPI_MAP_CTL1 = 0;
                 ); 
             }
-            break;
+            break;  
         default:
             ret = EINVAL;
             break;
@@ -1077,10 +1088,6 @@ static int sdh_pin_func(int dev_id, int request)
                     gpio_set_mode(PIN_SDH_DAT2, GPIO_PULL_UP, GPIO_PULL_LEVEL_100K);
                     gpio_set_mode(PIN_SDH_DAT3, GPIO_PULL_UP, GPIO_PULL_LEVEL_100K);
                 }
-
-
-
-
                 gpio_iomap_output(PIN_SDH_CLK, GPIO_IOMAP_OUT_SDHOST_SCLK_O);
                 gpio_iomap_inout(PIN_SDH_CMD, GPIO_IOMAP_IN_SDHOST_CMD_IN, GPIO_IOMAP_OUT_SDHOST_CMD_OUT);
                 gpio_iomap_inout(PIN_SDH_DAT0, GPIO_IOMAP_IN_SDHOST_DAT0_IN, GPIO_IOMAP_OUT_SDHOST_DAT0_OUT);
@@ -1188,5 +1195,55 @@ int pin_func(int dev_id, int request)
     user_pin_func(dev_id, request);
     sysctrl_lock();
     return ret;
+}
+
+__init void gpio_cfg(struct gpio_cfg_info *gpio_info, uint32 info_size)
+{
+    uint32_t GPIO_BASE[] = {
+        HG_GPIOA_BASE, HG_GPIOB_BASE, HG_GPIOC_BASE, HG_GPIOE_BASE,
+    };
+    for (int i = 0;i<info_size/sizeof(gpio_info[0]);i++)
+    {
+        uint32_t port;
+        uint32_t pin;
+        if (gpio_info[i].pin == 0xFF)
+            continue;
+
+        port = GPIO_BASE[(gpio_info[i].pin / 16)];
+        pin  = (gpio_info[i].pin % 16);
+
+        if (gpio_info[i].dir) {
+            REG_GPIO_DIR_OUTPUT(port, pin);
+            if (gpio_info[i].data) {
+                REG_GPIO_SET(port, pin);
+            }
+        } else {
+            REG_GPIO_DIR_INPUT(port, pin);
+        }
+
+
+        if (gpio_info[i].mode < GPIO_OPENDRAIN_PULL_NONE) {
+            REG_GPIO_PUSH_PULL(port, pin);
+        } else {
+            REG_GPIO_OPEN_DRAIN(port, pin);
+        }
+
+        // pull-up/pull-down
+        if ((gpio_info[i].mode % 3) == 1) {
+            if (pin >= 8) {
+                REG_GPIO_PUH_100(port, pin);
+            } else {
+                REG_GPIO_PUL_100(port, pin);
+            }
+        } else if ((gpio_info[i].mode % 3) == 2) {
+            if (pin >= 8) {
+                REG_GPIO_PDH_100(port, pin);
+            } else {
+                REG_GPIO_PDL_100(port, pin);
+            }
+        }
+    }
+	extern void delay_us(uint32 n);
+    delay_us(100);
 }
 

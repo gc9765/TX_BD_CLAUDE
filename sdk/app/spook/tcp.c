@@ -529,7 +529,13 @@ static void do_accept( void *ei, void *d )
 	}
 	#endif
 	int keepalive = 1;
-	setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepalive , sizeof(keepalive));
+	int keepidle = 10;
+	int keepintvl = 3;
+	int keepcnt = 3;
+	setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepalive, sizeof(keepalive));
+	setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, (void *)&keepidle, sizeof(keepidle));
+	setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&keepintvl, sizeof(keepintvl));
+	setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, (void *)&keepcnt, sizeof(keepcnt));
 
 	c = (struct conn *)malloc( sizeof( struct conn ) );
 	_os_printf("%s c:%X\n",__FUNCTION__,(int)c);

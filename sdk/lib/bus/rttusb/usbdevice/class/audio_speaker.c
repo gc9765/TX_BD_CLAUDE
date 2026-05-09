@@ -362,7 +362,7 @@ void speaker_entry(void *parameter)
     struct rt_audio_caps caps = {0};
     rt_uint32_t e, index;
 
-    speaker.buffer = rt_malloc(AUDIO_BUFFER_SZ);
+    speaker.buffer = rt_malloc(AUDIO_BUFFER_SZ + USB_RX_BUFF_RESERVE_SIZE);
     if (speaker.buffer == RT_NULL)
     {
         os_printf("speaker buffer malloc failed\n");

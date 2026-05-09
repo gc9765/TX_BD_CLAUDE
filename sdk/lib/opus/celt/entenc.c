@@ -25,7 +25,7 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#if defined(HAVE_CONFIG_H)
+#if defined(HAVE_OPUS_CONFIG_H)
 # include "opus_config.h"
 #endif
 #include "os_support.h"

@@ -32,7 +32,7 @@ void read_strh_strf(void *fp,struct avi_msg_s *avi_msg)
             if(strncasecmp((void*)&(stream.fccType)  ,"vids",4) == 0)
             {
                 video_or_audio = 0;
-                avi_msg->fps = stream.dwRate;
+                avi_msg->fps = (stream.dwRate + (stream.dwScale >> 2))/stream.dwScale;
             }
             else if(strncasecmp((void*)&(stream.fccType)  ,"auds",4) == 0)
             {

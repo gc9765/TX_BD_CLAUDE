@@ -433,7 +433,7 @@ ip4_input_accept(struct netif *netif)
  * @return ERR_OK if the packet was processed (could return ERR_* if it wasn't
  *         processed, but currently always returns ERR_OK)
  */
-err_t 
+err_t
 ip4_input(struct pbuf *p, struct netif *inp)
 {
     const struct ip_hdr *iphdr;

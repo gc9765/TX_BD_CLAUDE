@@ -17,7 +17,7 @@ extern "C" {
 #define os_malloc(s) _os_malloc_t(s, __FUNCTION__, __LINE__)
 #endif
 #ifndef os_free
-#define os_free(p)   do{ _os_free_t((void *)p); (p)=NULL;}while(0)
+#define os_free(p)   do{ _os_free_t((void *)p, __FUNCTION__, __LINE__); (p)=NULL;}while(0)
 #endif
 #ifndef os_zalloc
 #define os_zalloc(s) _os_zalloc_t(s, __FUNCTION__, __LINE__)
@@ -32,7 +32,7 @@ extern "C" {
 #define os_malloc_psram(s) _os_malloc_psram_t(s, __FUNCTION__, __LINE__)
 #endif
 #ifndef os_free_psram
-#define os_free_psram(p)   do{ _os_free_psram_t((void *)p); (p)=NULL;}while(0)
+#define os_free_psram(p)   do{ _os_free_psram_t((void *)p,__FUNCTION__, __LINE__); (p)=NULL;}while(0)
 #endif
 #ifndef os_zalloc_psram
 #define os_zalloc_psram(s) _os_zalloc_psram_t(s, __FUNCTION__, __LINE__)
@@ -91,7 +91,7 @@ extern "C" {
 #define os_memset(s,c,n)   memset((void *)(s), c, n)
 #define os_memcpy(d,s,n)   memcpy((void *)(d), (const void *)(s), n)
 #define os_memmove(d,s,n)  memmove((void *)(d), (const void *)(s), n)
-#define os_sprintf(s, ...) sprintf((char *)(s), __VA_ARGS__)
+#define os_sprintf         sprintf
 #define os_vsnprintf       vsnprintf
 #define os_snprintf        snprintf
 #endif

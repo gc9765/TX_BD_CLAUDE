@@ -11,8 +11,6 @@
 #include "lwip/tcpip.h"
 #include "netif/ethernetif.h"
 #include "lib/common/sysevt.h"
-#include "lib/umac/ieee80211.h"
-#include "syscfg.h"
 
 #ifdef RT_USBH_VENDOR_CHINAMOBILE
 
@@ -24,8 +22,6 @@
 static char recv_str[CHINAMOBILE_ATCMD_BUFF_SIZE];
 
 static struct uclass_driver chinamobile_driver;
-
-__weak void mifi_led_control(rt_int16_t rsrq, rt_int16_t rssi){};
 
 static rt_bool_t send_recv_atcmd_check(void *context, const char *send_str,
             const char *check_str, char *ret_str)
@@ -140,7 +136,6 @@ static void chinamobile_network_info(void *context, char *recv_str)
             num_dl = os_atoi(argv[10]);
             freq_dl = eutra_channel_freq_mapping(band, num_dl, 0);
             freq_ul = eutra_channel_freq_mapping(band, num_dl, 1);
-            mifi_led_control(rsrq/10, rssi/10);
             _os_printf("RSRP: %d.%d dBm\r\n", rsrp/10, os_abs(rsrp%10));
             _os_printf("RSSI: %d.%d dBm\r\n", rssi/10, os_abs(rssi%10));
             _os_printf("SINR: %d.%d dB\r\n", sinr/10, os_abs(sinr%10));
@@ -157,12 +152,9 @@ static void chinamobile_at_recv(void *context)
     struct usb_chinamobile_at *chinamobile_at = context;
 
     while (1) {
-        if (chinamobile_at->retry > 10) {
+        if (chinamobile_at->retry > 3) {
             chinamobile_at->retry = 0;
             chinamobile_at->state = CHINAMOBILE_STATE_UNKNOW;
-            send_recv_atcmd_check(chinamobile_at, "AT+MREBOOT=0\r\n", "OK", NULL);
-            os_printf("REBOOT\r\n");
-            os_sleep(1);
         }
         // os_printf("recv state:%d\r\n", chinamobile_at->state);
         switch (chinamobile_at->state) {
@@ -204,8 +196,6 @@ static void chinamobile_at_recv(void *context)
                 }
                 break;
             case CHINAMOBILE_STATE_CHECK_PDP_CONTEXT:
-                // 设置band优先级，排除band 40/41
-                send_recv_atcmd_check(chinamobile_at, "AT+MBAND=1,3,5,8,34,38,39\r\n", "OK", NULL);
                 // AT+CGDCONT查询PDP场景
                 if (send_recv_atcmd_check(chinamobile_at, "AT+CGDCONT?\r\n", "+CGDCONT: 1", NULL) == RT_TRUE) {
                     chinamobile_at->retry = 0;
@@ -220,35 +210,10 @@ static void chinamobile_at_recv(void *context)
                 // AT+MDIALUP拨号上网
                 if (send_recv_atcmd_check(chinamobile_at, "AT+MDIALUP=1,1\r\n", "+MDIALUP: 1,1,", recv_str) == RT_TRUE) {
                     chinamobile_at->retry = 0;
-                    chinamobile_at->state = CHIANMOBILE_STATE_CHECK_BAND;
+                    chinamobile_at->state = CHINAMOBILE_STATE_INITIALIZED;
                     os_printf("Get IP: %s", recv_str);
                     SYSEVT_NEW_LTE_EVT(SYSEVT_LTE_CONNECTED, 0);
                     os_printf("dial up\r\n");
-                } else {
-                    chinamobile_at->retry++;
-                    os_sleep(1);
-                }
-                break;
-            case CHIANMOBILE_STATE_CHECK_BAND:
-                if (send_recv_atcmd_check(chinamobile_at, "AT+MUESTATS=\"sband\"\r\n", "+MUESTATS:", recv_str) == RT_TRUE) {
-                    char *argv[2];
-                    int argc = 0;
-                    rt_uint8_t band = 0;
-                    chinamobile_at->retry = 0;
-                    chinamobile_at->state = CHINAMOBILE_STATE_INITIALIZED;
-                    argc = os_strtok(recv_str, ",", argv, 2);
-                    if (argc >= 2) {
-                        // "sband",39
-                        band = os_atoi(argv[1]);
-                        if (band == 40) {
-                            // 取高信道使用
-                            ieee80211_conf_set_acs(WIFI_MODE_AP, 0x1fe0, WIFI_ACS_SCAN_TIME);
-                        } else if (band == 41) {
-                            // 取低信道使用
-                            ieee80211_conf_set_acs(WIFI_MODE_AP, 0x3ff, WIFI_ACS_SCAN_TIME);
-                        }
-                    }
-                    os_printf("check band\r\n");
                 } else {
                     chinamobile_at->retry++;
                     os_sleep(1);

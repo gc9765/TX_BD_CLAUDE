@@ -140,8 +140,6 @@ void set_event_time(void *d,int msec)
 {
 	struct event* e = (struct event*)d;
 	e->ev.time.ival = msec;
-  eloop_resched_event(e, NULL);
-  eloop_wakeup();
 }
 
 EVT_HDL eloop_add_timer(int msec, unsigned int flags, event_callback f, void* d)
@@ -371,9 +369,6 @@ void user_eloop_run(void *d)
       e = list_entry(pos, struct event, list);
       if(!(e->flags & EVENT_F_RUNNING))
         continue;
-
-      if(!(e->flags & EVENT_F_ENABLED))
-        continue;
       if(els.end_loop)
         break;
       diff = time_ago(&e->ev.time.fire);
@@ -390,9 +385,6 @@ void user_eloop_run(void *d)
       e = list_entry(pos, struct event, list);
       if(!(e->flags & EVENT_F_RUNNING))
         continue;
-
-      if(!(e->flags & EVENT_F_ENABLED))
-        continue;
       if(els.end_loop)
         break;
       if(e->flags & EVENT_F_ONESHOT)
@@ -405,9 +397,6 @@ void user_eloop_run(void *d)
         e = list_entry(pos, struct event, list);
         if(!(e->flags & EVENT_F_RUNNING))
           continue;
-
-      if(!(e->flags & EVENT_F_ENABLED))
-        continue;
         if(els.end_loop)
           break;
         if(FD_ISSET(e->ev.fd.fd, e->ev.fd.write ? &wfds : &rfds)) {

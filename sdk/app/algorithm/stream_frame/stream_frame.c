@@ -1090,7 +1090,7 @@ int stream_gc_marker_timer(uint32_t t)
                     status = s->used ;
                     s->used = STREAM_WAIT_GC_CLEAN;
                     enable_irq(flag);
-                    char *name = s->name; 
+                    //char *name = s->name; 
                     
                     #ifdef STREAM_FRAME_DEBUG_GC
                     //如果这里将name设置为NULL,则可以在被清除之前也可以创建数据,但是有一个问题就是,尽量不要用类似全局,因为可能会推迟释放资源

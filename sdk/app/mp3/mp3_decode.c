@@ -12,8 +12,13 @@
 #define BUFF_SIZE   2048
 #define MAX_MP3_DECODE_TXBUF    4
 
+enum {
+    clear_event = BIT(0),
+    clear_finish_event = BIT(1),
+};
+
 struct mp3_decode_struct {
-	struct os_semaphore clean_sema;
+	struct os_event clear_event;
     struct os_task task_hdl;
     stream *mp3_stream;
     uint8_t get_first_frame;
@@ -97,9 +102,27 @@ static enum mad_flow input(void *cb_data, struct mad_stream *stream)
     int32_t ID3V2_offset = 0;
 	uint32_t unproc_data_size = 0;    /*the unprocessed data's size*/
 	struct mp3_decode_struct *s = (struct mp3_decode_struct *)cb_data;
+    uint32_t mp3_clear = 0;
 
-	if(os_sema_down(&mp3_decode_s->clean_sema, 0))
-		mad_stream_init(stream);
+input_again:
+	os_event_wait(&mp3_decode_s->clear_event, clear_event, &mp3_clear, OS_EVENT_WMODE_CLEAR|OS_EVENT_WMODE_OR, 0);
+    if(mp3_clear & clear_event) {
+		mp3_clear = 0;
+        stream->buffer     = 0;
+        stream->bufend     = 0;
+        stream->skiplen    = 0;
+        stream->sync       = 0;
+        stream->freerate   = 0;
+        stream->this_frame = 0;
+        stream->next_frame = 0;
+        mad_bit_init(&stream->ptr, 0);
+        mad_bit_init(&stream->anc_ptr, 0);
+        stream->anc_bitlen = 0;
+        stream->md_len     = 0;
+        stream->options    = 0;
+        stream->error      = MAD_ERROR_NONE;
+        os_event_set(&mp3_decode_s->clear_event, clear_finish_event, NULL);
+    }		
     mp3_buf = s->buf;
     while(!s->get_first_frame) {
         read_len = s->mp3_read(s->buf+unproc_data_size,BUFF_SIZE);
@@ -134,7 +157,6 @@ static enum mad_flow input(void *cb_data, struct mad_stream *stream)
                 continue;
             }
         } 
-
         for(uint32_t i=0; i<(s->buf_size-1); i++) {
             if( ( (mp3_buf[i] << 8) | (mp3_buf[i+1] & 0xE0) ) == 0xFFE0 ) {
                 s->get_first_frame = 1;
@@ -152,19 +174,25 @@ static enum mad_flow input(void *cb_data, struct mad_stream *stream)
         }
         os_sleep_ms(5);
     }
-    unproc_data_size += stream->bufend - stream->next_frame;
-    if(unproc_data_size)
-        os_memcpy(s->buf, s->buf+s->buf_size-unproc_data_size, unproc_data_size);
-    read_len = s->mp3_read(s->buf+unproc_data_size,BUFF_SIZE);
-    if(read_len <= 0)
-        ret_code = MAD_FLOW_STOP;
-    else {
-        s->buf_size = read_len + unproc_data_size;
-        /*Hand off the buffer to the mp3 input stream*/
-        mad_stream_buffer(stream, s->buf, s->buf_size);
-        ret_code = MAD_FLOW_CONTINUE;
+    if(next_status == MP3_PAUSE) {
+        os_sleep_ms(5);
+        goto input_again;
     }
-	unproc_data_size = 0;
+    else {
+        unproc_data_size += stream->bufend - stream->next_frame;
+        if(unproc_data_size)
+            os_memcpy(s->buf, s->buf+s->buf_size-unproc_data_size, unproc_data_size);
+        read_len = s->mp3_read(s->buf+unproc_data_size,BUFF_SIZE);
+        if(read_len <= 0)
+            ret_code = MAD_FLOW_STOP;
+        else {
+            s->buf_size = read_len + unproc_data_size;
+            /*Hand off the buffer to the mp3 input stream*/
+            mad_stream_buffer(stream, s->buf, s->buf_size);
+            ret_code = MAD_FLOW_CONTINUE;
+        }
+        unproc_data_size = 0;
+    }
     return ret_code;
 }
 
@@ -188,49 +216,36 @@ static enum mad_flow output(void *cb_data, struct mad_header const *header, stru
     right_ch   = pcm->samples[1];
 
 get_data_structure:	
-    data_s = get_src_data_f(mp3_stream);
-    if(data_s) {
-        data = (int16_t*)get_stream_real_data(data_s);;
-        while (nsamples--) {
-            sample_val = (*left_ch++);
-            data[offset] = sample_val;
-            if (nchannels == 2) {
-                sample_val = (*right_ch++);
-                data[offset] = (data[offset]+sample_val)/2;
-            }
-            offset++;
-        }
-		set_stream_real_data_len(data_s, pcm->length*2);
-		data_s->type = SET_DATA_TYPE(SOUND,SOUND_FILE);
-
-		if(s->cur_sampleRate != samplerate)
-		{
-			s->cur_sampleRate = samplerate;
-			audio_da_recfg(samplerate);
-		}
-		
-		send_data_to_stream(data_s);
-    }
-    else {
-        os_sleep_ms(1);
-		goto get_data_structure;
-	}
-
-    if(next_status == MP3_PAUSE) 
-    {
-        current_status = MP3_PAUSE;
-        while(next_status == MP3_PAUSE)
-        {
-            os_sleep_ms(1);
-        }
-    }
-
-    if(next_status == MP3_STOP)
-    {
+    if(next_status == MP3_STOP) {
         return MAD_FLOW_STOP;
     }
-    current_status = MP3_PLAY;
-  
+    else {
+        current_status = MP3_PLAY;
+        data_s = get_src_data_f(mp3_stream);
+        if(data_s) {
+            data = (int16_t*)get_stream_real_data(data_s);;
+            while (nsamples--) {
+                sample_val = (*left_ch++);
+                data[offset] = sample_val;
+                if (nchannels == 2) {
+                    sample_val = (*right_ch++);
+                    data[offset] = (data[offset]+sample_val)/2;
+                }
+                offset++;
+            }
+            set_stream_real_data_len(data_s, pcm->length*2);
+            data_s->type = SET_DATA_TYPE(SOUND,SOUND_FILE);
+            if(s->cur_sampleRate != samplerate) {
+                s->cur_sampleRate = samplerate;
+                audio_da_recfg(samplerate);
+            } 
+            send_data_to_stream(data_s);
+        }
+        else {
+            os_sleep_ms(1);
+            goto get_data_structure;
+        }
+    }
     return MAD_FLOW_CONTINUE;
 }
 
@@ -275,7 +290,7 @@ void mp3_decode_file_thread(void *d)
 	next_status = MP3_PLAY;
 	current_status = MP3_PLAY;
     mp3_play_finish = 0;
-    
+
     decode(s);
 
     clear_curmp3_info();
@@ -298,8 +313,8 @@ void mp3_decode_deinit(void)
 		osal_fclose(mp3_fp);
 		mp3_fp = NULL;
 	}
-	if(mp3_decode_s->clean_sema.hdl) 
-		os_sema_del(&mp3_decode_s->clean_sema);
+	if(mp3_decode_s->clear_event.hdl) 
+		os_event_del(&mp3_decode_s->clear_event);
 	next_status = MP3_STOP;
 	current_status = MP3_STOP;	
 }
@@ -371,8 +386,10 @@ static int opcode_func(stream *s,void *priv,int opcode)
 
 void mp3_decode_clean_stream(void)
 {
-	if(mp3_decode_s->clean_sema.hdl)
-		os_sema_up(&(mp3_decode_s->clean_sema));
+	if(mp3_decode_s && mp3_decode_s->clear_event.hdl) {
+        os_event_set(&mp3_decode_s->clear_event, clear_event, NULL);
+        os_event_wait(&mp3_decode_s->clear_event, clear_finish_event, NULL, OS_EVENT_WMODE_OR|OS_EVENT_WMODE_CLEAR, 100);
+    }	
 }
 
 void mp3_decode_init(void *d, void *read_func)
@@ -426,7 +443,7 @@ void mp3_decode_init(void *d, void *read_func)
 	}
 	mp3_decode_s->mp3_stream = mp3_stream;
 	mp3_decode_s->mp3_read = func;
-	if(os_sema_init(&mp3_decode_s->clean_sema, 0) != RET_OK) {
+	if(os_event_init(&mp3_decode_s->clear_event) != RET_OK) {
 		os_printf("%s %d err!\n",__FUNCTION__,__LINE__);
 		goto mp3_decode_init_err;
 	}

@@ -15,7 +15,6 @@ extern "C" {
 #else
 extern uint8_t assert_holdup;
 void assert_internal(const char *__function, unsigned int __line, const char *__assertion);
-//void assert_call_addr(const char *__function, unsigned int __line,void* addr);
 
 #define ASSERT(f)   do {                                                            \
                         if(!(f)) {                                                  \

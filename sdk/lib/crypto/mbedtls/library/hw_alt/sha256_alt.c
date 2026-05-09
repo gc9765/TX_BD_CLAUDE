@@ -43,6 +43,7 @@ void mbedtls_sha256_free(mbedtls_sha256_context *ctx)
 {
     // os_printf("%s  CTX: 0x%x  task:0x%x\r\n", __FUNCTION__, ctx, os_task_current());
     struct sha_pack *pack, *n;
+
     list_for_each_entry_safe(pack, n, &ctx->mgr->packs, list) {
         if(*pack->refs > 0) {
             (*pack->refs)--;

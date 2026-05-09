@@ -26,5 +26,5 @@ enum
 void mp3_decode_init(void *filename, void *read_func);
 void set_mp3_decode_status(uint8_t status);
 uint8_t get_mp3_decode_status(void);
-
+void mp3_decode_clean_stream(void);
 #endif

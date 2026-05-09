@@ -7,6 +7,19 @@
  * Date           Author            Notes
  * 2017-10-30     ZYH            the first version
  */
+
+ /* 
+针对 USB DMA RX , 需做的内存预留大小为 4 字节, 防止 DMA 内存越界引起的内存错误问题
+
+
+
+USB2.0 SIE: 
+(1) rx len % 4 == 1 实际 dma sram 会多 2 byte , 即 rx len + 2
+(2) rx len % 4 == 2 实际 dma sram 会多 1 byte , 即 rx len + 1
+(3) rx len % 4 == 0 || rx len % 4 == 3 实际 dma sram 长度与 rx len相同 , 即 rx len
+
+*/
+
 #include "drv_usbd.h"
 #include <rtthread.h>
 #include "include/usb_device.h"
@@ -34,7 +47,7 @@ static uint32 hal_pcd_bus_irq(uint32 irq, uint32 param1, uint32 param2, uint32 p
 {
     struct usb_device *p_usb_d = (struct usb_device *)param1;
     struct hgusb20_dev *p_dev = (struct hgusb20_dev *)p_usb_d;
-    uint32 ep_num = param2;
+    uint32 ep_num = param2 & 0xF;
     uint32 len    = param3;
 
     LOG_D("irq:%d %x %d %x\r\n", irq,  param1, param2, param3);
@@ -198,7 +211,7 @@ static rt_size_t _ep_write(rt_uint8_t address, void *buffer, rt_size_t size)
     address &= 0x7F;
     //printf("address:%x buffer:%x size:%d\n",address,buffer,size);
     if (address && buffer) {
-        hgusb20_dev_write(_hg_pdc, address, (uint8 *)buffer, size, 0);
+        hgusb20_dev_write(_hg_pdc, address, (uint8 *)buffer, size, 1);
     } else {
         hgusb20_dev_ep0_tx_rtt((struct hgusb20_dev *)_hg_pdc, buffer, size);
     }
@@ -332,27 +345,22 @@ int hg_usbd_register(rt_uint32_t devid)
 
     _hg_pdc = usb;
     rt_memset((void *)&_hg_udc, 0, sizeof(struct udcd));
-//    _hg_udc.parent.type = RT_Device_Class_USBDevice;
-//    _hg_udc.parent.init = _init;
-//    _hg_udc.parent.dev_id = usb;
     _hg_udc.ops = &_udc_ops;
+    
     /* Register endpoint infomation */
     _hg_udc.ep_pool = _ep_pool;
     _hg_udc.ep0.id = &_ep_pool[0];
-//#warning "this is not compatible for high & full speed host!!!"
-    /* */
+
     _hg_udc.device_is_hs = 1;
-//    rt_device_register((rt_device_t)&_hg_udc, "usbd", 0);
+
     dev_register(HG_USB_DEV_CONTROLLER_DEVID, (struct dev_obj *)&_hg_udc);
 
     rt_usb_device_init();
 
-    ///use _init instead of rt_device_init(udc);
     _init(usb);
     
     return RT_EOK;
 }
-
 
 int hg_usbd_unregister(rt_uint32_t devid)
 {

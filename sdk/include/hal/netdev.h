@@ -30,6 +30,7 @@ enum netdev_ioctl_cmd {
     NETDEV_IOCTL_ENABLE_WIFIBRIDGE,
     NETDEV_IOCTL_ENABLE_ICMPMNTR,
     NETDEV_IOCTL_CLEAR_ROUTETBL,
+    NETDEV_IOCTL_SET_TX_NONBLOCK,
 };
 
 struct netdev;
@@ -73,6 +74,7 @@ int32 netdev_mdio_read(struct netdev *ndev, uint16 phy_addr, uint16 reg_addr);
 #define netdev_hook_inputdata(ndev, data, len) netdev_ioctl(ndev, NETDEV_IOCTL_HOOK_INPUTDATA, data, len)
 #define netdev_set_wifi_bridge(ndev, en) netdev_ioctl(ndev, NETDEV_IOCTL_ENABLE_WIFIBRIDGE, en, 0)
 #define netdev_clear_routetbl(ndev) netdev_ioctl(ndev, NETDEV_IOCTL_CLEAR_ROUTETBL, 0, 0)
+#define netdev_set_tx_nonblock(ndev, nonblock) netdev_ioctl(ndev, NETDEV_IOCTL_SET_TX_NONBLOCK, nonblock, 0)
 
 
 #ifdef __cplusplus

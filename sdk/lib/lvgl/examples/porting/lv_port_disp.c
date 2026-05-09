@@ -70,6 +70,7 @@ void lv_wait_cb(struct _lv_disp_drv_t * disp_drv)
  **********************/
 ///uint8_t osd_menu565_buf[SCALE_HIGH*SCALE_WIDTH*2] __attribute__ ((aligned(4),section(".psram.src")));;
 uint8_t *osd_menu565_buf;
+volatile int g_first_frame_flushed = 0;
 
 //static lv_color_t buf_3_1[MY_DISP_HOR_RES * MY_DISP_VER_RES]__attribute__ ((aligned(4),section(".psram.src")));;            /*A screen sized buffer*/
 //static lv_color_t buf_3_2[MY_DISP_HOR_RES * MY_DISP_VER_RES]__attribute__ ((aligned(4),section(".psram.src")));;            /*Another screen sized buffer*/
@@ -136,7 +137,7 @@ void lv_port_disp_init(void *stream,uint16_t w,uint16_t h,uint8_t rotate)
     static lv_disp_drv_t disp_drv;                         /*Descriptor of a display driver*/
     lv_color_t *buf_1;
     lv_disp_drv_init(&disp_drv);                    /*Basic initialization*/
-    //重新配置一下是否旋转,由屏参数配置
+    //��������һ���Ƿ���ת,������������
     if(rotate)
     {
         disp_drv.sw_rotate   = 1;
@@ -147,18 +148,18 @@ void lv_port_disp_init(void *stream,uint16_t w,uint16_t h,uint8_t rotate)
     }
     disp_drv.rotated           = rotate;
 
-    //如果旋转,就使用单buf
+    //�����ת,��ʹ�õ�buf
     if(disp_drv.sw_rotate)
     {
         buf_1 = (lv_color_t*)lv_malloc(w*LV_PORT_DISP_LINE*sizeof(lv_color_t));
         lv_disp_draw_buf_init(&draw_buf_dsc_1, buf_1, NULL, w * LV_PORT_DISP_LINE);   /*Initialize the display buffer*/
-        //旋转,需要中间层
+        //��ת,��Ҫ�м��
         osd_menu565_buf = (uint8_t *)lv_malloc(w*h*2);
         disp_drv.flush_cb = disp_flush_rotate;
     }
     else
     {
-        //非旋转,直接绘制就好了
+        //����ת,ֱ�ӻ��ƾͺ���
         disp_drv.direct_mode = 1;
         buf_1 = (lv_color_t*)lv_malloc(w*h*sizeof(lv_color_t));
         osd_menu565_buf = (uint8_t *)buf_1;
@@ -251,7 +252,7 @@ void hw_blkcpy(uint32_t src,uint32_t src_w,uint32_t dest,uint32_t dest_w,uint32_
  *You can use DMA or any hardware acceleration to do this operation in the background but
  *'lv_disp_flush_ready()' has to be called when finished.*/
 uint8_t disp_updata = 0;
-//不需要旋转
+//����Ҫ��ת
 static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p)
 {
 
@@ -272,12 +273,13 @@ static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_colo
                 callback->finish_cb = (osd_finish_cb)lv_disp_flush_ready;
 
 				data_s->data = (void*)p_16;
-                //回写空间
+                //��д�ռ�
                 sys_dcache_clean_range(data_s->data, disp_drv->disp_buf_len); 
 				set_stream_real_data_len(data_s,disp_drv->disp_buf_len);
 				send_data_to_stream(data_s);
+							if(!g_first_frame_flushed) g_first_frame_flushed = 1;
 			}
-            //如果其他地方处理慢,要考虑丢帧了
+            //��������ط�������,Ҫ���Ƕ�֡��
             else
             {
                 if(++count%1000 == 0)
@@ -302,7 +304,7 @@ static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_colo
 #endif
 
 }
-//旋转部分
+//��ת����
 static void disp_flush_rotate(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p)
 {
 
@@ -339,12 +341,13 @@ static void disp_flush_rotate(lv_disp_drv_t * disp_drv, const lv_area_t * area, 
                 callback->finish_cb = (osd_finish_cb)lv_disp_flush_ready;
 
 				data_s->data = (void*)p_16;
-                //回写空间
+                //��д�ռ�
                 sys_dcache_clean_range(data_s->data, disp_drv->disp_buf_len); 
 				set_stream_real_data_len(data_s,disp_drv->disp_buf_len);
 				send_data_to_stream(data_s);
+							if(!g_first_frame_flushed) g_first_frame_flushed = 1;
 			}
-            //如果其他地方处理慢,要考虑丢帧了
+            //��������ط�������,Ҫ���Ƕ�֡��
             else
             {
                 if(++count%1000 == 0)

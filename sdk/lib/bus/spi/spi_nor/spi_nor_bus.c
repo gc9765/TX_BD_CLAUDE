@@ -884,7 +884,6 @@ static int32 spi_nor_xip_ioctl(struct spi_nor_flash *flash, uint32_t cmd,uint32_
 {
     return spi_ioctl(flash->spidev,cmd,param1,param2);
 }
-
 /**
   * @}
   */

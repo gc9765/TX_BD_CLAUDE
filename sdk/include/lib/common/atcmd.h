@@ -9,9 +9,13 @@ int32 sys_syscfg_dump_hdl(const char *cmd, char *argv[], uint32 argc);
 int32 sys_heap_dump_hdl(const char *cmd, char *argv[], uint32 argc);
 
 int32 sys_wifi_atcmd_set_channel(const char *cmd, char *argv[], uint32 argc);
+int32 sys_wifi_atcmd_set_bssid(const char *cmd, char *argv[], uint32 argc);
 int32 sys_wifi_atcmd_set_encrypt(const char *cmd, char *argv[], uint32 argc);
 int32 sys_wifi_atcmd_set_ssid(const char *cmd, char *argv[], uint32 argc);
 int32 sys_wifi_atcmd_set_key(const char *cmd, char *argv[], uint32 argc);
+int32 sys_wifi_atcmd_set_rssid(const char *cmd, char *argv[], uint32 argc);
+int32 sys_wifi_atcmd_set_rkey(const char *cmd, char *argv[], uint32 argc);
+int32 sys_wifi_atcmd_set_rmode(const char *cmd, char *argv[], uint32 argc);
 int32 sys_wifi_atcmd_set_wifimode(const char *cmd, char *argv[], uint32 argc);
 int32 sys_wifi_atcmd_loaddef(const char *cmd, char *argv[], uint32 argc);
 
@@ -30,9 +34,14 @@ int32 sys_atcmd_icmp_mntr(const char *cmd, char *argv[], uint32 argc);
 int32 sys_atcmd_iperf2(const char *cmd, char *argv[], uint32 argc);
 int32 sys_atcmd_goto_boot(const char *cmd, char *argv[], uint32 argc);
 int32 sys_wifi_atcmd_reboot_test_mode(const char *cmd, char *argv[], uint32 argc);
+
+int32 sys_wifi_atcmd_pcap(const char *cmd, char *argv[], uint32 argc);
 int32 sys_wifi_atcmd_wificsa(const char *cmd, char *argv[], uint32 argc);
 
 int32 udp_test_atcmd_hdl(const char *cmd, char *argv[], uint32 argc);
 int32 tcp_test_atcmd_hdl(const char *cmd, char *argv[], uint32 argc);
+
+int32 coze_atcmd_updoad_photo(const char *cmd, char *argv[], uint32 argc);
+int32 sys_atcmd_dump_sockets(const char *cmd, char *argv[], uint32 argc);
 
 #endif

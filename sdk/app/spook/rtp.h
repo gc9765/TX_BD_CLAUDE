@@ -69,6 +69,7 @@ typedef void (*pause_func)( struct session *s );
 typedef void (*teardown_func)( struct session *s, struct rtp_endpoint *ep );
 typedef void (*session_close_func)( struct session *sess );
 typedef void (*close_func)( struct session *s, struct rtp_endpoint *ep );
+typedef void (*select_func)( struct session *s, struct rtp_endpoint *ep );
 
 #define	MAX_TRACKS	2
 
@@ -81,6 +82,7 @@ struct session {
 	pause_func pause;
 	close_func closed;
 	teardown_func teardown;
+	select_func select_close;
 	void *private;
 	session_close_func control_close;
 	void *control_private;

@@ -35,7 +35,7 @@
 #define AUDIO_SET_INTF_ALTSETTING   1
 
 /* ---------------------------- MIC ---------------------------- */
-#define AUDIO_MIC_SAMPLING_FREQ         8000    //设置MIC接收的采样率
+#define AUDIO_MIC_SAMPLING_FREQ         8000     //设置MIC接收的采样率
 #define AUDIO_MIC_RESOLUTION_BITS       16       //设置MIC接收的采样精度
 #define AUDIO_MIC_MODULE_CHANNEL        1        //设置MIC接收的通道数
 
@@ -43,7 +43,7 @@
 #define AUDIO_RX_PACKET_SIZE            ((AUDIO_MIC_SAMPLING_FREQ  * AUDIO_MIC_MODULE_CHANNEL * AUDIO_MIC_RESOLUTION_BYTES) / 1000)     //计算MIC每毫秒接收的数据包大小
 
 /* ---------------------------- SPK ---------------------------- */
-#define AUDIO_SPK_SAMPLING_FREQ         8000    //设置SPK发送的采样率
+#define AUDIO_SPK_SAMPLING_FREQ         8000     //设置SPK发送的采样率
 #define AUDIO_SPK_RESOLUTION_BITS       16       //设置SPK发送的采样精度
 #define AUDIO_SPK_MODULE_CHANNEL        1        //设置SPK发送的通道数
 
@@ -791,7 +791,7 @@ static rt_err_t rt_usbh_class_driver_audio_enable(void *arg)
 
     usbh_audio_list_module(audio_class);
 
-    audio_class->rx_buff = (rt_uint8_t *)rt_malloc(AUDIO_RX_PACKET_SIZE);
+    audio_class->rx_buff = (rt_uint8_t *)rt_malloc(AUDIO_RX_PACKET_SIZE + USB_RX_BUFF_RESERVE_SIZE);
     if(audio_class->rx_buff == RT_NULL) {
         os_printf("malloc rx_buff fail\n");
         return RT_ENOMEM;
@@ -954,10 +954,22 @@ rt_uint32_t rtt_usbh_audio_dev_pipe_mange(rt_uint8_t dev_num, const char *name, 
         if ((ep_desc->bEndpointAddress & USB_DIR_MASK) == USB_DIR_IN)
         {
             audio_class->pipe_in = pipe;
+            struct hgusb20_dev *p_dev = (struct hgusb20_dev *)dev_get(HG_USBDEV_DEVID);
+            if (p_dev->usb_ctrl.bus_high_speed) {
+                hgusb20_host_set_interval(p_dev, pipe->pipe_index, 0, 4);
+            } else {
+                hgusb20_host_set_interval(p_dev, pipe->pipe_index, 0, 1);
+            }
         }
         else
         {
             audio_class->pipe_out = pipe;
+            struct hgusb20_dev *p_dev = (struct hgusb20_dev *)dev_get(HG_USBDEV_DEVID);
+            if (p_dev->usb_ctrl.bus_high_speed) {
+                hgusb20_host_set_interval(p_dev, pipe->pipe_index, 1, 4);
+            } else {
+                hgusb20_host_set_interval(p_dev, pipe->pipe_index, 1, 1);
+            }
         }
     }
     else

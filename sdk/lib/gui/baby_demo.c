@@ -46,7 +46,7 @@ extern lcd_msg lcd_info;
 extern uint16_t rx_speed,tx_speed;
 extern uint8_t dispnum;
 
-//æ·»åŠ ç”¨äºè·å–æ¥æ”¶çš„rssiç­‰ä¿¡æ¯
+//Ìí¼ÓÓÃÓÚ»ñÈ¡½ÓÊÕµÄrssiµÈĞÅÏ¢
 extern int8 bbm_rx_rssi_get(void);
 extern int8 bbm_rx_evm_get(void);
 extern uint16 bbm_rx_freq_get(void);

@@ -83,6 +83,7 @@ struct wifi_mgr {
     struct mac_bus *bus;
     struct skb_list cmdlist;
     struct skb_list up2host;
+    struct skb_list cachedata;
     struct os_work  work;
     struct os_mutex lock;
     struct os_timer timer;
@@ -107,7 +108,7 @@ struct wifimgr_submod {
 };
 
 struct sk_buff *wifi_mgr_alloc_resp(struct sk_buff *skb, int8 *data, int32 len);
-void wifi_mgr_print2host(void *priv, char *msg);
+void wifi_mgr_print2host(void *priv, char *msg, int len);
 int32 wifi_mgr_notify_host(struct wifi_mgr *mgr, uint8 event_id, uint8 *args, int32 len);
 int32 wifi_mgr_buswrite_cmdresp(struct wifi_mgr *mgr, struct sk_buff *skb, int status);
 int32 wifi_mgr_buswrite_data(struct wifi_mgr *mgr, uint8 *data, uint32 len, uint32 flags);
@@ -120,12 +121,12 @@ void wifi_mgr_status(void);
 
 int32 wifi_mgr_reset_sta(struct wifi_mgr *mgr, uint8 *addr);
 int32 wifi_mgr_set_sta_freqinfo(struct wifi_mgr *mgr, uint8 *freqinfo, uint32 size);
-int32 wifi_mgr_enable_psalive(void);
+int32 wifi_mgr_enable_psalive(uint8 ifidx, uint8 wnb_support);
 void wifi_mgrcmd_enable(void);
 int32 wifi_mgr_enable_psconnect(void);
 void wifi_mgr_enable_dhcpc(void);
 
-int32 host_cmd_resp(uint16 cmd_id, int16 ret, uint8 *resp, uint32 len);
+int32 host_cmd_resp(int16 ret, uint8 *resp, uint32 resp_len, void *hdr);
 int32 host_data_send(uint8 *data, uint32 data_len);
 int32 host_event_new(uint32 evt_id, uint8 *data, uint32 data_len);
 

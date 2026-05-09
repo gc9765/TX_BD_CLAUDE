@@ -251,7 +251,7 @@ static rt_err_t _get_interface(struct udevice* device, ureq_t setup)
 {
     rt_uint8_t value;
     uintf_t intf;
-    ufunction_t func;
+    ufunction_t func = RT_NULL;
 
     /* parameter check */
     RT_ASSERT(device != RT_NULL);
@@ -290,7 +290,7 @@ static rt_err_t _get_interface(struct udevice* device, ureq_t setup)
  */
 static rt_err_t _set_interface(struct udevice* device, ureq_t setup)
 {
-    ufunction_t func;
+    ufunction_t func = RT_NULL;
     uintf_t intf;
     uep_t ep;
     struct rt_list_node* i;
@@ -660,7 +660,7 @@ static rt_err_t _function_request(udevice_t device, ureq_t setup)
     RT_ASSERT(setup != RT_NULL);
 
     /* verify bRequest wValue */
-    if(setup->wIndex > device->curr_cfg->cfg_desc.bNumInterfaces)
+    if((setup->wIndex & 0xF) > device->curr_cfg->cfg_desc.bNumInterfaces)
     {
         rt_usbd_ep0_set_stall(device);
         return -RT_ERROR;
@@ -1001,7 +1001,7 @@ static rt_ssize_t rt_usbd_ep_write(udevice_t device, uep_t ep, void *buffer, rt_
     {
         //优化usb dma全长度写
         dcd_ep_write(device->dcd, EP_ADDRESS(ep), ep->request.buffer,
-            ep->request.remain_size);
+            ep->request.size);
         ep->request.remain_size = 0;
     }
 //    rt_exit_critical();
@@ -1863,7 +1863,8 @@ rt_size_t rt_usbd_io_request(udevice_t device, uep_t ep, uio_request_t req)
             size = rt_usbd_ep_read_prepare(device, ep, req->buffer, req->size);
             break;
         case UIO_REQUEST_WRITE:
-            ep->request.remain_size = ep->request.size;
+            // ep->request.remain_size = ep->request.size;
+            ep->request.remain_size = 0;
             size = rt_usbd_ep_write(device, ep, req->buffer, req->size);
             break;
         default:

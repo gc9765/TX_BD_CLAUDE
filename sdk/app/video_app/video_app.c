@@ -310,8 +310,9 @@ static uint32_t stream_cmd_func(stream *s,int cmd,uint32_t arg)
 			resolution_parm *gui_cfg = (resolution_parm*)arg;
 			os_printf("dvp_h:%d dvp_w:%d rec_h:%d rec_w:%d\n",gui_cfg->dvp_h,gui_cfg->dvp_w,gui_cfg->rec_h,gui_cfg->rec_w);
 
-			extern uint8 *yuvbuf;
+
 #if LCD_EN
+			extern uint8 *yuvbuf;
 			struct scale_device *scale_dev;
 			struct vpp_device *vpp_dev;
 			scale_dev = (struct scale_device *)dev_get(HG_SCALE1_DEVID);

@@ -61,6 +61,11 @@
 #include <openssl/bn.h>
 #include <openssl/rand.h>
 #include <openssl/dh.h>
+#include "typesdef.h"
+#include "osal/task.h"
+#include "osal/msgqueue.h"
+
+#define FUNCTION_RUN_IN_TASK
 
 static int generate_key(DH *dh);
 static int compute_key(unsigned char *key, const BIGNUM *pub_key, DH *dh);
@@ -125,8 +130,110 @@ const DH_METHOD *DH_OpenSSL(void)
     return &dh_ossl;
 }
 
+#ifdef FUNCTION_RUN_IN_TASK
+void dh_generate_key_task(void *arg)
+{
+    void **args_list = arg;
+    DH *dh = (DH *)args_list[0];
+    struct os_msgqueue *dh_msgq = (struct os_msgqueue *)args_list[1];
+
+    int ok = 0;
+    int generate_new_key = 0;
+    unsigned l;
+    BN_CTX *ctx;
+    BN_MONT_CTX *mont = NULL;
+    BIGNUM *pub_key = NULL, *priv_key = NULL;
+
+    ctx = BN_CTX_new();
+    if (ctx == NULL)
+        goto err;
+
+    if (dh->priv_key == NULL) {
+        priv_key = BN_new();
+        if (priv_key == NULL)
+            goto err;
+        generate_new_key = 1;
+    } else
+        priv_key = dh->priv_key;
+
+    if (dh->pub_key == NULL) {
+        pub_key = BN_new();
+        if (pub_key == NULL)
+            goto err;
+    } else
+        pub_key = dh->pub_key;
+
+    if (dh->flags & DH_FLAG_CACHE_MONT_P) {
+        mont = BN_MONT_CTX_set_locked(&dh->method_mont_p,
+                                    CRYPTO_LOCK_DH, dh->p, ctx);
+        if (!mont)
+            goto err;
+    }
+
+    if (generate_new_key) {
+        if (dh->q) {
+            do {
+                if (!BN_rand_range(priv_key, dh->q))
+                    goto err;
+            }
+            while (BN_is_zero(priv_key) || BN_is_one(priv_key));
+        } else {
+            /* secret exponent length */
+            l = dh->length ? dh->length : BN_num_bits(dh->p) - 1;
+            if (!BN_rand(priv_key, l, 0, 0))
+                goto err;
+        }
+    }
+
+    {
+        BIGNUM local_prk;
+        BIGNUM *prk;
+
+        if ((dh->flags & DH_FLAG_NO_EXP_CONSTTIME) == 0) {
+            BN_init(&local_prk);
+            prk = &local_prk;
+            BN_with_flags(prk, priv_key, BN_FLG_CONSTTIME);
+        } else
+            prk = priv_key;
+
+        // 运算耗时约2.5s
+        mcu_watchdog_feed();
+        if (!dh->meth->bn_mod_exp(dh, pub_key, dh->g, prk, dh->p, ctx, mont))
+            goto err;
+    }
+
+    dh->pub_key = pub_key;
+    dh->priv_key = priv_key;
+    ok = 1;
+ err:
+    if (ok != 1)
+        DHerr(DH_F_GENERATE_KEY, ERR_R_BN_LIB);
+
+    if ((pub_key != NULL) && (dh->pub_key == NULL))
+        BN_free(pub_key);
+    if ((priv_key != NULL) && (dh->priv_key == NULL))
+        BN_free(priv_key);
+    BN_CTX_free(ctx);
+    os_msgq_put(dh_msgq, ok, 0);
+}
+#endif
+
 static int generate_key(DH *dh)
 {
+#ifdef FUNCTION_RUN_IN_TASK
+    struct os_task *dh_task = NULL;
+    struct os_msgqueue dh_msgq;
+    void *args_list[2] = {dh};
+    int ret;
+
+    os_msgq_init(&dh_msgq, 1);
+    args_list[1] = &dh_msgq;
+    dh_task = os_task_create("dh_generate_key", dh_generate_key_task, args_list, OS_TASK_PRIORITY_NORMAL, 0, NULL, 1024);
+    ret = os_msgq_get(&dh_msgq, osWaitForever);
+    os_task_destroy(dh_task);
+    os_msgq_del(&dh_msgq);
+    return ret;
+#else
     int ok = 0;
     int generate_new_key = 0;
     unsigned l;
@@ -186,6 +293,8 @@ static int generate_key(DH *dh)
         } else
             prk = priv_key;
 
+        // 运算耗时约2.5s
+        mcu_watchdog_feed();
         if (!dh->meth->bn_mod_exp(dh, pub_key, dh->g, prk, dh->p, ctx, mont))
             goto err;
     }
@@ -203,10 +312,94 @@ static int generate_key(DH *dh)
         BN_free(priv_key);
     BN_CTX_free(ctx);
     return (ok);
+#endif
 }
+
+#ifdef FUNCTION_RUN_IN_TASK
+void dh_compute_key_task(void *arg)
+{
+    void **args_list = arg;
+    unsigned char *key = (unsigned char *)args_list[0];
+    const BIGNUM *pub_key = (const BIGNUM *)args_list[1];
+    DH *dh = (DH *)args_list[2];
+    struct os_msgqueue *dh_msgq = (struct os_msgqueue *)args_list[3];
+
+    BN_CTX *ctx = NULL;
+    BN_MONT_CTX *mont = NULL;
+    BIGNUM *tmp;
+    int ret = -1;
+    int check_result;
+
+    if (BN_num_bits(dh->p) > OPENSSL_DH_MAX_MODULUS_BITS) {
+        DHerr(DH_F_COMPUTE_KEY, DH_R_MODULUS_TOO_LARGE);
+        goto err;
+    }
+
+    ctx = BN_CTX_new();
+    if (ctx == NULL)
+        goto err;
+    BN_CTX_start(ctx);
+    tmp = BN_CTX_get(ctx);
+    if (tmp == NULL)
+        goto err;
+
+    if (dh->priv_key == NULL) {
+        DHerr(DH_F_COMPUTE_KEY, DH_R_NO_PRIVATE_VALUE);
+        goto err;
+    }
+
+    if (dh->flags & DH_FLAG_CACHE_MONT_P) {
+        mont = BN_MONT_CTX_set_locked(&dh->method_mont_p,
+                                    CRYPTO_LOCK_DH, dh->p, ctx);
+        if ((dh->flags & DH_FLAG_NO_EXP_CONSTTIME) == 0) {
+            /* XXX */
+            BN_set_flags(dh->priv_key, BN_FLG_CONSTTIME);
+        }
+        if (!mont)
+            goto err;
+    }
+
+    // 运算耗时约2.5s
+    mcu_watchdog_feed();
+    if (!DH_check_pub_key(dh, pub_key, &check_result) || check_result) {
+        DHerr(DH_F_COMPUTE_KEY, DH_R_INVALID_PUBKEY);
+        goto err;
+    }
+
+    // 运算耗时约2.5s
+    mcu_watchdog_feed();
+    if (!dh->
+        meth->bn_mod_exp(dh, tmp, pub_key, dh->priv_key, dh->p, ctx, mont)) {
+        DHerr(DH_F_COMPUTE_KEY, ERR_R_BN_LIB);
+        goto err;
+    }
+
+    ret = BN_bn2bin(tmp, key);
+ err:
+    if (ctx != NULL) {
+        BN_CTX_end(ctx);
+        BN_CTX_free(ctx);
+    }
+    os_msgq_put(dh_msgq, ret, 0);
+}
+#endif
 
 static int compute_key(unsigned char *key, const BIGNUM *pub_key, DH *dh)
 {
+#ifdef FUNCTION_RUN_IN_TASK
+    struct os_task *dh_task = NULL;
+    struct os_msgqueue dh_msgq;
+    void *args_list[4] = {key, (void *)pub_key, dh};
+    int ret;
+
+    os_msgq_init(&dh_msgq, 1);
+    args_list[3] = &dh_msgq;
+    dh_task = os_task_create("dh_compute_key", dh_compute_key_task, args_list, OS_TASK_PRIORITY_NORMAL, 0, NULL, 1024);
+    ret = os_msgq_get(&dh_msgq, osWaitForever);
+    os_task_destroy(dh_task);
+    os_msgq_del(&dh_msgq);
+    return ret;
+#else
     BN_CTX *ctx = NULL;
     BN_MONT_CTX *mont = NULL;
     BIGNUM *tmp;
@@ -242,11 +435,15 @@ static int compute_key(unsigned char *key, const BIGNUM *pub_key, DH *dh)
             goto err;
     }
 
+    // 运算耗时约2.5s
+    mcu_watchdog_feed();
     if (!DH_check_pub_key(dh, pub_key, &check_result) || check_result) {
         DHerr(DH_F_COMPUTE_KEY, DH_R_INVALID_PUBKEY);
         goto err;
     }
 
+    // 运算耗时约2.5s
+    mcu_watchdog_feed();
     if (!dh->
         meth->bn_mod_exp(dh, tmp, pub_key, dh->priv_key, dh->p, ctx, mont)) {
         DHerr(DH_F_COMPUTE_KEY, ERR_R_BN_LIB);
@@ -260,6 +457,7 @@ static int compute_key(unsigned char *key, const BIGNUM *pub_key, DH *dh)
         BN_CTX_free(ctx);
     }
     return (ret);
+#endif
 }
 
 static int dh_bn_mod_exp(const DH *dh, BIGNUM *r,

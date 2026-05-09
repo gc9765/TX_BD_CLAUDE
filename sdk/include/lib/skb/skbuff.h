@@ -15,7 +15,7 @@ struct sk_buff {
 
     /* clear below flags when skb free */
     uint16  len;
-    uint16  priority:4, acked: 1, cloned: 1, lmaced: 1, pkt_type: 3, tx: 1, src_in: 1;
+    uint16  priority:4, acked: 1, cloned: 1, lmaced: 1, pkt_type: 3, tx: 1, src_in: 1, unreachable:1, rev:3;
     uint64  lifetime;
     void   *txinfo;
     void   *sta;
@@ -23,11 +23,6 @@ struct sk_buff {
     atomic_t users;
     void (*free)(void *free_priv, struct sk_buff *skb);
     void *free_priv;
-#ifdef SKB_TRACE
-    char  *func;
-    int32  line;
-    uint32 magic;
-#endif
 };
 
 uint8 *skb_put(struct sk_buff *skb, uint32 len);

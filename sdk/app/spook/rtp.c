@@ -121,7 +121,7 @@ static void udp_rtp_read( void *ei, void *d )
 		spook_log( SL_VERBOSE, "error on UDP RTP socket: %s",
 			strerror( errno ) );
 	else spook_log( SL_VERBOSE, "UDP RTP socket closed" );
-	ep->session->teardown( ep->session, ep );
+	ep->session->select_close(ep->session, ep);
 }
 
 
@@ -164,7 +164,7 @@ static void udp_rtcp_read( void *ei, void *d )
 		spook_log( SL_VERBOSE, "error on UDP RTCP socket: %s",
 			strerror( errno ) );
 	else spook_log( SL_VERBOSE, "UDP RTCP socket closed" );
-	ep->session->teardown( ep->session, ep );
+	ep->session->select_close(ep->session, ep);
 }
 
 void interleave_recv_rtcp( struct rtp_endpoint *ep, unsigned char *d, int len )

@@ -249,35 +249,6 @@ static void keypad_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data)
     if(act_key != 0) {
         data->state = LV_INDEV_STATE_PR;
 
-        #if 0
-            /*Translate the keys to LVGL control characters according to your key definitions*/
-            switch(act_key) {
-                case 1:
-                    act_key = LV_KEY_NEXT;
-                    break;
-                case 2:
-                    act_key = LV_KEY_PREV;
-                    break;
-                case 3:
-                    act_key = LV_KEY_LEFT;
-                    break;
-                case 4:
-                    act_key = LV_KEY_RIGHT;
-                    break;
-                case 5:
-                    act_key = LV_KEY_ENTER;
-                    break;
-                case 6:
-                    act_key = LV_KEY_UP;
-                    break;
-                case 7:
-                    act_key = LV_KEY_DOWN;
-                    break;			
-                case 8:
-                    act_key = LV_KEY_END;
-                    break;
-            }
-        #endif
         last_key = act_key;
     }
     else {

@@ -2930,13 +2930,6 @@ void init_usb_disk_buf(uint32_t bufSize)
 	usb_disk.lba = 0;
 	usb_disk.usbbuf = (uint8_t 	*)os_malloc(bufSize*MULTI_SECTOR_COUNT);
 	memset(usb_disk.usbbuf,0,bufSize*MULTI_SECTOR_COUNT);
-	#if PINGPANG_BUF_EN
-	usb_disk.usb_pingpang_buf = (uint8_t *)os_malloc(bufSize*MULTI_SECTOR_COUNT);
-	memset(usb_disk.usb_pingpang_buf, 0, bufSize*MULTI_SECTOR_COUNT);
-	usb_disk.udisk_speed_info.buf_1 = usb_disk.usbbuf;
-	usb_disk.udisk_speed_info.buf_2 = usb_disk.usb_pingpang_buf;
-	usbd_mass_speed_optimize_thread_init(&usb_disk.udisk_speed_info);
-	#endif
 	#elif USBDISK == 2
 	usb_disk.bufSize = bufSize;
 	usb_disk.count = 0;
@@ -2953,13 +2946,6 @@ void deinit_usb_disk_buf()
 	{
 		free(usb_disk.usbbuf);
 	}
-	#if PINGPANG_BUF_EN
-	if(usb_disk.usb_pingpang_buf)
-	{
-		free(usb_disk.usb_pingpang_buf);
-	}
-	usbd_mass_speed_optimize_thread_deinit();
-	#endif
 
 	#elif USBDISK == 2
 	if(usb_disk.usbbuf)
@@ -3162,73 +3148,10 @@ int32_t mscCmd_Read(void)
 			disk->type = 2;
 			disk->lba = lba;
 			disk->count = sec;
-			#if PINGPANG_BUF_EN
-			usbd_mass_speed_optimize_send_mq(g_dev, lba, sec, READ_FLAG);
-			
-			if((sec >= MULTI_SECTOR_COUNT) && (sec % MULTI_SECTOR_COUNT == 0))
-			{
-				sec = sec / MULTI_SECTOR_COUNT;
-				multi_sector_en = 1;
-			}
-			
-			#endif
 
 			while(sec--)
 			{
-				#if PINGPANG_BUF_EN
-					os_sema_down(g_dev->sem, osWaitForever);
-
-					if(g_dev->error_flag == 1)
-					{
-						os_sema_up(g_dev->usb_sem_write);
-						mscSet_Status(DATA_PHASE_ERROR);
-						return false;
-					}
-
-					if(pingpang_flag)
-					{
-						os_sema_up(g_dev->usb_sem_write);
-						#if USB_IO_TEST_TIME
-						gpio_set_val(PA_10, 1);
-						#endif
-						if(multi_sector_en)
-						{
-							usb_bulk_tx(scsi.epxout,(uint32_t)disk->usb_pingpang_buf,disk->bufSize*MULTI_SECTOR_COUNT);
-							MscCmd.Residue -= (disk->bufSize*MULTI_SECTOR_COUNT);
-						}
-						else
-						{
-							usb_bulk_tx(scsi.epxout,(uint32_t)disk->usb_pingpang_buf,disk->bufSize);
-							MscCmd.Residue -= disk->bufSize;
-						}
-
-						#if USB_IO_TEST_TIME
-						gpio_set_val(PA_10, 0);
-						#endif
-					}
-					else
-					{
-						os_sema_up(g_dev->usb_sem_write);
-						#if USB_IO_TEST_TIME
-						gpio_set_val(PA_10, 1);
-						#endif
-						if(multi_sector_en)
-						{
-							usb_bulk_tx(scsi.epxout,(uint32_t)disk->usbbuf,disk->bufSize*MULTI_SECTOR_COUNT);
-							MscCmd.Residue -= (disk->bufSize*MULTI_SECTOR_COUNT);
-						}
-						else
-						{
-							usb_bulk_tx(scsi.epxout,(uint32_t)disk->usbbuf,disk->bufSize);
-							MscCmd.Residue -= disk->bufSize;
-						}
-						#if USB_IO_TEST_TIME
-						gpio_set_val(PA_10, 0);
-						#endif
-					}
-					
-					
-				#else
+				
 				ret = sd_scsi_read2(lba,disk->usbbuf);
 				if(ret){
 					return false;
@@ -3236,7 +3159,6 @@ int32_t mscCmd_Read(void)
 				usb_bulk_tx(scsi.epxout,(uint32_t)disk->usbbuf,disk->bufSize);
 				MscCmd.Residue -= disk->bufSize;
 				lba++;
-				#endif
 			}
 		}
 	}
@@ -3292,118 +3214,15 @@ int32_t mscCmd_Write(void){
 		{
 			_os_printf("%s err\n",__FUNCTION__);
 		}
-		#if PINGPANG_BUF_EN
-
-		if((sec >= MULTI_SECTOR_COUNT) && (sec % MULTI_SECTOR_COUNT == 0))
-		{
-			sec = sec / MULTI_SECTOR_COUNT;
-			multi_sector_en = 1;
-		}
-
-		if(pingpang_flag)
-		{
-
-			if(multi_sector_en)
-			{
-				usb_bulk_rx(scsi.epxin,(uint32_t)disk->usbbuf,disk->bufSize*MULTI_SECTOR_COUNT);
-				MscCmd.Residue -= (disk->bufSize*MULTI_SECTOR_COUNT);
-			}
-			else
-			{
-				usb_bulk_rx(scsi.epxin,(uint32_t)disk->usbbuf,disk->bufSize);
-				MscCmd.Residue -= disk->bufSize;
-			}
-			
-		}
-		else
-		{
-
-			if(multi_sector_en)
-			{
-				usb_bulk_rx(scsi.epxin,(uint32_t)disk->usb_pingpang_buf,disk->bufSize*MULTI_SECTOR_COUNT);
-				MscCmd.Residue -= (disk->bufSize*MULTI_SECTOR_COUNT);
-			}
-			else
-			{
-				usb_bulk_rx(scsi.epxin,(uint32_t)disk->usb_pingpang_buf,disk->bufSize);
-				MscCmd.Residue -= disk->bufSize;
-			}
-			
-		}
-		
-		if(multi_sector_en)
-		{
-			usbd_mass_speed_optimize_send_mq(g_dev, lba, sec*MULTI_SECTOR_COUNT, WRITE_FLAG);
-		}
-		else
-		{
-			usbd_mass_speed_optimize_send_mq(g_dev, lba, sec, WRITE_FLAG);		
-		}
-
-		sec--;	
-		
-		if(sec == 0)
-		{
-			os_sema_up(g_dev->usb_sem_write);
-			os_sema_down(g_dev->sem, osWaitForever);
-			return 0;
-		}
-		
-		#endif
 		
 		do{
-			#if PINGPANG_BUF_EN
-			os_sema_down(g_dev->sem, osWaitForever);
-			if(pingpang_flag)
-			{
-				if(multi_sector_en)
-				{
-					usb_bulk_rx(scsi.epxin,(uint32_t)disk->usbbuf,disk->bufSize*MULTI_SECTOR_COUNT);
-					MscCmd.Residue -= (disk->bufSize*MULTI_SECTOR_COUNT);
-				}
-				else
-				{
-					usb_bulk_rx(scsi.epxin,(uint32_t)disk->usbbuf,disk->bufSize);
-					MscCmd.Residue -= disk->bufSize;
-				}
-				os_sema_up(g_dev->usb_sem_write);
-			}
-			else
-			{
-				if(multi_sector_en)
-				{
-					usb_bulk_rx(scsi.epxin,(uint32_t)disk->usb_pingpang_buf,disk->bufSize*MULTI_SECTOR_COUNT);
-					MscCmd.Residue -= (disk->bufSize*MULTI_SECTOR_COUNT);
-				}
-				else
-				{
-					usb_bulk_rx(scsi.epxin,(uint32_t)disk->usb_pingpang_buf,disk->bufSize);
-					MscCmd.Residue -= disk->bufSize;
-				}
-				os_sema_up(g_dev->usb_sem_write);
-			}			
-			#else
 			usb_bulk_rx(scsi.epxin,(uint32_t)disk->usbbuf,disk->bufSize);
 			sd_scsi_write2(lba,disk->usbbuf);
 			MscCmd.Residue -= disk->bufSize;
 			lba++;	
-			#endif
 			
 		}while(--sec);	
 
-		#if PINGPANG_BUF_EN
-		os_sema_up(g_dev->usb_sem_write);
-		os_sema_down(g_dev->sem, osWaitForever);
-
-		if(g_dev->error_flag)
-		{
-			MscCmd.Residue = MscCmd.CbwTrxLength;
-			os_printf("g_dev error flag\n");
-			mscSet_Status(DATA_PHASE_ERROR);
-			return false;
-		}
-
-		#endif
 	}
 	
 	return 0;

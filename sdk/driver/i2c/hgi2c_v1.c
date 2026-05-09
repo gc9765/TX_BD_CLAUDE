@@ -891,6 +891,15 @@ static void hgi2c_v1_irq_handler(void *data)
             dev->irq_hdl(I2C_IRQ_FLAG_DETECT_STOP, dev->irq_data, 0);
         }
     }
+
+	/* I2C_IRQ_FLAG_SLAVE_ADDRESSED */
+    if ((hw->CON0 & LL_IIC_CON0_ADR_MTH_IE(1)) && (hw->STA2 & LL_IIC_STA2_SLV_ADDRED(1))) {
+        /* clear interrupt flag */
+        hw->STA2 = LL_IIC_STA2_SLV_ADDRED(1);
+        if (dev->irq_hdl) {
+            dev->irq_hdl(I2C_IRQ_FLAG_SLAVE_ADDRESSED, dev->irq_data, 0);
+        }
+    }
 }
 
 static int32 hgi2c_v1_request_irq(struct i2c_device *i2c, i2c_irq_hdl irqhdl, uint32 irq_data, uint32 irq_flag)
@@ -924,6 +933,10 @@ static int32 hgi2c_v1_request_irq(struct i2c_device *i2c, i2c_irq_hdl irqhdl, ui
     if (irq_flag & I2C_IRQ_FLAG_RX_ERROR) {
         hw->CON1 |= BIT(8);
     }
+
+    if (irq_flag & I2C_IRQ_FLAG_SLAVE_ADDRESSED) {
+        hw->CON0 |= BIT(19);
+    }	
     
     return RET_OK;
 }
@@ -955,6 +968,10 @@ static int32 hgi2c_v1_release_irq(struct i2c_device *i2c, uint32 irq_flag) {
 
     if (irq_flag & I2C_IRQ_FLAG_RX_ERROR) {
         hw->CON1 &= ~ BIT(8);
+    }
+
+	if (irq_flag & I2C_IRQ_FLAG_SLAVE_ADDRESSED) {
+        hw->CON0 &= ~ BIT(19);
     }
 
     return RET_OK;

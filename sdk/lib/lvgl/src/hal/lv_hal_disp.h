@@ -81,7 +81,7 @@ typedef struct _lv_disp_drv_t {
 
     lv_coord_t hor_res;         /**< Horizontal resolution.*/
     lv_coord_t ver_res;         /**< Vertical resolution.*/
-    uint32_t   disp_buf_len;    //ä¸ºäº†ä»…ä»…è®¡ç®—ä¸€æ¬¡,ä¸éœ€è¦é‡å¤è®¡ç®—
+    uint32_t   disp_buf_len;    //ÎªÁË½ö½ö¼ÆËãÒ»´Î,²»ÐèÒªÖØ¸´¼ÆËã
 
     lv_coord_t
     physical_hor_res;     /**< Horizontal resolution of the full / physical display. Set to -1 for fullscreen mode.*/

@@ -90,6 +90,8 @@ typedef struct AgentEngineParams {
     char license_key[256];               // 客户需要向百度购买设备license获取对应的key
     bool enable_video;                   // 是否开启视频
     Region region;                       // 接入网络region，默认中国大陆
+    int pcm_audio_buffer_size;           // 设置音频解码后的pcm音频缓冲区大小，默认为25帧音频数据大小(320*25)， 单位Byte;可结合音频加速下发时使用, 仅在音频内部处理（enable_internal_device为ture）时有效; 
+
 } AgentEngineParams;
 
 typedef enum AGentCallState {
@@ -188,7 +190,7 @@ void baidu_chat_agent_engine_send_event_to_agent(BaiduChatAgentEngine* engine, c
  * @param engine engine 实例指针
  * @param mode 0:图片模式; 1:视频流模式
  */
-void baidu_chat_agent_engine_update_visual_mode(BaiduChatAgentEngine *engine, const int mode);
+void baidu_chat_agent_engine_update_visual_mode(BaiduChatAgentEngine *engine, const int mode, const int expire);
 
 /**
  * @brief 设置用户query增强，通过向用户原始query插入扩展描述

@@ -37,9 +37,9 @@
 #include "../include/opus_types.h"
 #include "../include/opus_defines.h"
 
-# if 1
-#   define __GNUC_PREREQ(_maj,_min) 0
-# endif
+//# if 1
+//#   define __GNUC_PREREQ(_maj,_min) 0
+//# endif
 
 #if 0
 #define opus_likely(x)       (__builtin_expect(!!(x), 1))

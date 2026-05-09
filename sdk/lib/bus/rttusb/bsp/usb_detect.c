@@ -28,6 +28,9 @@ struct usb_connect_structure
     uint32_t usb_connect_last_status;
 }hg_usb_detect;
 
+rt_err_t hg_usbh_register(rt_uint32_t devid);
+rt_err_t hg_usbh_unregister(rt_uint32_t devid);
+
 extern struct hgusb20_dev usb20_dev;
 static void hg_usb_detect_device_open()
 {
@@ -101,7 +104,6 @@ static void hg_usb_detect_init()
     hg_usbd_unregister(HG_USB_DEV_CONTROLLER_DEVID);
 }
 
-extern uint32 sysheap_freesize(struct sys_heap *heap);;
 
 static int32 hg_usb_connect_detect_work(struct os_work *work)
 {

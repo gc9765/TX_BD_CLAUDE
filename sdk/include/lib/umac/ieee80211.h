@@ -4,7 +4,7 @@
 #include "lib/lmac/hgic.h"
 
 #if defined(CONFIG_SAE) || defined(CONFIG_OWE)
-#define CONFIG_ECC
+#define CONFIG_ECC      
 #define sae_dbg(fmt, ...) //os_printf("%s:%d:: __SAE:"fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #else
 #define sae_dbg(fmt, ...)
@@ -61,44 +61,52 @@ enum country_code {
 };
 
 enum ieee80211_event {
-    IEEE80211_EVENT_PAIR_START = 1,     // 1
-    IEEE80211_EVENT_PAIR_SUCCESS,       // 2
-    IEEE80211_EVENT_PAIR_FAIL,          // 3
-    IEEE80211_EVENT_PAIR_DONE,          // 4
-    IEEE80211_EVENT_SCAN_START,         // 5
-    IEEE80211_EVENT_SCAN_DONE,          // 6
-    IEEE80211_EVENT_CONNECT_START,      // 7
-    IEEE80211_EVENT_CONNECTED,          // 8
-    IEEE80211_EVENT_CONNECT_FAIL,       // 9
-    IEEE80211_EVENT_DISCONNECTED,       // 10
-    IEEE80211_EVENT_RX_FRAME,           // 11
-    IEEE80211_EVENT_RSSI,               // 12
-    IEEE80211_EVENT_STATE_CHANGE,       // 13
-    IEEE80211_EVENT_NEW_BSS,            // 14
-    IEEE80211_EVENT_UPDATE_BSS,         // 15
-    IEEE80211_EVENT_PS_START,           // 16
-    IEEE80211_EVENT_PS_END,             // 17
-    IEEE80211_EVENT_STA_PS_START,       // 18
-    IEEE80211_EVENT_STA_PS_END,         // 19
-    IEEE80211_EVENT_INTERFACE_ENABLE,   // 20
-    IEEE80211_EVENT_INTERFACE_DISABLE,  // 21
-    IEEE80211_EVENT_ADD_EXTRA_IE,       // 22
-    IEEE80211_EVENT_MAC_CHANGE,         // 23
-    IEEE80211_EVENT_EVM,                // 24
-    IEEE80211_EVENT_UNKNOWN_STA,        // 25
-    IEEE80211_EVENT_PRE_AUTH,           // 26
-    IEEE80211_EVENT_PRE_ASSOC,          // 27
-    IEEE80211_EVENT_UNPAIR_SUCCESS,     // 28
-    IEEE80211_EVENT_TX_BITRATE,         // 29
-    IEEE80211_EVENT_EXCEPTION_INFO,     // 30
-    IEEE80211_EVENT_ACS_DONE,           // 31
-    IEEE80211_EVENT_TX_FRAME,           // 32
-    IEEE80211_EVENT_RX_CUSTMGMT,        // 33
+    IEEE80211_EVENT_PAIR_START = 1,     // 1 - start pairing, param1:0, param2:0
+    IEEE80211_EVENT_PAIR_SUCCESS,       // 2 - pairing success, param1: pairing peer's MAC, param2:6
+    IEEE80211_EVENT_PAIR_FAIL,          // 3 - pairing fail. param1:1, param2:2
+    IEEE80211_EVENT_PAIR_DONE,          // 4 - paring complete. param1: pairing peer's MAC, param2:6
+    IEEE80211_EVENT_SCAN_START,         // 5 - start scanning. param1:0, param2:0
+    IEEE80211_EVENT_SCAN_DONE,          // 6 - stop scanning. param1:0, param2:0
+    IEEE80211_EVENT_CONNECT_START,      // 7 - start connect. param1:AP's MAC, param2:0
+    IEEE80211_EVENT_CONNECTED,          // 8 - connect success. param1: AP/STA MAC, param2:0
+    IEEE80211_EVENT_CONNECT_FAIL,       // 9 - connect fail. param1: status code, param2:0
+    IEEE80211_EVENT_DISCONNECTED,       // 10 - disconnect. param1: AP/STA MAC, param2: reason code.
+    IEEE80211_EVENT_RX_FRAME,           // 11 - recieve wifi frames. param1: the pointer of frame, type: uint8 *, param2: rx status, type: struct ieee80211_rx_status * 
+    IEEE80211_EVENT_RSSI,               // 12 - RSSI changed. param1: new rssi, param2: sta's MAC.
+    IEEE80211_EVENT_STATE_CHANGE,       // 13 - <ignore>.
+    IEEE80211_EVENT_NEW_BSS,            // 14 - find a new BSS. param1: BSS's bssid, param2: BSS's ssid.
+    IEEE80211_EVENT_UPDATE_BSS,         // 15 - <ignore>.
+    IEEE80211_EVENT_PS_START,           // 16 - <ignore>.
+    IEEE80211_EVENT_PS_END,             // 17 - <ignore>.
+    IEEE80211_EVENT_STA_PS_START,       // 18 - STA enter ps mode. param1: STA's MAC, param2:0
+    IEEE80211_EVENT_STA_PS_END,         // 19 - STA exit ps mode. param1: STA's MAC, param2:0
+    IEEE80211_EVENT_INTERFACE_ENABLE,   // 20 - wifi stack interface enabled. param1:0, param2:0
+    IEEE80211_EVENT_INTERFACE_DISABLE,  // 21 - wifi stack interface disabled. param1:0, param2:0
+    IEEE80211_EVENT_ADD_CUSTOMER_IE,    // 22 - notify to add customer IE data. param1: the pointer of wifi frame, param2:customer IE data, output parameter, type: uint8 **, return value: length of customer IE data.
+    IEEE80211_EVENT_MAC_CHANGE,         // 23 - mac changed. param1: new MAC, param2:0
+    IEEE80211_EVENT_EVM,                // 24 - EVM changed. param1: new evm, param2:sta's MAC.
+    IEEE80211_EVENT_UNKNOWN_STA,        // 25 - <ignore>
+    IEEE80211_EVENT_PRE_AUTH,           // 26 - STA request to AUTH, you can check blacklist. param1: sta's MAC, param2:0
+    IEEE80211_EVENT_PRE_ASSOC,          // 27 - STA request to ASSOC, you can check blacklist. param1: sta's MAC, param2:0
+    IEEE80211_EVENT_UNPAIR_SUCCESS,     // 28 - unpaired. param1: peer sta's MAC, param2:0
+    IEEE80211_EVENT_TX_BITRATE,         // 29 - <ignore>.
+    IEEE80211_EVENT_EXCEPTION_INFO,     // 30 - <ignore>.
+    IEEE80211_EVENT_ACS_DONE,           // 31 - <ignore>.
+    IEEE80211_EVENT_TX_FRAME,           // 32 - events before WiFi stack sends data. param1: wifi frame data, param2: 0, return value: 0:contuine tx, else stop tx.
+    IEEE80211_EVENT_RX_CUSTMGMT,        // 33 - received custom management frame, from the peer sta executed the ieee80211_tx_custmgmt API. param1: struct ieee80211_custmgmt_data *, param2:0.
     IEEE80211_EVENT_FT_START,           // 34
     IEEE80211_EVENT_WRONG_KEY,          // 35
-    IEEE80211_EVENT_AP_CSA_DONE,        // 36
-    IEEE80211_EVENT_SCAN_IDLE,          // 37
-    IEEE80211_EVENT_BEACON_IDLE,        // 38
+    IEEE80211_EVENT_CHANNEL_CHANGE,     // 36
+    IEEE80211_EVENT_P2P_NGO_DONE,       // 37
+    IEEE80211_EVENT_WSC_DONE,           // 38
+    IEEE80211_EVENT_TX_STATUS,          // 39
+    IEEE80211_EVENT_P2P_FOUND,          // 40
+    IEEE80211_EVENT_AP_CSA_DONE,        // 41
+    IEEE80211_EVENT_SCAN_IDLE,          // 42
+    IEEE80211_EVENT_GEN_BEACON,         // 43
+    IEEE80211_EVENT_BEACON_IDLE,        // 44
+    IEEE80211_EVENT_RELAY_UPDATE,       // 45
+    IEEE80211_EVENT_RELAY_ERROR,        // 46
 };
 
 /* txsemi custom reason code */
@@ -128,7 +136,7 @@ typedef enum {
     IEEE80211_PKTHDL_CONSUMED = 1,
 } ieee80211_pkthdl_res;
 
-struct ieee80211_custmgmt_data {
+struct ieee80211_custmgmt_data{
     uint8 *from;
     uint8 *data;
     uint8  len;
@@ -138,23 +146,25 @@ struct ieee80211_csa_param{
     uint8 mode, chan, count;
 };
 
-struct ieee80211_hookdata {
+struct ieee80211_hookdata{
     uint8 *data;
-    uint32 len;
+    uint16 len;
+    uint16 ext: 1, recv: 15;
     uint32 hdl;
 };
 struct ieee80211_pkthook;
 typedef ieee80211_pkthdl_res(*ieee80211_pkthdl)(struct ieee80211_pkthook *hook, uint8 ifidx, struct ieee80211_hookdata *data);
-struct ieee80211_pkthook_const {
+struct ieee80211_pkthook_const{
     const char *name;
     void  *priv;
     uint16 protocol;
-    uint16 mcast: 1, rev: 15;
+    uint16 mcast: 1, ucast:1, rev: 14;
     ieee80211_pkthdl tx;
     ieee80211_pkthdl rx;
 };
 struct ieee80211_pkthook {
     struct ieee80211_pkthook *next;
+    uint32 time_max, consume_data;
     const struct ieee80211_pkthook_const *c_data;
 };
 
@@ -166,13 +176,13 @@ struct ieee80211_initparam {
     uint16           sta_maxcnt;
     uint16           bss_lifetime;
     uint16           stack_size;
-    uint16           no_rxtask: 1, ssid_fuzzy_match:4, rev: 11;
+    uint16           no_rxtask:1, ssid_fuzzy_match:4, rev: 11;
     ieee80211_evt_cb evt_cb;
 };
 
 struct ieee80211_scandata {
     uint32 chan_bitmap; //scan channel bitmap
-    uint8 ssid[SSID_MAX_LEN + 1];
+    uint8 ssid[SSID_MAX_LEN+1];
     uint8 scan_time, scan_cnt; //scan time & count at every channel
     uint8 passive_scan: 1, flush: 1, rev: 6;
 };
@@ -198,7 +208,7 @@ struct ieee80211_wmm_param {
 struct ieee80211_tx_info {
     uint8  band;
     uint8  ifidx;
-    uint16 no_ack: 1, rev: 15;
+    uint16 no_ack: 1, rev:15;
     uint32 tag;
 };
 
@@ -206,23 +216,25 @@ struct ieee80211_rx_status {
     uint32 freq;
     uint8  band, ifidx;
     int8   rssi, evm;
-    uint8  mcs;
-    uint8  rx_flags;
+    uint8  mcs, rev;
     uint16 rxlen;
 };
 
-enum ieee80211_rx_flag {
+enum ieee80211_rx_flag{
     IEEE80211_RX_FLAG_MORE_DATA = BIT(0),
-    IEEE80211_RX_FLAG_AMSDU = BIT(1),
 };
 
-struct ieee80211_ft_param {
-    uint8 start: 1, ft_en: 1;
+struct ieee80211_roaming_param {
+    uint8  start: 1, ft_en: 1;
+    uint8  state;
+    uint8  old_chan;
+    int8   rssi_avg, rssi_check;
     uint16 roaming_tmo;
+    int16  rssi_sum;
     uint8  bssid_new[6];
     uint8  bssid_old[6];
     uint8  ssid[SSID_MAX_LEN + 1];
-    //struct os_timer timer;
+    struct ieee80211_bss_info *newbss;
 };
 
 struct ieee80211_bss_wpadata {
@@ -232,13 +244,24 @@ struct ieee80211_bss_wpadata {
     uint32 key_mgmt;
 };
 
+/*MLME frame expand size*/
+struct ieee80211_mlme_size{
+    uint16 probe_req, probe_resp;
+    uint16 beacon, vendor_spec_action;
+    uint16 assoc_req, assoc_resp;
+    uint8  auth, deauth, disassoc, addba_resp;
+    uint16 p2p_neg;
+};
+
 extern int32 wpa_passphrase(uint8 *ssid, char *passwd, uint8 psk[32]);
 extern int32 ieee80211_init(struct ieee80211_initparam *param);
 extern int32 ieee80211_deliver_init(int32 max, uint32 lifetime);
 extern int32 ieee80211_support_txw830x(void *ops);
 extern int32 ieee80211_support_txw80x(void *ops);
+extern int32 ieee80211_support_txw81x(void *ops);
 extern int32 ieee80211_iface_create_ap(uint8 ifidx, uint8 band);
 extern int32 ieee80211_iface_create_sta(uint8 ifidx, uint8 band);
+extern int32 ieee80211_iface_create_p2pdev(uint8 ifidx, uint8 band, uint8 go, uint8 gc);
 extern int32 ieee80211_iface_start(uint8 ifidx);
 extern int32 ieee80211_iface_stop(uint8 ifidx);
 extern int32 ieee80211_pair_enable(uint8 ifidx, uint16 pair_magic);
@@ -257,7 +280,7 @@ extern int32 ieee80211_disassoc_all(uint8 ifidx);
 extern int32 ieee80211_register_pkthook(struct ieee80211_pkthook *hook);
 extern int32 ieee80211_hook_ext_data(uint8 ifidx, uint8 tx, uint8 *data, uint32 len);
 extern ieee80211_evt_cb ieee80211_event_cb(ieee80211_evt_cb cb);
-extern void ieee80211_bsslist_free(void);
+extern void ieee80211_cleanup_bsslist(void);
 extern int32 ieee80211_get_bsslist(struct hgic_bss_info *bsslist, int32 list_size, int8 ignore_dis);
 extern int32 ieee80211_get_stalist(uint8 ifidx, struct hgic_sta_info *stalist, int32 list_size);
 extern int32 ieee80211_conf_stabr_table(uint8 ifidx, uint16 max, int32 lifetime);
@@ -287,7 +310,7 @@ extern int32 ieee80211_conf_get_txpower(uint8 ifidx);
 extern int32 ieee80211_conf_set_heartbeat_int(uint8 ifidx, uint32 heartbeat_int);
 extern int32 ieee80211_conf_set_heartbeat_data(uint8 ifidx, void *data, uint8 retry);
 extern int32 ieee80211_conf_set_aplost_time(uint8 ifidx, uint32 time);
-extern int32 ieee80211_conf_set_acs(uint8 ifidx, uint32 bitmap, uint8 tmo);
+extern int32 ieee80211_conf_set_acs(uint8 ifidx, uint8 acs, uint8 tmo);
 extern int32 ieee80211_conf_set_wmm_enable(uint8 ifidx, uint8 enable);
 extern int32 ieee80211_conf_set_use4addr(uint8 ifidx, uint8 enable);
 extern int32 ieee80211_conf_get_use4addr(uint8 ifidx);
@@ -315,19 +338,43 @@ extern int32 ieee80211_conf_set_rtc(uint8 ifidx, uint8 *data);
 extern int32 ieee80211_conf_set_radio_onoff(uint8 ifidx, uint8 en);
 extern int32 ieee80211_conf_set_isolate(uint8 ifidx, uint8 isolate);
 extern int32 ieee80211_conf_set_ft(uint8 ifidx, void *ft_param);
-extern int32 ieee80211_bss_add_manualAP(uint8 *ssid, uint8 *bssid, uint8 channel, uint8 band, struct ieee80211_bss_wpadata *data);
-extern int32 ieee80211_bss_get_wpadata(uint8 *bssid, uint8 band, struct ieee80211_bss_wpadata *data);
+extern int32 ieee80211_chan_center_freq(uint8 ifidx, uint8 channel);
+extern int32 ieee80211_get_bssinfo(struct hgic_bss_info *bss, uint8 band, uint8 *ssid, uint8 *bssid);
+extern int32 ieee80211_conf_set_dupfilter(uint8 ifidx, uint8 enable);
+extern int32 ieee80211_conf_set_conn_timeout(uint8 ifidx, uint32 auth_tmo, uint32 assoc_tmo, uint32 handshake_tmo);
+extern int32 ieee80211_bss_add_manualAP(uint8 *ssid, uint8 *bssid, uint8 channel, uint8 band, struct ieee80211_bss_wpadata *wpa_data);
+extern int32 ieee80211_bss_get_wpadata(uint8 *bssid, uint8 band, struct ieee80211_bss_wpadata *wpa_data);
+extern int32 ieee80211_expand_mlme_size(uint8 ifidx, struct ieee80211_mlme_size *size);
 extern int32 ieee80211_conf_set_csa(uint8 ifidx, struct ieee80211_csa_param *csa);
+extern void ieee80211_hook_status(void);
+extern int32 ieee80211_conf_set_wpa_cipher(uint8 ifidx, uint32 wpa_proto, uint32 pairwise_cipher, uint32 group_cipher);
+extern int32 ieee80211_conf_set_p2p_dev_name(uint8 ifidx, char *dev_name);
+extern int32 ieee80211_conf_set_p2p_model_name(uint8 ifidx, char *model_name);
+extern int32 ieee80211_conf_set_p2p_model_num(uint8 ifidx, char *model_num);
+extern int32 ieee80211_conf_set_p2p_vendor_name(uint8 ifidx, char *vendor_name);
+extern int32 ieee80211_conf_set_p2p_serial_number(uint8 ifidx, char *serial_number);
+extern int32 ieee80211_conf_set_p2p_uuid(uint8 ifidx, char *uuid);
+extern int32 ieee80211_conf_set_p2p_methods(uint8 ifidx, char *methods);
+extern int32 ieee80211_conf_set_p2p_dev_type(uint8 ifidx, char *dev_type);
+extern int32 ieee80211_conf_set_wfd_element(uint8 ifidx, uint8 id, uint8 *data, uint16 len);
+extern int32 ieee80211_conf_set_absolute_beacon(uint8 ifidx, uint8 en);
+extern int32 ieee80211_conf_set_auto_assoc(uint8 ifidx, uint8 auto_assoc, uint8 auto_scan);
+extern int32 ieee80211_conf_set_relay_mode(uint8 ifidx, uint8 enable, uint8 relay_level, uint8 relay_mcast);
+extern int32 ieee80211_conf_get_relay_level(uint8 ifidx);
 extern int32 ieee80211_conf_set_listen_interval(uint8 ifidx, uint16 listen_interval);
 extern int32 ieee80211_conf_set_scan_max(uint8 ifidx, uint16 scan_max);
+extern int32 ieee80211_conf_set_signal_threshold(uint8 ifidx, uint8 rssi_thres, uint8 evm_thres);
 extern int32 ieee80211_conf_set_security_policy(uint8 ifidx, uint8 security_policy);
 extern int32 ieee80211_conf_set_sae_pwe_loop(uint8 ifidx, uint8 loop);
+extern int32 ieee80211_conf_set_pair_channel(uint8 ifidx, uint8 chan);
+
+extern void ieee80211_crypto_ec_support(void);
+extern void ieee80211_crypto_ecdh_support(void);
 extern void ieee80211_crypto_aes_support(void);
+extern void ieee80211_crypto_bignum_support(void);
+extern void ieee80211_crypto_dh_support(void);
 extern void ieee80211_crypto_sha_support(void);
 extern void ieee80211_crypto_hash_support(void);
-extern void ieee80211_crypto_dh_support(void);
-extern void ieee80211_crypto_bignum_support(void);
-extern void ieee80211_crypto_ecdh_support(void);
-extern void ieee80211_crypto_ec_support(void);
+
 #endif
 

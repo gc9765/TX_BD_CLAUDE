@@ -188,12 +188,6 @@ void lv_obj_refresh_style(lv_obj_t * obj, lv_style_selector_t selector, lv_style
     bool is_inheritable = lv_style_prop_has_flag(prop, LV_STYLE_PROP_FLAG_INHERITABLE);
     bool is_layer_refr = lv_style_prop_has_flag(prop, LV_STYLE_PROP_FLAG_LAYER_UPDATE);
 
-    if(part == LV_PART_ANY || part == LV_PART_MAIN )
-    {
-        lv_event_send(obj, LV_EVENT_STYLE_REFRESH, NULL);
-    }
-    
-    
     if(is_layout_refr) {
         if(part == LV_PART_ANY ||
            part == LV_PART_MAIN ||

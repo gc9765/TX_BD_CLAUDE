@@ -446,7 +446,7 @@ int32 hgvpp_suspend(struct dev_obj *obj){
 	struct hgvpp *vpp_hw = (struct hgvpp*)obj;
 	struct hgvpp_hw *hw;
 	struct hgvpp_hw *hw_cfg;
-	//ç¡®ä¿å·²ç»è¢«æ‰“å¼€å¹¶ä¸”ä¼‘çœ è¿‡,ç›´æŽ¥è¿”å›ž
+	//È·±£ÒÑ¾­±»´ò¿ª²¢ÇÒÐÝÃß¹ý,Ö±½Ó·µ»Ø
 	if(!vpp_hw->opened || vpp_hw->dsleep)
 	{
 		return RET_OK;
@@ -496,7 +496,7 @@ int32 hgvpp_resume(struct dev_obj *obj){
 	struct hgvpp *vpp_hw = (struct hgvpp*)obj;
 	struct hgvpp_hw *hw;
 	struct hgvpp_hw *hw_cfg;
-	//å¦‚æžœå·²ç»è¢«æ‰“å¼€å¹¶ä¸”æ²¡æœ‰ä¼‘çœ è¿‡,ç›´æŽ¥è¿”å›ž
+	//Èç¹ûÒÑ¾­±»´ò¿ª²¢ÇÒÃ»ÓÐÐÝÃß¹ý,Ö±½Ó·µ»Ø
 	if(!vpp_hw->opened || !vpp_hw->dsleep)
 	{
 		return RET_OK;

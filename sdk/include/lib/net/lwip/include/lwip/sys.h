@@ -333,6 +333,7 @@ err_t sys_mbox_trypost_fromisr(sys_mbox_t *mbox, void *msg);
  * @param timeout maximum time (in milliseconds) to wait for a message (0 = wait forever)
  * @return SYS_ARCH_TIMEOUT on timeout, any other value if a message has been received
  */
+u32_t sys_mbox_get_num(sys_mbox_t *q);//HUGEIC added,for debug
 u32_t sys_arch_mbox_fetch(sys_mbox_t *mbox, void **msg, u32_t timeout);
 /* Allow port to override with a macro, e.g. special timeout for sys_arch_mbox_fetch() */
 #ifndef sys_arch_mbox_tryfetch

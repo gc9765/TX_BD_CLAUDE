@@ -5,6 +5,9 @@
 #include "lib/ble/ble_demo.h"
 #include "lib/ble/ble_def.h"
 
+extern int32 wireless_pair_tx(struct bt_ops *ops, uint8 *data, uint32 len);
+extern int32 wireless_pair_init(struct bt_ops *ops);
+extern int32 wireless_pair_deinit(struct bt_ops *ops);
 
 const uint8 tx_payload_gfsk[2+6+31] = {
 	// header
@@ -77,7 +80,7 @@ void ble_reset_pair_network(uint8 chan, uint8 mode)
     else
     {
         wireless_pair_init(bt_ops);
-        wireless_pair_tx(bt_ops, tx_payload_gfsk, sizeof(tx_payload_gfsk));
+        wireless_pair_tx(bt_ops, (uint8 *)tx_payload_gfsk, sizeof(tx_payload_gfsk));
 		wireless_pair_deinit(bt_ops);
     }
 }

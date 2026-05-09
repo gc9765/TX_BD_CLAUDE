@@ -22,6 +22,9 @@
 #include "sonic_process.h"
 #include "magic_sound.h"
 
+#define ADC_DIGITMUTE_ENABLE
+int adc_digitmute_flag=1;
+
 #define MEDIAN_FILTER        1
 #define MID(a,b,c)   ((a>=b)?((a<=c)?a:((b>=c)?b:c)):((a>=c)?a:((b>=c)?c:b)))
 
@@ -45,7 +48,7 @@ int nsx_flag = -1;
 magicSound *magic_sound = NULL;
 #endif
 
-#define AUDIONUM	(4)
+#define AUDIONUM	(12)
 #define AUDIOLEN	(320)
 #define FILTER_SAMPLE_LEN	0
 
@@ -66,6 +69,17 @@ typedef void *(*set_buf)(void *priv_el,void *el_point);
 typedef void (*get_buf)(void *priv_el,void *el_point);
 
 typedef int32 (*audio_ad_read)(struct audio_ad_config *audio, void* buf, uint32 len);
+
+
+void audio_adc_mute(void)
+{
+	adc_digitmute_flag=1;
+}
+
+void audio_adc_unmute(void)
+{
+	adc_digitmute_flag=0;
+}
 
 struct audio_ad_config
 {
@@ -195,7 +209,7 @@ uint8_t auadc_get_vad_res(void)
 {
 	return g_vad_res;
 }
-
+extern uint8_t rec_open;
 static void audio_deal_task(void *arg)
 {
 #if MEDIAN_FILTER == 1
@@ -209,7 +223,7 @@ static void audio_deal_task(void *arg)
 
 	stream *s = (stream *)arg;
 	struct audio_adc_s *self_priv = (struct audio_adc_s*)s->priv;
-#if MEDIAN_FILTER == 1
+#if MEDIAN_FILTER == 1//开启中值滤波，保留前一帧末尾的几个样点，用于跨帧平滑
 	os_memset(median_filter_prev_buf, 0, MEDIAN_FILTER_SAMPLE_LEN*2);
 #endif
 	while(1)
@@ -219,6 +233,8 @@ static void audio_deal_task(void *arg)
 		{
             p_buf = get_stream_real_data(data);
 			sample_len = get_stream_real_data_len(data)/2;
+			
+			
 		#if MEDIAN_FILTER == 1
 			os_memcpy(p_buf, median_filter_prev_buf, MEDIAN_FILTER_SAMPLE_LEN*2);
 			for(uint32_t i=MEDIAN_FILTER_SAMPLE_LEN; i<(sample_len+MEDIAN_FILTER_SAMPLE_LEN); i++) {
@@ -256,24 +272,45 @@ static void audio_deal_task(void *arg)
 		#endif
 
 			
-			for(uint32_t i=0;i<sample_len;i++) {
-				temp32 = (*p_buf)*SOFT_GAIN;
-				if(temp32>32767)
-					*p_buf = 32767;
-				else if(temp32<-32767)
-					*p_buf = -32767;
-				else
-					*p_buf = temp32;
-				p_buf++;
-			}
-			p_buf -= sample_len;
+			// for(uint32_t i=0;i<sample_len;i++) {
+			// 	temp32 = (*p_buf)*SOFT_GAIN;
+			// 	if(temp32>32767)
+			// 		*p_buf = 32767;
+			// 	else if(temp32<-32767)
+			// 		*p_buf = -32767;
+			// 	else
+			// 		*p_buf = temp32;
+			// 	p_buf++;
+			// }
+			// p_buf -= sample_len;
 
-		#if	MAGIC_SOUND
-			if(magic_sound) {
-				magicSound_process(magic_sound, p_buf, sample_len);
-			}
-		#endif
+//		#if	MAGIC_SOUND
+//			if(magic_sound) {
+//				magicSound_process(magic_sound, p_buf, sample_len);
+//			}
+//		#endif
 
+		int64_t temp = 0;
+				for(uint32_t i=0;i<sample_len;i++) {
+				
+		#ifdef ADC_DIGITMUTE_ENABLE
+					
+					if((adc_digitmute_flag)&&(rec_open==0))
+						temp = 0;
+					else
+			#endif
+					temp = (*p_buf)*SOFT_GAIN;
+					if(temp>32767)
+						*p_buf = 32767;
+					else if(temp<-32767)
+						*p_buf = -32767;
+					else
+						*p_buf = temp;
+
+
+					p_buf++;
+				}
+							
 			data->type = SET_DATA_TYPE(SOUND,SOUND_MIC);
             send_data_to_stream(data);
 		}
@@ -332,6 +369,10 @@ static int opcode_func(stream *s,void *priv,int opcode)
             }
 			streamSrc_bind_streamDest(s, R_INTERCOM_AUDIO);
 			streamSrc_bind_streamDest(s, R_SPEECH_RECOGNITION);
+			streamSrc_bind_streamDest(s, R_RECORD_AUDIO);
+			os_printf("[adc] bind R_RECORD_AUDIO done\r\n");
+           	streamSrc_bind_streamDest(s, R_SPEAKER);
+
 		}
 		break;
 
@@ -341,7 +382,7 @@ static int opcode_func(stream *s,void *priv,int opcode)
 			int data_num = (int)data->priv;
             data->priv = (void*)AUDIOLEN;
 			data->ops = &stream_sound_ops;
-			data->data = adc_audio_buf + (data_num)*(AUDIOLEN + MEDIAN_FILTER_SAMPLE_LEN*2);
+			data->data = adc_audio_buf + (data_num)*(AUDIOLEN + MEDIAN_FILTER_SAMPLE_LEN*2);//数据绑定，也就是数据节点data 指针固定指向对应的缓冲区
 		}
 		break;
 

@@ -9,7 +9,7 @@
 
 
 
-
+#include "typesdef.h"
 #include "list.h"
 #include "lwip/api.h"
 #include "lwip/sockets.h"

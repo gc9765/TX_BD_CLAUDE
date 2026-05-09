@@ -20,19 +20,11 @@ extern "C" {
 #include "lvgl.h"
 #else
 #include "lvgl/lvgl.h"
-#endif      
+#endif
 
-#if 0
-#if LCD_GC9503V_EN
-#define MY_DISP_HOR_RES	360//480 //240
-#define MY_DISP_VER_RES	640//854 //320
-#define LV_VER_RES_MAX  360
-#else
 #define MY_DISP_HOR_RES	240//480 //240
 #define MY_DISP_VER_RES	320//854 //320
 #define LV_VER_RES_MAX  240
-#endif
-#endif
 #define LV_COLOR_DEPTH 16
 
 

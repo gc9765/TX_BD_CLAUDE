@@ -51,7 +51,9 @@ extern "C" {
 #endif
 
 /** DNS timer period */
+#ifndef DNS_TMR_INTERVAL
 #define DNS_TMR_INTERVAL          1000
+#endif
 
 /* DNS resolve types: */
 #define LWIP_DNS_ADDRTYPE_IPV4      0

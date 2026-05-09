@@ -28,6 +28,7 @@
 
 #include "lib/common/common.h"
 #include "lib/common/sysevt.h"
+#include "lib/common/rbuffer.h"
 #include "lib/heap/sysheap.h"
 #include "lib/syscfg/syscfg.h"
 

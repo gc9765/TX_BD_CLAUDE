@@ -8,3 +8,8 @@ set *(unsigned int *)0x40020004=0x00000200
 set *(unsigned int *)0x40020008=0x00000000
 set *(unsigned int *)0x40020008=0x80000000
 
+set *(unsigned int*)0x400180b8=0xe8
+set *(unsigned int*)0x400180b4=0xdddd
+set *(unsigned int*)0x400180bc=0xC053781B
+
+set *(unsigned int*)0x40005080=0
